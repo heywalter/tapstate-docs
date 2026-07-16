@@ -1,0 +1,86 @@
+---
+title: HTTP Receiver
+description: Configure HTTP Receiver as a tapstate source for incoming application events
+sidebar:
+  order: 69
+ai:
+  kind: connector
+  id: http-receiver
+  category: saas-business-commerce-apis
+  maturity: preview
+  useAs: [source]
+  modes: [snapshot]
+  aliases: [http receiver, webhook receiver, http event source, incoming webhook]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use HTTP Receiver when another application pushes event data into a tapstate-managed source table.
+
+<ConnectorProfile category="SaaS, business & commerce APIs" maturity="Preview" maturityLabel="Available for evaluation" worksAs="Source" capabilities="Incoming HTTP events" compatibility="HTTP webhook senders" />
+
+## Before you begin
+
+### Source
+
+1. Choose a table name for received records. Keep it stable and avoid special characters.
+2. Define the JSON shape your sender will post and the operation semantics required downstream.
+3. Decide how long sender credentials may remain valid. `expireSeconds` defaults to one hour.
+4. If multiple senders need separate credentials, define a supplier configuration for each one.
+5. When incoming events need reshaping, prepare an event script and test its insert, update, and delete outputs with representative payloads.
+
+When event handling is enabled, the script should return a normalized event with an operation and document body. For example:
+
+```js
+return {
+  opType: "i",
+  after: eventData
+};
+```
+
+Use the URL and credential flow supplied by the tapstate runtime that hosts the receiver; this guide does not assume a particular endpoint or token format.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/incoming_events.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: incoming_events
+connector: http-receiver
+config:
+  tableName: incoming_events
+  hookURLSuffix: orders
+  expireSeconds: "3600"
+  handleType: false
+mode: snapshot
+```
+
+Set `handleType: true` and provide `eventScript` only when incoming payloads require normalization. `hookText` and `supplierConfig` are optional deployment-specific values.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+After deployment, post a test payload through the receiver URL supplied by the runtime and verify the resulting source record before connecting production senders.
+
+## Limitations
+
+- Endpoint hosting and sender-token validation are provided by the tapstate deployment that runs this connector.
+- Sender authentication, endpoint reachability, request size, retries, and delivery semantics depend on the deployed receiver runtime.
+- Test event scripts with insert, update, and delete examples before relying on them for production events.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---:|---|---|
+| `tableName` | Yes | — | Destination table name for received events. |
+| `hookText` | No | — | Optional receiver text or hook value supplied by the deployment. |
+| `hookURLSuffix` | No | Empty | Optional suffix used when the runtime forms the receiver URL. |
+| `expireSeconds` | Yes | `3600` | Sender-credential lifetime in seconds. |
+| `supplierConfig` | No | `[]` | Per-supplier configuration for separate sender credentials. |
+| `handleType` | Yes | `false` | Enable event-script processing. |
+| `eventScript` | With `handleType` | Built-in insert wrapper | Normalize an incoming event into a record event. |

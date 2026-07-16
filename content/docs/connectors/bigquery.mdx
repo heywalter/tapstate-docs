@@ -1,0 +1,104 @@
+---
+title: BigQuery
+description: Configure BigQuery as a tapstate data-writing target
+sidebar:
+  order: 23
+ai:
+  kind: connector
+  id: bigquery
+  category: warehouses-analytics
+  maturity: preview
+  useAs: [target]
+  modes: []
+  aliases: [bigquery, google bigquery, bigquery target, bigquery service account]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use BigQuery as a destination for pipeline data with a Google Cloud service account and an existing dataset/table set.
+
+<ConnectorProfile
+  category="Warehouses & analytics"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Target"
+  capabilities="Data write"
+  compatibility="Google BigQuery"
+/>
+
+## Before you begin
+
+### Target
+
+1. Ensure the tapstate runtime can reach Google Cloud APIs.
+2. Create a dedicated Google Cloud service account and JSON key. Keep the key in a secret manager and rotate it according to your security policy.
+
+![Create a dedicated service account in Google Cloud](/images/connectors/bigquery-service-account.png)
+
+![Create and download a JSON key for the service account](/images/connectors/bigquery-service-account-key.png)
+
+3. Grant a custom role scoped to the intended project or dataset. The connector uses these permissions:
+
+![Grant the required BigQuery role to the service account](/images/connectors/bigquery-service-account-role.png)
+
+```text
+bigquery.datasets.create
+bigquery.datasets.get
+bigquery.datasets.update
+bigquery.jobs.create
+bigquery.jobs.get
+bigquery.jobs.list
+bigquery.jobs.listAll
+bigquery.jobs.delete
+bigquery.jobs.update
+bigquery.routines.get
+bigquery.routines.list
+bigquery.tables.create
+bigquery.tables.delete
+bigquery.tables.get
+bigquery.tables.getData
+bigquery.tables.list
+bigquery.tables.setCategory
+bigquery.tables.update
+bigquery.tables.updateData
+```
+
+Remove administrative permissions if your pipeline writes only to pre-created tables and does not manage datasets, routines, or table metadata.
+
+4. Create the destination dataset and tables, or approve the permissions required for your deployment to manage them. The connector uses a multi-region dataset; verify the required location with the pipeline's other Google Cloud resources to avoid cross-location failures.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/warehouse_bigquery.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: warehouse_bigquery
+connector: bigquery
+config:
+  serviceAccount: ${BIGQUERY_SERVICE_ACCOUNT_JSON}
+  tableSet: project_id.dataset_id
+```
+
+Keep the service-account JSON in an environment variable or secret store, never in a committed workspace file.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This connector is documented for target writes only. Source reads, CDC, and schema changes are not included.
+- Dataset location and service-account permissions are enforced by Google Cloud at runtime.
+- A service-account key is a long-lived credential. Store it outside Git, restrict its IAM scope, and rotate or replace it with a deployment-supported workload identity when available.
+- Stage representative target writes to validate data types and table policy before production use.
+
+## Reference
+
+| Field | Required | Use |
+|---|---|---|
+| `serviceAccount` | Yes | Service-account JSON credentials. Supply through an environment variable. |
+| `tableSet` | Yes | BigQuery project/dataset/table scope required by the connector. |

@@ -1,0 +1,105 @@
+---
+title: StarRocks
+description: Configure StarRocks as a tapstate snapshot source or data-writing target
+sidebar:
+  order: 28
+ai:
+  kind: connector
+  id: starrocks
+  category: warehouses-analytics
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot]
+  aliases: [starrocks, starrocks snapshot, starrocks target, starrocks stream load]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use StarRocks for supported Snapshot reads or as a destination for analytical data.
+
+<ConnectorProfile
+  category="Warehouses & analytics"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Snapshot, Data write, Target DDL apply"
+  compatibility="StarRocks 3.x · all deployment architectures"
+/>
+
+## Before you begin
+
+### Source
+
+For Snapshot reads, grant read access to the selected tables and verify discovery and completion in staging.
+
+### Target
+
+Create a dedicated user and grant access to the destination database:
+
+```sql
+CREATE USER 'tapstate'@'%' IDENTIFIED BY 'replace_with_a_secret';
+GRANT ALL ON DATABASE analytics TO USER tapstate;
+GRANT ALL ON ALL TABLES IN DATABASE analytics TO USER tapstate;
+```
+
+Replace broad `ALL` grants with the narrower privileges supported by your StarRocks version when tables are pre-created. Allow the runtime to reach FE ports `9030` (SQL) and `8030` (HTTP/HTTPS) and the BE HTTP port `8040` used by loading. Decide key model, distribution, buckets, sort keys, and partitions before production writes; partitioned tables are not automatically designed for you.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/analytics_starrocks.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: analytics_starrocks
+connector: starrocks
+config:
+  host: fe.starrocks.internal
+  port: "9030"
+  starrocksHttp: http://fe.starrocks.internal:8030
+  database: analytics
+  user: ${STARROCKS_USER}
+  password: ${STARROCKS_PASSWORD}
+  useHTTPS: false
+mode: snapshot
+tables:
+  - events
+```
+
+For a target connection, omit `mode` and `tables`.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- StarRocks supports Snapshot reads, not CDC. A target can add columns, alter column attributes, and drop columns; column rename is not included.
+- Target writes use Stream Load in the documented connector baseline. Detail/Duplicate-style tables are append-oriented; update and delete behavior depends on the table model.
+- Frequent updates and deletes can be expensive. Validate write semantics against the exact table type instead of relying only on generic `upsert` and `append` labels.
+- Measure batch size with representative data instead of relying on a generic default.
+- Confirm HTTPS behavior, certificate handling, target table design, and type mapping in staging.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `host`, `port` | Yes | `9030` for port | Frontend SQL endpoint. |
+| `starrocksHttp` | Yes | — | Frontend HTTP endpoint. |
+| `database` | Yes | — | Database name. |
+| `useHTTPS` | No | `false` | Enable the documented HTTPS path. |
+| `user`, `password` | No | — | Account and secret. |
+| `backendNum`, `catalog`, `extParams`, `timezone` | No | — | Optional connector fields. |
+
+### Data compatibility
+
+| Family | Supported baseline |
+|---|---|
+| Text | `CHAR`, `VARCHAR`, `STRING`, `TEXT` |
+| Boolean | `BOOLEAN` |
+| Integer | `TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `LARGEINT` |
+| Numeric | `DECIMAL`, `DECIMALV3`, `FLOAT`, `DOUBLE` |
+| Date and time | `DATE`, `DATEV2`, `DATETIME`, `DATETIMEV2` |
+| Aggregate | `HLL`, `BITMAP` |

@@ -1,0 +1,61 @@
+---
+title: Use cases
+description: Explore where fresh operational data can improve application and automation outcomes
+ai:
+  kind: concept
+  id: use-cases
+  aliases: [tapstate use cases, database offloading, database migration, operational data for ai]
+---
+
+Tapstate is designed for operational data that loses value when it becomes stale. Use the patterns below to identify a customer outcome and the connector capabilities, data behavior, and operational preparation it requires.
+
+## Offload reads from a system of record
+
+**Customer need:** Applications, dashboards, or agents should not add unpredictable query load to the production database.
+
+**tapstate model:** Capture selected changes and maintain a read-oriented destination or materialized state for downstream consumers.
+
+**Verify before production:** Initial-load consistency, CDC continuity, destination freshness, query behavior, source impact, and recovery after an interruption.
+
+## Migrate while the source remains active
+
+**Customer need:** A replacement system must be prepared while the current system continues to accept writes.
+
+**tapstate model:** Start with a bounded copy, continue with CDC, compare source and target, and cut over after the target is current.
+
+**Verify before production:** Supported source version, log retention, full-load-to-CDC handoff, schema compatibility, update/delete keys, cutover procedure, and rollback plan.
+
+## Maintain a current customer or account view
+
+**Customer need:** Customer, order, inventory, and entitlement data is fragmented across systems, while an application needs one current view.
+
+**tapstate model:** Capture relevant changes, reshape or join records, and maintain a consumer-oriented representation.
+
+**Verify before production:** Join semantics, late and duplicate records, key changes, delete propagation, source-of-truth ownership, and reconciliation.
+
+## Supply operational context to AI systems
+
+**Customer need:** Document retrieval and analytical stores can omit recent committed business state.
+
+**tapstate model:** Expose governed operational state through a deterministic data contract while keeping the model and agent outside the data platform boundary.
+
+**Verify before production:** Access control, data minimization, freshness requirements, auditability, failure behavior, and human authorization for actions.
+
+## Publish governed event and analytics feeds
+
+**Customer need:** Multiple teams need a consistent stream or destination without independently reading the same production database.
+
+**tapstate model:** Capture once, apply common policies, and deliver approved records through connector-defined targets.
+
+**Verify before production:** Delivery semantics, replay, retention, serialization, schema evolution, consumer ownership, and cost under representative load.
+
+## Production-readiness questions
+
+Assess every use case across four layers:
+
+1. **Connector support:** Are the ID, role, mode, fields, permissions, and external-system preparation documented?
+2. **Resource validation:** Does the installed tapstate version accept the resource shape and references?
+3. **Runtime behavior:** Does the deployment connect, move data, checkpoint, recover, and handle schema changes correctly?
+4. **Operational evidence:** Have correctness, latency, source impact, security, capacity, and failure handling been measured in the intended environment?
+
+Start with the [connector directory](/docs/connectors), then validate the selected path with representative data in the environment where it will run.

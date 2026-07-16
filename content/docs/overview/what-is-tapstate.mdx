@@ -1,0 +1,77 @@
+---
+title: What is tapstate?
+description: Learn how tapstate captures database changes, transforms data incrementally, and serves live operational state
+full: true
+ai:
+  kind: concept
+  id: what-is-tapstate
+  aliases: [tapstate overview, unified operational data engine, operational state layer, capture transform serve, live operational state]
+---
+
+import { LinkCard, CardGrid, DataPathComparison, ProductOverviewHero } from '@/components/mdx';
+
+<ProductOverviewHero />
+
+## Why operational data becomes difficult
+
+Keeping operational data fresh usually means assembling and operating separate CDC, broker, stream-processing, and serving systems:
+
+<DataPathComparison />
+
+Each tool can be the right choice on its own. The operational cost comes from making the tools behave as one system: coordinating offsets, retries, schemas, serialization, upgrades, and observability across every boundary.
+
+Composable streaming stacks remain the right choice when a workload requires a highly customized event topology. Tapstate focuses on teams whose main requirement is to keep operational state current through one deployable data path. See [Tapstate vs. a streaming stack](/docs/overview/vs-streaming-stack) for the tradeoffs.
+
+## How tapstate works
+
+Capture, Transform, and Serve are three responsibilities in the same operational data path. They let you move from source changes to application-ready state without operating a separate product at every stage.
+
+### Capture — load existing data, then follow changes
+
+Capture loads an initial data set and, when the connector supports it, follows committed changes from database logs or later updates from streams, APIs, and files. Each connector guide describes the available capture modes and the preparation required by the source system.
+
+### Transform — shape data incrementally as it moves
+
+Transform filters, maps, enriches, joins, and routes data incrementally so each downstream system receives data shaped for its job.
+
+### Serve — maintain current, queryable state
+
+Serve writes or materializes the latest operational state for downstream applications and services. The target connector defines how writes, keys, deletes, and schema changes behave for that system.
+
+## When to use tapstate
+
+Use tapstate when applications, APIs, automation, or AI agents depend on operational data that loses value when it becomes stale. Common examples include inventory availability, logistics tracking, fraud and risk signals, cross-system customer or account views, and internal agents that need current system-of-record data. See [Use cases](/docs/overview/use-cases) for detailed patterns.
+
+## How to use these docs
+
+The documentation follows the same path you use to build a data pipeline:
+
+- **Prepare a system.** Use a [connector guide](/docs/connectors) to check roles, capture modes, permissions, limitations, and connection fields.
+- **Create a data path.** Follow the [quickstart](/docs/overview/quickstart) to define connections and a pipeline in `.tapstate.yml`.
+- **Look up exact syntax.** Use the [reference](/docs/reference/dsl-grammar) for resource fields and examples.
+- **Work with an AI assistant.** Use [`llms.txt`](/llms.txt) or the page-level Markdown view to provide the same canonical content to an assistant.
+
+## Next steps
+
+<CardGrid>
+  <LinkCard
+    title="Quickstart"
+    description="Create a source and pipeline, then validate the workspace."
+    href="/docs/overview/quickstart"
+  />
+  <LinkCard
+    title="Architecture"
+    description="See how Capture, Transform, and Serve fit together."
+    href="/docs/overview/architecture"
+  />
+  <LinkCard
+    title="Use cases"
+    description="See where current operational data changes an application outcome."
+    href="/docs/overview/use-cases"
+  />
+  <LinkCard
+    title="Connectors"
+    description="Choose a source or target and prepare the external system."
+    href="/docs/connectors"
+  />
+</CardGrid>

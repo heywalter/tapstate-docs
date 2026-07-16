@@ -1,0 +1,16 @@
+[build]
+  command = "TAPSTATE_SITE_URL=\"${DEPLOY_PRIME_URL:-$URL}\" pnpm build"
+  publish = "out"
+
+# Netlify exposes DEPLOY_PRIME_URL while building. Passing it to the static
+# export keeps canonical URLs and generated LLM links on the active deploy.
+# Keep the production URL non-indexable until product-fact alignment and the
+# implementation rebrand are complete.
+[context.production.environment]
+  TAPSTATE_SITE_INDEXABLE = "false"
+
+[context.deploy-preview.environment]
+  TAPSTATE_SITE_INDEXABLE = "false"
+
+[context.branch-deploy.environment]
+  TAPSTATE_SITE_INDEXABLE = "false"

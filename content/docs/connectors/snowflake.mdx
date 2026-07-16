@@ -1,0 +1,138 @@
+---
+title: Snowflake
+description: Configure Snowflake as a tapstate snapshot source or data-writing target
+sidebar:
+  order: 22
+ai:
+  kind: connector
+  id: snowflake
+  category: warehouses-analytics
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot]
+  aliases: [snowflake, snowflake snapshot, snowflake source, snowflake target, snowflake pat, snowflake key pair]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use Snowflake to read existing tables or to deliver pipeline data into a selected database and schema.
+
+<ConnectorProfile
+  category="Warehouses & analytics"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Snapshot, Schema discovery, Data write, Target DDL apply"
+  compatibility="All Snowflake versions with JDBC support"
+/>
+
+## Before you begin
+
+### Source
+
+Create a dedicated role and user, then grant access to the compute and source objects:
+
+```sql
+CREATE ROLE IF NOT EXISTS TAPSTATE_READER;
+CREATE USER TAPSTATE_USER
+  PASSWORD = 'replace-with-a-secret'
+  DEFAULT_ROLE = TAPSTATE_READER
+  DEFAULT_WAREHOUSE = TAPSTATE_WH
+  DEFAULT_NAMESPACE = ANALYTICS.PUBLIC
+  MUST_CHANGE_PASSWORD = FALSE;
+GRANT ROLE TAPSTATE_READER TO USER TAPSTATE_USER;
+
+GRANT USAGE ON WAREHOUSE TAPSTATE_WH TO ROLE TAPSTATE_READER;
+GRANT USAGE ON DATABASE ANALYTICS TO ROLE TAPSTATE_READER;
+GRANT USAGE ON SCHEMA ANALYTICS.PUBLIC TO ROLE TAPSTATE_READER;
+GRANT SELECT ON ALL TABLES IN SCHEMA ANALYTICS.PUBLIC TO ROLE TAPSTATE_READER;
+GRANT SELECT ON FUTURE TABLES IN SCHEMA ANALYTICS.PUBLIC TO ROLE TAPSTATE_READER;
+```
+
+Snowflake reads consume warehouse compute, so isolate synchronization work from business queries where practical. Ensure the runtime can reach the account's `*.snowflakecomputing.com` endpoint on port 443.
+
+### Target
+
+Grant the writer role access to the warehouse and namespace, then grant only the required table operations:
+
+```sql
+GRANT USAGE ON WAREHOUSE TAPSTATE_WH TO ROLE TAPSTATE_WRITER;
+GRANT USAGE ON DATABASE ANALYTICS TO ROLE TAPSTATE_WRITER;
+GRANT USAGE ON SCHEMA ANALYTICS.PUBLIC TO ROLE TAPSTATE_WRITER;
+GRANT CREATE TABLE ON SCHEMA ANALYTICS.PUBLIC TO ROLE TAPSTATE_WRITER;
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE
+  ON ALL TABLES IN SCHEMA ANALYTICS.PUBLIC TO ROLE TAPSTATE_WRITER;
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE
+  ON FUTURE TABLES IN SCHEMA ANALYTICS.PUBLIC TO ROLE TAPSTATE_WRITER;
+```
+
+Remove `CREATE TABLE` when targets are pre-created. PAT and key-pair users need the same role grants; configure the Snowflake authentication policy or public key separately.
+
+## Create a connection
+
+Choose one `authMethod`: `password`, `pat`, or `keyPair`. Provide only the corresponding secret fields.
+
+```yaml title="tapstate-work/source/warehouse_snowflake.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: warehouse_snowflake
+connector: snowflake
+config:
+  account: org-account
+  user: ${SNOWFLAKE_USER}
+  authMethod: password
+  password: ${SNOWFLAKE_PASSWORD}
+  warehouse: TAPSTATE_WH
+  database: ANALYTICS
+  schema: PUBLIC
+  role: TAPSTATE_READER
+  timezone: "+00:00"
+mode: snapshot
+tables:
+  - ORDERS
+```
+
+For a target-only connection, omit `mode` and `tables`, then use the target role and credentials.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This connector reads Snowflake with Snapshot. Snowflake Streams, Change Tracking, and log-based CDC are not included.
+- Only physical tables should be assumed for source selection until a deployment proves additional object support.
+- `DECFLOAT`, `UUID`, `TIMESTAMP_LTZ`, `VARIANT`, `GEOGRAPHY`, and `GEOMETRY` are query-side types in the documented connector baseline. Do not rely on automatic target-table creation for them.
+- Do not put passwords, PATs, or private keys in committed resource files.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `account` | Yes | — | Snowflake account identifier. |
+| `user` | Yes | — | Snowflake user. |
+| `authMethod` | No | `password` | `password`, `pat`, or `keyPair`. |
+| `password` | With password auth | — | Password secret. |
+| `patToken` | With PAT auth | — | Programmatic access token. |
+| `privateKey` | With key-pair auth | — | Private-key material. |
+| `privateKeyPassword` | With encrypted key | — | Private-key password. |
+| `warehouse` | Yes | — | Compute warehouse. |
+| `database` | Yes | — | Database name. |
+| `schema` | Yes | `PUBLIC` | Schema name. |
+| `role` | No | — | Role used by the connection. |
+| `timezone` | No | `+00:00` | UTC offset used by the connector. |
+
+### Data compatibility
+
+| Family | Supported baseline |
+|---|---|
+| Integer and numeric | `BIGINT`, `NUMBER`, `FLOAT`, `DECFLOAT` |
+| Text and binary | `TEXT`, `UUID`, `BINARY`, `FILE` |
+| Boolean | `BOOLEAN` |
+| Date and time | `DATE`, `TIME`, `TIMESTAMP_NTZ`, `TIMESTAMP_TZ`, `TIMESTAMP_LTZ` |
+| Semi-structured | `OBJECT`, `ARRAY`, `VARIANT` |
+| Geospatial | `GEOGRAPHY`, `GEOMETRY` |

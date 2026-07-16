@@ -1,0 +1,109 @@
+---
+title: Dummy
+description: Configure Dummy as a deterministic test-data source or target for tapstate development
+sidebar:
+  order: 61
+ai:
+  kind: connector
+  id: dummy
+  category: custom-development
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [dummy, dummydb, generated test data, test source, test target]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use Dummy to generate deterministic test data or exercise a target path without connecting to an external data system. It is a development and verification connector, not a production data source.
+
+<ConnectorProfile
+  category="Custom & development"
+  maturity="Preview"
+  maturityLabel="For test and evaluation only"
+  worksAs="Source, Target"
+  capabilities="Snapshot, CDC, Data write, Generated test data"
+  compatibility="Built-in Dummy connector"
+/>
+
+## Before you begin
+
+### Source
+
+<SourceModeTabs>
+<SourceModeTab value="snapshot">
+
+Use **Snapshot** to generate a finite set of rows. Set `initial_totals`, `table_name`, and `table_fields` to match the downstream schema you want to exercise.
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc">
+
+Use **Snapshot + CDC** to generate initial rows followed by periodic changes. Choose `incremental_interval`, `incremental_interval_totals`, and the allowed `incremental_types` deliberately so tests are reproducible.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+Use the supported target path only for development. Set write intervals and logging deliberately, then verify target semantics with a real destination before a production rollout.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/test_orders_dummy.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: test_orders_dummy
+connector: dummy
+config:
+  initial_totals: 10
+  incremental_interval: 1000
+  incremental_interval_totals: 1
+  incremental_types: [1, 2, 3]
+  write_interval: 1000
+  write_interval_totals: 0
+  write_log: false
+  table_name: orders_test
+  table_fields:
+    - type: uuid
+      pri: true
+      name: id
+    - type: rstring
+      pri: false
+      name: title
+    - type: now
+      pri: false
+      name: created
+mode: cdc
+tables:
+  - orders_test
+```
+
+Use `mode: snapshot` for finite generated data. For a target connection, omit `mode` and `tables`.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- Dummy is for development and test fixtures; it is not evidence of production connector readiness.
+- Keep test schemas small and explicit because generated-field combinations and error behavior can vary.
+- Test target write semantics explicitly before using the Dummy connector in automated scenarios.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `initial_totals` | Yes | `1` | Number of initial generated rows. |
+| `incremental_interval` | Yes | `1000` | Interval between generated incremental events. |
+| `incremental_interval_totals` | Yes | `1` | Generated events per interval. |
+| `incremental_types` | No | `[1]` | Supported generated change-type values: `1`, `2`, `3`. |
+| `write_interval`, `write_interval_totals` | Yes | `1000`, `0` | Documented target timing fields. |
+| `write_log` | Yes | `false` | Enable connector-side write logging. |
+| `table_name` | Yes | `dummy_test` | Generated table name. |
+| `table_fields` | Yes | built-in sample | Array of generated field definitions. |

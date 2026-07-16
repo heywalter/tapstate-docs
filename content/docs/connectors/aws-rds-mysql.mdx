@@ -1,0 +1,137 @@
+---
+title: Amazon RDS for MySQL
+description: Configure Amazon RDS for MySQL as a tapstate snapshot or CDC source and data-writing target
+sidebar:
+  order: 63
+ai:
+  kind: connector
+  id: aws-rds-mysql
+  category: databases
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [aws rds mysql, amazon rds mysql, rds mysql cdc, rds mysql source, rds mysql target]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use Amazon RDS for MySQL to copy existing rows, follow Binlog changes, or write pipeline data to an RDS database.
+
+<ConnectorProfile category="Databases" maturity="Preview" maturityLabel="Available for evaluation" worksAs="Source, Target" capabilities="Snapshot, CDC, Data write" compatibility="Amazon RDS for MySQL 5.7 and 8.0" />
+
+## Before you begin
+
+### Source
+
+<SourceModeTabs label="Choose the Amazon RDS for MySQL source read mode">
+<SourceModeTab value="snapshot">
+
+Use **Snapshot** to copy the rows that exist now. Allow the tapstate runtime network in the RDS security group, then create a reader scoped to the selected database:
+
+```sql
+CREATE USER 'tapstate_reader'@'%' IDENTIFIED BY 'replace-with-a-secret';
+GRANT SELECT, SHOW VIEW, CREATE ROUTINE, LOCK TABLES
+  ON `orders`.* TO 'tapstate_reader'@'%';
+FLUSH PRIVILEGES;
+```
+
+Snapshot does not require Binlog or replication privileges.
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc">
+
+Use **Snapshot + CDC** to copy existing rows and then follow changes from the MySQL binary log.
+
+**1. Create a dedicated CDC reader**
+
+```sql
+CREATE USER 'tapstate_reader'@'%' IDENTIFIED BY 'replace-with-a-secret';
+```
+
+Restrict `%` to the tapstate runtime network origin whenever possible.
+
+**2. Grant snapshot and replication access**
+
+```sql
+GRANT SELECT, SHOW VIEW, CREATE ROUTINE, LOCK TABLES
+  ON `orders`.* TO 'tapstate_reader'@'%';
+GRANT RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT
+  ON *.* TO 'tapstate_reader'@'%';
+FLUSH PRIVILEGES;
+```
+
+**3. Enable and retain Binlog**
+
+Enable Binlog through the RDS parameter group, use row-based logging, and retain logs longer than the largest planned interruption. Verify the active settings before starting CDC:
+
+```sql
+SHOW VARIABLES WHERE Variable_name IN ('log_bin', 'binlog_format', 'binlog_row_image');
+```
+
+**4. Confirm authentication compatibility**
+
+For MySQL 8, create the account with an authentication method supported by both the RDS instance and the connection environment. Do not change an existing production account's authentication method without testing it first.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+Create a separate writer for the destination database. Add schema privileges only when the pipeline is allowed to manage destination tables.
+
+```sql
+CREATE USER 'tapstate_writer'@'%' IDENTIFIED BY 'replace-with-a-secret';
+GRANT SELECT, INSERT, UPDATE, DELETE ON `analytics`.* TO 'tapstate_writer'@'%';
+GRANT CREATE, ALTER, DROP ON `analytics`.* TO 'tapstate_writer'@'%';
+FLUSH PRIVILEGES;
+```
+
+## Create a connection
+
+```yaml title="tapstate-work/source/orders_rds.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: orders_rds
+connector: aws-rds-mysql
+config:
+  host: orders.cluster-abc.us-east-1.rds.amazonaws.com
+  port: "3306"
+  database: orders
+  username: ${RDS_READER_USER}
+  password: ${RDS_READER_PASSWORD}
+  addtionalString: useUnicode=yes&characterEncoding=UTF-8
+  timezone: "+00:00"
+mode: cdc
+tables:
+  - orders
+```
+
+Use `mode: snapshot` for a one-time copy. For a target connection, omit `mode` and `tables` and use writer credentials.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+Before production, run a small snapshot and then verify one insert, update, and delete through CDC. Confirm the RDS endpoint, VPC route, security group, and Binlog retention with the database administrator.
+
+## Limitations
+
+- Table-level cascades in a MySQL source can produce updates or deletes that are not represented as independent source events. Design target-side cascades separately where required.
+- CDC recovery depends on retained Binlog files. If the required position has expired, take a new snapshot.
+- Resource validation checks connection parameters and timezone values. Network access and database privileges are checked when the connection runs.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---:|---|---|
+| `host` | Yes | — | RDS instance or cluster endpoint. |
+| `port` | Yes | — | MySQL listener port, normally `3306`. |
+| `database` | Yes | — | Database to connect to. |
+| `username`, `password` | Username yes | — | RDS database credentials. |
+| `addtionalString` | No | `useUnicode=yes&characterEncoding=UTF-8` | Additional JDBC connection parameters. Use this exact field spelling. |
+| `timezone` | No | Empty | UTC offset used for temporal conversion. |

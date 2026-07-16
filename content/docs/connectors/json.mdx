@@ -1,0 +1,97 @@
+---
+title: JSON
+description: Configure JSON files as a tapstate source
+sidebar:
+  order: 51
+ai:
+  kind: connector
+  id: json
+  category: files
+  maturity: preview
+  useAs: [source]
+  modes: [snapshot, cdc]
+  aliases: [json, json file, json snapshot, json cdc, json source, sftp json, s3 json]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use JSON files from local or supported remote storage as a source for structured pipeline data.
+
+<ConnectorProfile
+  category="Files"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source"
+  capabilities="Snapshot, CDC"
+  compatibility="Local, FTP, SFTP, SMB, S3FS, OSS"
+/>
+
+## Before you begin
+
+### Source
+
+<SourceModeTabs label="Choose the JSON source read mode">
+<SourceModeTab value="snapshot">
+
+Use **Snapshot** to read the files that match the configured path now. Make them available to the tapstate runtime and grant the minimum path or bucket access. Keep records structurally consistent within a dataset; stage nested arrays and objects with the destination schema before production use.
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc">
+
+Use **Snapshot + CDC** when new or changed JSON files should be picked up after the initial read. The connector scans the configured path every 60 seconds. New and modified files are re-read; deleting a file does not emit row deletions.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+## Create a connection
+
+```yaml title="tapstate-work/source/events_json.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: events_json
+connector: json
+config:
+  protocol: s3fs
+  encoding: UTF-8
+  accessKey: ${S3_ACCESS_KEY}
+  secretKey: ${S3_SECRET_KEY}
+  endpoint: s3.amazonaws.com
+  region: us-east-1
+  bucket: company-events
+  filePathString: inbound/events/*.json
+mode: snapshot
+```
+
+Use `mode: cdc` after completing the staged file-change checks above.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This connector reads JSON files only. Target writes and schema changes are not included.
+- CDC detects new and modified files on a 60-second scan. File or row deletion is not propagated.
+- Keep a consistent record shape within one logical table, and test nested arrays, objects, and malformed input before production use.
+- Store credentials outside committed workspace files.
+
+## Reference
+
+`protocol` accepts `local`, `ftp`, `sftp`, `smb`, `s3fs`, and `oss`; `encoding` defaults to `UTF-8` and accepts `UTF-16`, `GBK`, and `ASCII` as well. Use the protocol-specific fields below.
+
+| Protocol | Fields |
+|---|---|
+| FTP | `ftpHost`, `ftpPort`, `ftpUsername`, `ftpPassword`, `ftpPassiveMode`, `ftpConnectTimeout`, `ftpDataTimeout` |
+| SFTP | `sftpHost`, `sftpPort`, `sftpUsername`, `sftpPassword` |
+| SMB | `smbHost`, `smbUsername`, `smbPassword`, `smbShareDir` |
+| S3FS / OSS | `accessKey`, `secretKey`, `endpoint`, `region`, `bucket` |
+| All paths | `filePathString` |
+
+### Data compatibility
+
+JSON input supports `ARRAY`, `BOOLEAN`, `DATETIME`, `INTEGER`, `NUMBER`, `OBJECT`, `STRING`, and `TEXT`.

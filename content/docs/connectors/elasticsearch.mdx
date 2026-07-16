@@ -1,0 +1,78 @@
+---
+title: Elasticsearch
+description: Configure Elasticsearch as a tapstate data-writing target
+sidebar:
+  order: 11
+ai:
+  kind: connector
+  id: elasticsearch
+  category: databases
+  maturity: preview
+  useAs: [target]
+  modes: []
+  aliases: [elasticsearch, elasticsearch target, elastic target, elasticsearch ssl]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use Elasticsearch as a destination for searchable pipeline data.
+
+<ConnectorProfile
+  category="Databases"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Target"
+  capabilities="Data write"
+  compatibility="Elasticsearch 7.6"
+/>
+
+## Before you begin
+
+### Target
+
+Create or select destination indices and an account with only the index privileges required by the pipeline. Decide mapping, analyzers, and lifecycle policy before the first production write; Elasticsearch enforces those settings.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/search_elasticsearch.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: search_elasticsearch
+connector: elasticsearch
+config:
+  host: elasticsearch.internal
+  port: "9200"
+  user: ${ELASTICSEARCH_USER}
+  password: ${ELASTICSEARCH_PASSWORD}
+  sslValidate: true
+  validateCA: true
+  sslCA: ${ELASTICSEARCH_CA_PEM}
+```
+
+The connection requires `sslCA`. Store the CA material in a secret-aware variable and confirm whether your deployment expects inline PEM data or a file path.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This connector writes to Elasticsearch only. Source reads and schema changes are not included.
+- The connector covers Elasticsearch 7.6. Version compatibility and mappings need staging verification.
+- When using TLS, set HTTPS, CA material, and certificate validation explicitly. Test hostname verification with the production endpoint.
+
+## Reference
+
+| Field | Required | Use |
+|---|---|---|
+| `host` | Yes | Elasticsearch host. |
+| `port` | Yes | Elasticsearch service port; field type is string. |
+| `user` | No | Account name. |
+| `password` | No | Account password; use an environment variable. |
+| `sslValidate` | No | Boolean for SSL validation. |
+| `validateCA` | No | Boolean for CA validation. |
+| `sslCA` | Yes | CA material used to validate the Elasticsearch certificate. |

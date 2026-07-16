@@ -1,0 +1,158 @@
+---
+title: MongoDB Atlas
+description: Connect MongoDB Atlas as a tapstate source or target
+sidebar:
+  order: 7
+ai:
+  kind: connector
+  id: mongodb-atlas
+  category: databases
+  maturity: ga
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [mongodb atlas snapshot, mongodb atlas cdc, atlas oplog, atlas source, atlas target]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Connect a MongoDB Atlas cluster as a tapstate source or target for snapshots and CDC through the Atlas-managed Oplog.
+
+<ConnectorProfile
+  category="Databases"
+  maturity="GA"
+  maturityLabel="Generally available"
+  worksAs="Source, Target"
+  capabilities="Snapshot, CDC, Schema discovery, Data write"
+  compatibility="MongoDB Atlas 5.0.15+ · SRV and standard URI"
+/>
+
+## Before you begin
+
+### Source
+
+Choose the outcome you need. Atlas manages the replica set, but Snapshot and Snapshot + CDC have different operational requirements.
+
+<SourceModeTabs label="Choose the MongoDB Atlas source read mode">
+<SourceModeTab value="snapshot">
+
+Use **Snapshot** when you need one copy of the documents that exist now.
+
+**1. Allow the tapstate runtime network**
+
+- In the Atlas left sidebar, click **Network Access**.
+- Click **Add IP Address**.
+- Enter the future tapstate runtime egress IP in CIDR notation, for example `203.0.113.42/32`, and confirm it.
+
+**2. Create a read-only database user**
+
+- In the Atlas left sidebar, click **Database Access**.
+- Click **Add New Database User**.
+- Select **Password** authentication.
+- Select `Read Any Database`, or a narrower custom read role for the selected database.
+- Click **Add User**.
+
+**3. Copy an application URI with a database path**
+
+- In the Atlas left sidebar, click **Database**.
+- Locate your cluster and click **Connect**.
+- Select **Connect your application** and copy the connection string.
+- Add the source database name to the URI path.
+
+```text
+mongodb+srv://<username>:<password>@cluster0.example.mongodb.net/<database>?retryWrites=true&w=majority
+```
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc">
+
+Use **Snapshot + CDC** when the target must start with existing documents and continue following Atlas-managed Oplog changes.
+
+**1. Allow the tapstate runtime network**
+
+- In Atlas, open **Network Access** and add the future runtime egress IP in CIDR notation.
+- Avoid `0.0.0.0/0` for production deployments.
+
+**2. Create a CDC reader**
+
+- In **Database Access**, create a password user.
+- Select `Read Any Database`, or a custom role that can read the selected database and the Oplog path required by the connector.
+
+**3. Copy an application URI with a database path**
+
+```text
+mongodb+srv://<username>:<password>@cluster0.example.mongodb.net/<database>?retryWrites=true&w=majority
+```
+
+**4. Check the Oplog recovery window**
+
+Atlas manages the underlying replica set, but retention still depends on the cluster tier and workload. Keep the Oplog window longer than the longest expected interruption; otherwise CDC cannot resume from an expired position.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+Add the future runtime egress IP under **Network Access**, then create a database user with `Read and Write to Any Database` or a narrower custom `readWrite` role for the destination database. Copy an application URI that includes the destination database name in its path.
+
+## Create a connection
+
+```yaml
+version: tapstate/v1
+kind: source
+id: my-mongodb-atlas
+connector: mongodb-atlas
+mode: cdc   # snapshot | cdc
+
+config:
+  isUri: true
+  uri: "mongodb+srv://${ATLAS_USER}:${ATLAS_PASS}@cluster0.example.mongodb.net/mydb?retryWrites=true&w=majority"
+  # The database name must be specified in the URI path (e.g., /mydb above).
+  # Omitting the database from the URI will cause a connection error.
+
+tables:
+  - users
+  - /orders_.*/
+```
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- The database name must be present in the URI path.
+- The runtime network origin must be allowed by Atlas Network Access.
+- Oplog retention depends on the Atlas tier and configuration; size it beyond the longest recovery window.
+- Full-document filling and advanced sharding controls are not included in this connection resource.
+
+## Reference
+
+### Connection settings
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `isUri` | Yes | `true` | Use URI mode. |
+| `uri` | Yes | — | Full Atlas connection URI including credentials and the target database name in the path. Example: `mongodb+srv://user:pass@cluster.mongodb.net/dbname?retryWrites=true&w=majority` |
+| `host` | With `isUri: false` | — | Explicit Atlas host address when URI mode is disabled. |
+| `database` | With `isUri: false` | — | Database name. |
+| `user` | No | — | Database user. |
+| `password` | No | — | Database password. |
+| `additionalString` | No | — | Additional connection parameters. |
+| `schemaLimit` | No | `1024` | Maximum number of sampled documents used by the connector's schema inference path. |
+| `ssl` | No | `false` | Enable the documented SSL path when URI options are insufficient. |
+| `sslKey` | With `ssl` | — | Client key material. |
+| `sslPass` | No | — | Password for the client key. |
+| `sslValidate` | No | — | Validate the server certificate. |
+| `sslCA` | With certificate validation | — | CA certificate material. |
+
+### Supported operations
+
+| Direction | Document changes | Schema changes |
+|---|---|---|
+| Source CDC | Insert, update, and delete events from the Atlas-managed Oplog | Not included |
+| Target | Insert, update, and delete by the selected write mode | Not included |

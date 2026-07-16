@@ -1,0 +1,278 @@
+---
+title: Kafka
+description: Connect Apache Kafka with the current Confluent-compatible tapstate connector
+sidebar:
+  order: 8
+ai:
+  kind: connector
+  id: kafka_enhanced
+  category: streaming-messaging
+  maturity: ga
+  useAs: [source, target]
+  modes: [stream]
+  aliases: [apache kafka, confluent kafka, kafka stream, kafka source, kafka target, kafka enhanced]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use the connector ID `kafka_enhanced` for new Kafka connections. The connector ID `kafka` is retained only for existing legacy resources.
+
+<ConnectorProfile
+  category="Streaming & messaging"
+  maturity="GA"
+  maturityLabel="Generally available"
+  worksAs="Source, Target"
+  capabilities="Stream read, Stream write, Schema Registry"
+  compatibility="Kafka 2.0–2.5 · Scala 2.12 · Single node or cluster"
+/>
+
+## Before you begin
+
+### Source
+
+- Ensure the tapstate runtime can reach every broker address in `clusterURI`.
+- Choose `keySerialization`, `valueSerialization`, and `schemaMode` to match the bytes already stored in each topic.
+- If Schema Registry is enabled, prepare its URL and authentication settings.
+- If SASL or Kerberos is enabled, prepare the matching credentials and Kerberos files.
+
+Kafka has no finite Snapshot/CDC split. Before the first production run, choose and verify whether the stream starts from the earliest available offset, the current position, or a time-derived offset. The broker connection itself does not set this policy.
+
+### Target
+
+Pre-create production topics with the required partition count, replication factor, retention, and ACLs. For example:
+
+```bash
+bin/kafka-topics.sh --create \
+  --bootstrap-server localhost:9092 \
+  --replication-factor 3 \
+  --partitions 3 \
+  --topic my_topic
+```
+
+The selected serializers, structural mode, and optional Schema Registry type must match the records written to the topic. For a JSON object value:
+
+```json
+{"id": 1, "name": "Alice", "amount": 99.50}
+```
+
+The connector can write its standard event envelope, standard JSON, original Kafka records, Canal, Debezium, Flink CDC, or a custom analyzed structure. Choose a format that the downstream consumer already understands; changing it later is a data-contract change.
+
+## Create a connection
+
+```yaml
+version: tapstate/v1
+kind: source
+id: my-kafka
+connector: kafka_enhanced
+mode: stream
+
+config:
+  clusterURI: "broker1.internal:9092,broker2.internal:9092"
+  schemaRegister: false
+  schemaMode: STANDARD_JSON
+  keySerialization: String
+  valueSerialization: JsonObject
+  useSasl: false
+  krb5: false
+
+tables:
+  - my_topic
+```
+
+For a Kafka target, use the same broker, serializer, and Schema Registry settings without a source `mode` or topic selection:
+
+```yaml title="tapstate-work/source/events_kafka_target.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: events_kafka_target
+connector: kafka_enhanced
+config:
+  clusterURI: "broker1.internal:9092,broker2.internal:9092"
+  schemaRegister: false
+  schemaMode: STANDARD_JSON
+  keySerialization: String
+  valueSerialization: JsonObject
+  useSasl: false
+  krb5: false
+```
+
+```yaml title="tapstate-work/pipeline/events_to_kafka.tapstate.yml"
+version: tapstate/v1
+kind: pipeline
+id: events_to_kafka
+source: my-kafka
+serve:
+  from: /.*/
+  sync:
+    - id: write_to_kafka
+      source: events_kafka_target
+      write_mode: append
+      ddl: fail
+```
+
+Kafka is an append-only event destination: `append` preserves each selected event. Use `upsert` only when the deployed Kafka sink contract explicitly defines keyed replacement semantics for the chosen structural mode.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+In staging, read and write one record for every selected serialization path. Verify its key, headers, partition, timestamp, and value with an independent Kafka consumer before enabling production traffic.
+
+## Limitations
+
+- Kafka is an unbounded stream; do not model it as Snapshot or CDC.
+- Re-reading an offset can deliver the same record more than once. Use stable keys and idempotent target writes when duplicates are unacceptable.
+- Consumer concurrency is bounded by the available topic partitions. More reader threads do not increase parallelism beyond that partition count.
+- Topic existence, partitioning, replication factor, ACLs, retention, and message compatibility require live broker checks.
+- Do not assume end-to-end exactly-once delivery. Verify producer transactions, pipeline recovery, and downstream idempotency together before production.
+- `kafka_enhanced` supports JSON, Avro, and Protobuf Schema Registry types. The registered schema must remain compatible with the actual key/value encoding.
+- Test Kerberos files, Schema Registry credentials, and custom Kafka client properties against the broker and registry before production use.
+
+## Reference
+
+### Core settings
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `clusterURI` | Yes | — | Comma-separated broker addresses. |
+| `schemaRegister` | No | `false` | Enable Schema Registry integration. |
+| `schemaRegisterUrl` | With Schema Registry | — | Schema Registry URL. |
+| `registrySchemaType` | No | `JSON` | `JSON`, `AVRO`, or `PROTOBUF`. |
+| `basicAuth` | No | `false` | Enable basic authentication for Schema Registry. |
+| `authCredentialsSource` | No | `USER_INFO` | Use explicit registry credentials or inherit SASL credentials. |
+| `authUserName` | With registry basic auth | — | Schema Registry username. |
+| `authPassword` | With registry basic auth | — | Schema Registry password or secret reference. |
+| `schemaMode` | No | `STANDARD` | `STANDARD`, `STANDARD_JSON`, `ORIGINAL`, `CANAL`, `DEBEZIUM`, `FLINK_CDC`, or `CUSTOM`. |
+| `analyzeScript` | With custom mode | Built-in identity function | Transform Kafka header, key, value, and partition into the custom record structure. |
+| `keySerialization` | Yes | `Binary` | `Binary`, JSON array/object, string, integer family, or UUID. |
+| `valueSerialization` | Yes | `Binary` | `Binary`, JSON array/object, string, integer family, or UUID. |
+| `batchMaxDelay` | Yes | `2000` | Producer batching delay in milliseconds. |
+| `clientId` | No | — | Kafka client ID. |
+| `acksType` | No | `-1` | Producer acknowledgment value: `0`, `1`, `-1`, or `all`. |
+| `compressionType` | No | `lz4` | `disable`, `gzip`, `snappy`, `lz4`, or `zstd`. |
+| `extParams` | No | `[]` | Additional admin, consumer, producer, or shared Kafka client properties. |
+
+### Authentication settings
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `useSasl` | No | `false` | Enable username/password SASL. |
+| `saslMechanism` | No | `PLAIN` | `PLAIN`, `SCRAM-SHA-256`, or `SCRAM-SHA-512`. |
+| `saslUsername` | No | — | SASL username. |
+| `saslPassword` | No | — | SASL password. |
+| `krb5` | No | `false` | Enable Kerberos. |
+| `krb5Keytab` | With Kerberos | — | Kerberos keytab content or path. |
+| `krb5Conf` | With Kerberos | — | Kerberos configuration. |
+| `krb5Principal` | With Kerberos | — | Kerberos principal. |
+| `krb5ServiceName` | With Kerberos | — | Kafka Kerberos service name. |
+| `kafkaSaslMechanism` | No | `PLAIN` | Kafka SASL mechanism used by the connector's secondary Kafka client path: `PLAIN`, `SHA256`, or `SHA512`. |
+
+### Data compatibility
+
+| Family | Supported baseline |
+|---|---|
+| Boolean | `BOOLEAN` |
+| Integer and numeric | `SHORT`, `INTEGER`, `LONG`, `FLOAT`, `DOUBLE`, `NUMBER` |
+| Text | `CHAR` as a source, `VARCHAR`, `STRING`, `TEXT` |
+| Binary | `BINARY` |
+| Composite | `ARRAY`, `MAP`, and source-side `OBJECT` |
+| Date and time | `TIME`, `DATE`, `DATETIME`, `TIMESTAMP` |
+| Other | Source-side `UUID` |
+
+### Structural modes
+
+| `schemaMode` | Record contract |
+|---|---|
+| `STANDARD` | tapstate event envelope with operation, event time, table, namespaces, before image, and after image. |
+| `STANDARD_JSON` | JSON representation of the standard event envelope. |
+| `ORIGINAL` | Native Kafka record fields such as partition, timestamp, headers, key, and value. |
+| `CANAL` | Canal-compatible change event with database, table, SQL/type metadata, keys, old values, and new data. |
+| `DEBEZIUM` | Debezium-style envelope with `before`, `after`, `source`, operation, and timestamp. |
+| `FLINK_CDC` | Flink CDC-style record with a data object and `+I`, `-U`, `+U`, or `-D` operation. |
+| `CUSTOM` | Result returned by `analyzeScript(header, key, value, partition)`. |
+
+Use the following abbreviated records to compare the built-in contracts. Actual fields depend on the source event and selected serializers.
+
+#### Standard event
+
+```json
+{
+  "ts": 1727097087513,
+  "op": "DML:UPDATE",
+  "opTs": 1727097087512,
+  "namespaces": ["orders"],
+  "table": "customers",
+  "before": {"id": 1, "status": "new"},
+  "after": {"id": 1, "status": "active"}
+}
+```
+
+`op` identifies `DML:INSERT`, `DML:UPDATE`, or `DML:DELETE`; `before` and `after` are populated when the operation supplies those row images.
+
+#### Original Kafka record
+
+An `ORIGINAL` record can include:
+
+```json
+{
+  "partition": 3,
+  "timestamp": 1638349200000,
+  "headers": {"trace-id": "abc-123"},
+  "key": "user-123",
+  "value": {"id": 1, "action": "login"}
+}
+```
+
+The source offset and timestamp type are metadata and are not automatically part of the target message body. Verify the exact envelope consumed by downstream applications before switching structural modes.
+
+#### Canal event
+
+```json
+{
+  "data": [{"id": "1", "status": "active"}],
+  "database": "orders",
+  "isDdl": false,
+  "mysqlType": {"id": "bigint", "status": "varchar(32)"},
+  "old": [{"status": "new"}],
+  "pkNames": ["id"],
+  "sql": "",
+  "table": "customers",
+  "ts": 1696156800123,
+  "type": "UPDATE"
+}
+```
+
+#### Debezium event
+
+```json
+{
+  "before": {"id": 1, "status": "new"},
+  "after": {"id": 1, "status": "active"},
+  "source": {
+    "connector": "mysql",
+    "db": "orders",
+    "table": "customers",
+    "file": "mysql-bin.000001",
+    "pos": 12345
+  },
+  "op": "u",
+  "ts_ms": 1696156800123
+}
+```
+
+The operation is `c` for create, `u` for update, or `d` for delete. The `source` object carries origin and log-position metadata when the incoming event supplies it.
+
+#### Flink CDC event
+
+```json
+{
+  "data": {"order_id": 1, "quantity": 10},
+  "op": "-U"
+}
+```
+
+Flink CDC uses `+I` for insert, `-U` for the value before an update, `+U` for the value after an update, and `-D` for delete.

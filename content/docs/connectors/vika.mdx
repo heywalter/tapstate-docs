@@ -1,0 +1,74 @@
+---
+title: Vika
+description: Configure Vika as a tapstate data-writing target connection
+sidebar:
+  order: 53
+ai:
+  kind: connector
+  id: vika
+  category: saas-business-commerce-apis
+  maturity: preview
+  useAs: [target]
+  modes: []
+  aliases: [vika, vika target, vika data write, vika api]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use Vika as a data-writing target.
+
+<ConnectorProfile
+  category="SaaS, business & commerce APIs"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Target"
+  capabilities="Data write"
+  compatibility="Vika API"
+/>
+
+## Before you begin
+
+### Target
+
+1. Choose the Vika space and target tables that the pipeline may write.
+2. Create a credential with the minimum write scope and keep it outside source control.
+3. Confirm the selected Vika plan's table, row, and API-rate limits with the account administrator.
+
+Tapstate supports `upsert` and `append` writes. Define and test field mapping, conflict keys, rate-limit handling, and schema changes before production.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/operations_vika.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: operations_vika
+connector: vika
+config:
+  hostUrl: https://api.vika.cn
+  spaceId: ${VIKA_SPACE_ID}
+  credential: ${VIKA_CREDENTIAL}
+```
+
+Target connections have no source `mode` or `tables` section. `hostUrl` defaults to `https://api.vika.cn`.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This connector writes to Vika only. Source reads and schema changes are not included.
+- Verify Vika API limits, table permissions, schema mapping, and conflict behavior with a non-production datasheet before production use.
+- Keep `credential` in an environment variable or a secret manager.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `hostUrl` | Yes | `https://api.vika.cn` | Vika API base URL. |
+| `spaceId` | Yes | — | Vika space identifier. |
+| `credential` | Yes | — | Vika credential; inject through an environment variable. |

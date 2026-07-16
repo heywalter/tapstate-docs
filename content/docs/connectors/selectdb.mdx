@@ -1,0 +1,103 @@
+---
+title: SelectDB
+description: Configure SelectDB as a tapstate snapshot source or data-writing target
+sidebar:
+  order: 20
+ai:
+  kind: connector
+  id: selectdb
+  category: warehouses-analytics
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot]
+  aliases: [selectdb, selectdb cloud, apache doris, selectdb snapshot, selectdb target]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use SelectDB for point-in-time reads or as a destination for pipeline data. SelectDB Cloud is based on Apache Doris; validate the endpoint types and privileges against your deployment before production use.
+
+<ConnectorProfile
+  category="Warehouses & analytics"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Snapshot, Schema discovery, Data write, Target DDL apply"
+  compatibility="SelectDB Cloud 2.0.13+"
+/>
+
+## Before you begin
+
+### Source
+
+Create an account with read access to the database and tables selected by the source. Confirm the exact least-privilege `SELECT` grant syntax with your SelectDB administrator, then verify discovery and a complete Snapshot in staging.
+
+### Target
+
+Create a database account that can write the selected destination table. Start with the narrowest privileges allowed by your SelectDB deployment. A common setup includes table-level write grants and `PROCESS` access; review both with your administrator before applying them to production.
+
+## Create a connection
+
+### Snapshot source
+
+```yaml title="tapstate-work/source/orders_selectdb.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: orders_selectdb
+connector: selectdb
+config:
+  host: fe.selectdb.internal
+  port: "9030"
+  selectDbHttp: http://fe.selectdb.internal:8030
+  database: analytics
+  user: ${SELECTDB_READER}
+  password: ${SELECTDB_READER_PASSWORD}
+mode: snapshot
+tables:
+  - orders
+```
+
+### Target connection
+
+```yaml title="tapstate-work/source/warehouse_selectdb.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: warehouse_selectdb
+connector: selectdb
+config:
+  host: fe.selectdb.internal
+  port: "9030"
+  selectDbHttp: http://fe.selectdb.internal:8030
+  database: warehouse
+  user: ${SELECTDB_WRITER}
+  password: ${SELECTDB_WRITER_PASSWORD}
+```
+
+Use the FE SQL endpoint for `host` and `port`; supply the HTTP endpoint separately in `selectDbHttp`. Do not reuse a browser console URL unless it is the endpoint accepted by your SelectDB deployment.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+This checks the YAML envelope, `snapshot` mode, and recognized field shapes only. Test connectivity, account privileges, FE reachability, HTTP reachability, and a staging write separately.
+
+## Limitations
+
+- SelectDB supports Snapshot reads, not CDC. A target can add, rename, alter, and drop columns when the pipeline DDL policy allows it.
+- Snapshot source and target roles are available. Verify live source discovery and target writes separately in staging.
+- This page does not claim TLS fields. Automatic table creation and target schema evolution must be verified against the selected SelectDB version before using them in production.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `host` | Yes | — | FE SQL host. |
+| `port` | Yes | — | FE SQL port. |
+| `selectDbHttp` | Yes | — | SelectDB HTTP endpoint. |
+| `database` | Yes | — | Database name. |
+| `user` | No | — | Read or write account. Prefer an environment variable. |
+| `password` | No | — | Account password. Prefer an environment variable. |

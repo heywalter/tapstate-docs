@@ -1,0 +1,12 @@
+{
+  "title": "Tapstate docs",
+  "pages": [
+    "[What is tapstate?](/docs/overview/what-is-tapstate)",
+    "[Quickstart](/docs/overview/quickstart)",
+    "concepts",
+    "connectors",
+    "reference",
+    "[Troubleshooting](/docs/guides/troubleshooting)",
+    "for-ai"
+  ]
+}

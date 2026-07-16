@@ -1,0 +1,102 @@
+---
+title: QuickAPI
+description: Configure QuickAPI as a tapstate snapshot source from a Postman collection contract
+sidebar:
+  order: 48
+ai:
+  kind: connector
+  id: quickapi
+  category: saas-business-commerce-apis
+  maturity: preview
+  useAs: [source]
+  modes: [snapshot]
+  aliases: [quickapi, quick api, postman collection source, postman api snapshot]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use QuickAPI for a one-time source read from a prepared Postman collection. The connection accepts the collection text and optional token-expiry fields, and supports Snapshot only.
+
+<ConnectorProfile
+  category="SaaS, business & commerce APIs"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source"
+  capabilities="Snapshot, API collection contract"
+  compatibility="Postman collection JSON"
+/>
+
+## Before you begin
+
+### Source
+
+1. Export the intended Postman collection as JSON. Keep the collection's `info`, `item`, and `variable` entries; remove unused test events and secrets.
+2. Prefix every list API that should become a table with this pattern:
+
+```text
+TAP_TABLE[TableName](PAGING_MODE:response.path) Human-readable request name
+```
+
+For example, this creates a `Tickets` table from the `data` array in the response:
+
+```text
+TAP_TABLE[Tickets](PAGE_LIMIT:data) Get tickets
+```
+
+3. Match the pagination mode to the API and add the required tag to each relevant request parameter description:
+
+| Paging mode | Required parameter tags | Use |
+|---|---|---|
+| `PAGE_SIZE_PAGE_INDEX` | `TAP_PAGE_SIZE`, `TAP_PAGE_INDEX` | Page number plus page size. |
+| `FROM_TO` | `TAP_PAGE_FROM`, `TAP_PAGE_TO` | Start and end record indexes. |
+| `PAGE_LIMIT` | `TAP_PAGE_OFFSET`, `TAP_PAGE_LIMIT` | Offset plus limit. |
+| `PAGE_TOKEN` | `TAP_PAGE_TOKEN`, `TAP_PAGE_SIZE`, `TAP_HAS_MORE_PAGE` | Cursor/token pagination. |
+| `PAGE_NONE` | None | A non-paginated list response. |
+
+4. Make sure every Postman variable referenced by a URL, header, body, or parameter has a real value supplied at runtime.
+5. If the API uses a short-lived token, prefix its refresh request with `TAP_GET_TOKEN`, then configure both `expireStatus` and `tokenParams`.
+6. Remove credentials from the exported collection and supply them through a secret manager or runtime-specific mechanism.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/support_quickapi.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: support_quickapi
+connector: quickapi
+config:
+  jsonTxt: ${QUICKAPI_POSTMAN_COLLECTION_JSON}
+  expireStatus: ${QUICKAPI_TOKEN_EXPIRED_RULE}
+  tokenParams: ${QUICKAPI_TOKEN_MAPPING}
+  schemaTxt: ${QUICKAPI_SCHEMA_HINT}
+mode: snapshot
+```
+
+`jsonTxt` is required. `schemaTxt` is normally derived from the collection; provide it only when your tapstate environment requires a precomputed schema.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This connector performs Snapshot reads only. CDC, target writes, and schema changes are not included.
+- Incorrect response paths or pagination tags can silently omit or repeat rows. Compare page boundaries and record counts with the source API in staging.
+- Token refresh depends on the exact expiry expression and response mapping supplied in the connection.
+- Test API rate limits, retries, pagination consistency, and schema drift with representative responses before production use.
+- Do not commit collections containing secrets or token values.
+
+## Reference
+
+| Field | Required | Use |
+|---|---|---|
+| `jsonTxt` | Yes | Exported Postman collection JSON. |
+| `expireStatus` | No | Token-expiry response rule. |
+| `tokenParams` | No | Mapping between refreshed token output and collection variables. |
+| `schemaTxt` | No | Optional schema text. |
+
+`expireStatus` accepts response predicates such as `body.errorCode=INVALID_OAUTH`, `header.httpCode=401`, or `code=401`. Multiple conditions can use `&&`; separate lines represent alternatives. `tokenParams` maps a collection variable to the token field returned by the refresh request, for example `accessToken=access_token`.

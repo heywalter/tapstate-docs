@@ -1,0 +1,197 @@
+---
+title: TiDB
+description: Configure TiDB as a tapstate snapshot or CDC source and data-writing target
+sidebar:
+  order: 10
+ai:
+  kind: connector
+  id: tidb
+  category: databases
+  maturity: ga
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [tidb, tidb snapshot, tidb cdc, tidb source, tidb target, tikv, pd]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use TiDB for an initial full load, TiCDC-based change capture, or destination writes.
+
+<ConnectorProfile
+  category="Databases"
+  maturity="GA"
+  maturityLabel="Generally available"
+  worksAs="Source, Target"
+  capabilities="Snapshot, CDC, DDL capture, Data write, Target DDL apply"
+  compatibility="Snapshot: all documented TiDB versions · CDC: 6.0.0–8.1.9 · single node or cluster"
+/>
+
+## Before you begin
+
+### Source
+
+<SourceModeTabs label="Choose the TiDB source read mode">
+<SourceModeTab value="snapshot" label="Full load (Snapshot)" description="Copy existing rows once">
+
+Use **Full load** (`Snapshot`) to copy the rows that exist now. Full reads use the TiDB SQL endpoint and support the documented version baseline beyond the narrower CDC range.
+
+```sql
+CREATE USER 'tapstate_reader'@'%' IDENTIFIED BY 'replace_with_a_secret';
+GRANT SELECT ON orders.* TO 'tapstate_reader'@'%';
+```
+
+Allow the tapstate runtime to reach the TiDB SQL service, normally port `4000`. Snapshot does not require PD or TiKV access.
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc" label="Full load + CDC" description="Copy existing rows, then follow TiCDC changes">
+
+Use **Full load + CDC** for TiDB 6.0.0–8.1.9 when existing rows must be followed by ordered row changes. The connector integrates TiFlow/TiCDC 8.1.0.
+
+**1. Create a dedicated CDC reader**
+
+```sql
+CREATE USER 'tapstate_reader'@'%' IDENTIFIED BY 'replace_with_a_secret';
+GRANT SELECT ON orders.* TO 'tapstate_reader'@'%';
+```
+
+Restrict `%` to the tapstate runtime network origin whenever possible.
+
+**2. Make TiDB, PD, and TiKV reachable**
+
+Allow the runtime to reach the TiDB SQL service, PD on port `2379`, and TiKV on port `20160`. Keep TiDB, PD, TiKV, and the runtime on routable networks.
+
+**3. Verify table keys**
+
+Every selected table needs a primary key or a unique index whose columns are non-null and not virtual.
+
+**4. Retain enough GC history**
+
+Keep TiDB GC history longer than the longest expected interruption. Start with 24 hours and adjust it for the recovery objective and storage cost:
+
+```sql
+SET GLOBAL tidb_gc_life_time = '24h';
+SHOW GLOBAL VARIABLES LIKE 'tidb_gc_life_time';
+```
+
+**5. Check the TiCDC runtime architecture**
+
+Confirm that the runtime host architecture is supported by the supplied TiCDC binary (`amd64` or `arm64`).
+
+Do not substitute a self-compiled TiCDC binary in production until compatibility and recovery testing passes.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+Create a writer with DML privileges on destination tables:
+
+```sql
+CREATE USER 'tapstate_writer'@'%' IDENTIFIED BY 'replace_with_a_secret';
+GRANT SELECT, INSERT, UPDATE, DELETE, ALTER, CREATE, DROP
+ON analytics.* TO 'tapstate_writer'@'%';
+```
+
+Remove `ALTER`, `CREATE`, and `DROP` when pipeline-managed tables are not approved.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/orders_tidb.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: orders_tidb
+connector: tidb
+config:
+  host: tidb.internal
+  port: "4000"
+  database: orders
+  user: ${TIDB_USER}
+  password: ${TIDB_PASSWORD}
+  pdServer: pd.internal:2379
+  tiKvAddress: tikv.internal
+  tiKvPort: "20160"
+  timezone: "+00:00"
+mode: cdc
+tables:
+  - orders
+```
+
+Use `mode: snapshot` for a one-time read. For target-only use, omit `mode` and `tables`.
+
+```yaml title="tapstate-work/source/analytics_tidb.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: analytics_tidb
+connector: tidb
+config:
+  host: analytics-tidb.internal
+  port: "4000"
+  database: analytics
+  user: ${TIDB_WRITER_USER}
+  password: ${TIDB_WRITER_PASSWORD}
+```
+
+```yaml title="tapstate-work/pipeline/orders_to_analytics.tapstate.yml"
+version: tapstate/v1
+kind: pipeline
+id: orders_to_analytics
+source: orders_tidb
+serve:
+  from: /.*/
+  sync:
+    - id: write_to_analytics
+      source: analytics_tidb
+      write_mode: upsert
+      ddl: fail
+```
+
+`upsert` writes new rows and updates existing rows by key; `append` only inserts. Keep `ddl: fail` until a staging pipeline verifies the TiCDC event and destination behavior you need.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- Full reads support the documented TiDB baseline, while integrated TiCDC is documented for TiDB 6.0.0–8.1.9. Validate the exact TiDB, PD, and TiKV topology in staging.
+- Tables without a non-null primary or unique key do not meet the documented TiCDC row-identity requirement.
+- TiDB GC can remove history needed for restart. Choose `tidb_gc_life_time` from your recovery objective and monitor its operational cost.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `host` | Yes | — | TiDB SQL host. |
+| `port` | Yes | `4000` | TiDB SQL port; use a quoted string in `.tapstate.yml`. |
+| `database` | Yes | — | Database name. |
+| `user`, `password` | No | — | Connection account and secret. |
+| `pdServer` | No | — | PD endpoint used for CDC. |
+| `tiKvAddress`, `tiKvPort` | No | `20160` for port | TiKV endpoint used for CDC. |
+| `extParams` | No | — | Additional connector parameters. |
+| `timezone` | No | `+00:00` | UTC offset for timezone-naive values. |
+
+### Supported operations
+
+| Direction | Data changes | Schema changes |
+|---|---|---|
+| Source CDC | `INSERT`, `UPDATE`, `DELETE` | Add, rename, change, and drop columns |
+| Target | Insert, update, and delete by the selected write mode | Add, rename, change, and drop columns when the pipeline DDL policy allows it |
+
+TiDB CDC is implemented through the connector's integrated [TiFlow/TiCDC](https://github.com/pingcap/tiflow) path. See the [TiCDC overview](https://docs.pingcap.com/tidb/stable/ticdc-overview) for the database-side architecture and operational model.
+
+### Data compatibility
+
+| Family | Supported baseline |
+|---|---|
+| Integer | Signed and unsigned `TINYINT`, `SMALLINT`, `MEDIUMINT`, `INT`/`INTEGER`, `BIGINT` |
+| Text | `CHAR`, `VARCHAR`, `TEXT`, `TINYTEXT`, `MEDIUMTEXT`, `LONGTEXT`, `CLOB`, `ENUM`, `SET` |
+| Numeric | Signed and unsigned `DECIMAL`, `FLOAT`, `DOUBLE`, plus `REAL` except in full-read baseline |
+| Binary | `BINARY`, `VARBINARY`, `BLOB`, `TINYBLOB`, `MEDIUMBLOB`, `LONGBLOB` |
+| Boolean | `BOOLEAN`, `BIT` |
+| Date and time | `DATE`, `TIME`, `DATETIME`, `TIMESTAMP`, `YEAR` |
+| Structured | `JSON` |

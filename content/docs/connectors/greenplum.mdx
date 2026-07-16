@@ -1,0 +1,82 @@
+---
+title: Greenplum
+description: Configure Greenplum as a tapstate snapshot source or data-writing target
+sidebar:
+  order: 25
+ai:
+  kind: connector
+  id: greenplum
+  category: warehouses-analytics
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot]
+  aliases: [greenplum, greenplum snapshot, greenplum target, mpp database]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use the Greenplum MPP architecture for point-in-time table reads or as a target for analytical data.
+
+<ConnectorProfile
+  category="Warehouses & analytics"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Snapshot, Data write, Target DDL apply"
+  compatibility="Greenplum"
+/>
+
+## Before you begin
+
+### Source
+
+Create a reader account limited to the selected schema. Greenplum supports Snapshot reads only; do not configure an incremental path based on `logPluginName`.
+
+### Target
+
+Create a separate writer account limited to the destination schema. Grant DDL privileges only when the pipeline is approved to manage destination tables.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/mart_greenplum.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: mart_greenplum
+connector: greenplum
+config:
+  host: greenplum.internal
+  port: "5432"
+  database: analytics
+  schema: public
+  user: ${GREENPLUM_USER}
+  password: ${GREENPLUM_PASSWORD}
+  logPluginName: pgoutput
+mode: snapshot
+tables:
+  - orders
+```
+
+For a target connection, omit `mode` and `tables`.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- `logPluginName` is required by the connection resource but does not enable CDC; Greenplum supports Snapshot only.
+- A Greenplum target can add, rename, alter, and drop columns. Stage each operation before changing a pipeline from `ddl: fail` to `ddl: apply`.
+- Test topology failover and TLS behavior for your Greenplum deployment before production.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `host`, `port`, `database`, `schema` | Yes | — | Greenplum endpoint and selected schema. |
+| `user`, `password` | No | — | Connection account and secret. |
+| `logPluginName` | Yes | `pgoutput` | Values: `pgoutput`, `decoderbufs`, `wal2json`, `wal2json_rds`, `wal2json_streaming`, and `wal2json_rds_streaming`. This page covers Snapshot only. |
+| `extParams`, `timezone` | No | empty timezone | Extra parameters and UTC offset. |

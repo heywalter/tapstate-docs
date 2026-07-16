@@ -1,0 +1,146 @@
+---
+title: Apache Doris
+description: Configure Apache Doris as a tapstate snapshot source or data-writing target
+sidebar:
+  order: 21
+ai:
+  kind: connector
+  id: doris
+  category: warehouses-analytics
+  maturity: ga
+  useAs: [source, target]
+  modes: [snapshot]
+  aliases: [apache doris, doris, doris snapshot, doris target, doris stream load]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use Apache Doris for point-in-time reads or as an analytical destination.
+
+<ConnectorProfile
+  category="Warehouses & analytics"
+  maturity="GA"
+  maturityLabel="Generally available"
+  worksAs="Source, Target"
+  capabilities="Snapshot, Data write, Target DDL apply"
+  compatibility="Apache Doris 1.2–3.0 · all deployment architectures"
+/>
+
+## Before you begin
+
+### Source
+
+Create a reader and grant access to the selected catalog and database:
+
+```sql
+CREATE USER 'tapstate_reader'@'%' IDENTIFIED BY 'replace_with_a_secret';
+GRANT SELECT_PRIV ON internal.analytics.* TO 'tapstate_reader'@'%';
+```
+
+Replace `internal` with the Doris catalog in use. Confirm that the tapstate runtime can reach both the Frontend SQL endpoint and the HTTP/HTTPS endpoint.
+
+### Target
+
+Create a writer with Stream Load and optional schema-management privileges:
+
+```sql
+CREATE USER 'tapstate_writer'@'%' IDENTIFIED BY 'replace_with_a_secret';
+GRANT SELECT_PRIV, LOAD_PRIV, ALTER_PRIV, CREATE_PRIV, DROP_PRIV
+ON internal.analytics.* TO 'tapstate_writer'@'%';
+```
+
+Remove `ALTER_PRIV`, `CREATE_PRIV`, and `DROP_PRIV` when the pipeline writes only to existing tables. Choose the Doris key model, distribution columns, buckets, and partitions before loading production data.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/analytics_doris.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: analytics_doris
+connector: doris
+config:
+  host: fe.doris.internal
+  port: "9030"
+  dorisHttp: http://fe.doris.internal:8030
+  database: analytics
+  user: ${DORIS_USER}
+  password: ${DORIS_PASSWORD}
+  useHTTPS: false
+mode: snapshot
+tables:
+  - events
+```
+
+For target-only use, omit `mode` and `tables`.
+
+```yaml title="tapstate-work/source/analytics_doris_target.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: analytics_doris_target
+connector: doris
+config:
+  host: analytics-fe.doris.internal
+  port: "9030"
+  dorisHttp: http://analytics-fe.doris.internal:8030
+  database: analytics
+  user: ${DORIS_WRITER_USER}
+  password: ${DORIS_WRITER_PASSWORD}
+  useHTTPS: false
+```
+
+```yaml title="tapstate-work/pipeline/events_to_doris.tapstate.yml"
+version: tapstate/v1
+kind: pipeline
+id: events_to_doris
+source: analytics_doris
+serve:
+  from: /.*/
+  sync:
+    - id: write_to_doris
+      source: analytics_doris_target
+      write_mode: upsert
+      ddl: fail
+```
+
+Choose the Doris key model before using `upsert`. Keep `ddl: fail` until table creation and schema changes have been tested with the destination's key model, distribution, and partitioning.
+
+A Doris target can add, rename, alter, and drop columns. Change the pipeline `ddl` policy to `apply` only after those operations have passed staging against the exact Doris version and table model.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This guide covers point-in-time reads. Treat CDC and source DDL delivery as staging-test cases rather than assuming either behavior.
+- `useHTTPS` enables HTTPS. Test certificate trust and hostname verification before relying on a private CA or mutual TLS.
+- The connector writes through Doris Stream Load. Frequent updates and deletes can be expensive and should be tested against the chosen key model.
+- Duplicate Key and Aggregate Key tables do not provide the same update/delete semantics as a Unique Key table. Do not assume upsert behavior without a staging write test.
+- Large ingestion batches consume Frontend/Backend memory and I/O. Size batches from measurements in your own environment.
+- Test target table keys, distribution, partitions, data types, and restart behavior in staging.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `host`, `port` | Yes | `9030` for port | Frontend SQL endpoint. |
+| `dorisHttp` | Yes | — | Frontend HTTP endpoint. |
+| `database` | Yes | — | Database name. |
+| `useHTTPS` | No | `false` | Enable HTTPS for the documented HTTP endpoint. |
+| `user`, `password` | No | — | Database account and secret. |
+| `backendNum`, `catalog`, `extParams`, `timezone` | No | — | Optional connector tuning and context fields. |
+
+### Data compatibility
+
+| Family | Supported baseline |
+|---|---|
+| Text | `CHAR`, `VARCHAR`, `STRING`, `TEXT` |
+| Boolean | `BOOLEAN` |
+| Integer | `TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `LARGEINT` |
+| Numeric | `DECIMAL`, `DECIMALV3`, `FLOAT`, `DOUBLE` |
+| Date and time | `DATE`, `DATEV2`, `DATETIME`, `DATETIMEV2` |
+| Aggregate | `HLL` |

@@ -1,0 +1,291 @@
+---
+title: Apache Paimon
+description: Configure Apache Paimon as a tapstate source or target backed by local, HDFS, S3, or OSS storage
+sidebar:
+  order: 27
+ai:
+  kind: connector
+  id: paimon
+  category: warehouses-analytics
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [apache paimon, paimon, paimon snapshot, paimon cdc, paimon target, paimon s3, paimon hdfs]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { PreparationStep, PreparationSteps, SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Read existing Apache Paimon tables, follow their change stream, or write pipeline results into a Paimon warehouse.
+
+<ConnectorProfile
+  category="Warehouses & analytics"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Snapshot, CDC, Data write"
+  compatibility="Paimon 0.6+ · 0.8.2+ recommended"
+/>
+
+## Before you begin
+
+### Source
+
+Choose the outcome you need. Both paths require direct access to the warehouse storage; there is no separate database server to authorize. A connection is scoped to one filesystem-backed catalog: select one `warehouse` root and one `database`; create another connection for a different warehouse or database.
+
+<SourceModeTabs label="Choose the Apache Paimon source read mode">
+<SourceModeTab value="snapshot" label="Full load (Snapshot)" description="Copy the current table state once">
+
+Use **Full load** (`Snapshot`) for a bounded copy of the rows visible in the selected Paimon tables when the scan is planned. The reader emits the final table state and skips `UPDATE_BEFORE` and `DELETE` rows encountered during the batch scan.
+
+<PreparationSteps>
+<PreparationStep title="Identify the warehouse and database">
+
+Collect the warehouse root, storage type, and database name. The runtime must be able to list the database and tables below that root. Use a path that matches the storage backend:
+
+| Storage | Warehouse example |
+|---|---|
+| S3 or S3-compatible | `s3://company-lake/paimon` |
+| HDFS | `/company-lake/paimon` together with the NameNode host and port |
+| OSS | `oss://company-lake/paimon` |
+| Local or NFS | `/srv/paimon` |
+
+For Local or NFS, mount the same path on every runtime instance that can execute the pipeline. Local storage is best suited to evaluation or a single-instance deployment.
+
+</PreparationStep>
+<PreparationStep title="Grant read access to the warehouse">
+
+Grant the runtime identity permission to list the warehouse, database, and table paths and to read table metadata, manifests, snapshots, and data files.
+
+- For S3 or OSS, scope the access key to the selected bucket and prefix and allow the required list and object-read operations.
+- For HDFS, grant the configured user traverse and read access from the warehouse root downward.
+- For Local or NFS, grant the runtime operating-system user read and directory-traverse access.
+
+</PreparationStep>
+<PreparationStep title="Prove discovery and a complete scan">
+
+In staging, discover the selected tables and compare a complete read with a query from Spark, Flink, or another trusted Paimon reader at the same table state. Include representative decimal, temporal, binary, and structured columns.
+
+</PreparationStep>
+</PreparationSteps>
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc" label="Full load + CDC" description="Copy current rows, then follow new Paimon snapshots">
+
+Use **Full load + CDC** when the destination must begin with the current table state and then follow later inserts, updates, and deletes. The stream reader tracks a snapshot position for each table, so table-level snapshots and changelog rows must remain available until tapstate consumes them.
+
+<PreparationSteps>
+<PreparationStep title="Identify the warehouse and grant read access">
+
+Collect the warehouse root, storage type, and database name. Grant the runtime identity permission to list the warehouse, database, and table paths and to read metadata, manifests, snapshots, changelog files, and data files.
+
+- For S3 or OSS, scope list and object-read permissions to the selected bucket and prefix.
+- For HDFS, grant the configured user traverse and read access below the warehouse root.
+- For Local or NFS, mount the same warehouse path on every runtime instance and grant the runtime operating-system user read access.
+
+</PreparationStep>
+<PreparationStep title="Check the source tables' changelog behavior">
+
+Confirm that each selected table produces the row kinds your pipeline needs. The reader maps `INSERT` and `UPDATE_AFTER` rows to new-value events, and maps `DELETE` and `UPDATE_BEFORE` rows to old-value events. Test an insert, an update, and a delete; do not assume that every existing table option produces a complete change stream.
+
+For downstream databases, use keyed upserts when processing updates and deletes. Tables without stable primary keys require extra care because the destination may not be able to identify the row to replace or remove.
+
+</PreparationStep>
+<PreparationStep title="Protect the handoff and recovery positions">
+
+The CDC reader resumes each table from its saved Paimon snapshot position. If no position is supplied to a new stream reader, it starts after that table's latest snapshot rather than replaying its history. Before production, prove that the initial full load and CDC handoff have no gap, and that a restart resumes from the next expected snapshot.
+
+Set Paimon snapshot expiration and cleanup policies long enough for the maximum planned outage. Expiring a required snapshot before the pipeline resumes can make the saved position unusable.
+
+</PreparationStep>
+<PreparationStep title="Run a representative staging sequence">
+
+Start with a small full load, then insert, update, and delete rows while CDC is active. Stop and resume the pipeline, and compare the destination with the current Paimon table state. Repeat this for every selected table because positions are tracked independently.
+
+</PreparationStep>
+</PreparationSteps>
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+<PreparationSteps>
+<PreparationStep title="Grant warehouse write access">
+
+Grant the runtime identity permission to list and read the selected warehouse and to create, overwrite, and delete objects below its database and table paths. The connection check may create the configured database when it does not exist, so the identity also needs permission to create its metadata.
+
+- For S3 or OSS, use credentials scoped to the selected bucket and prefix. Include the object-write and delete operations required by commits and compaction.
+- For HDFS, grant the configured user create, write, rename, and delete access below the warehouse root.
+- For Local or NFS, use a shared writable path with enough free space for data files, commit work, and compaction temporary files.
+
+</PreparationStep>
+<PreparationStep title="Choose keys, partitions, and buckets before the first write">
+
+Define a stable primary key for efficient updates and deletes. Paimon has primary keys but no secondary indexes. Add partition keys only when they match common query, retention, or data-layout boundaries.
+
+Choose dynamic buckets for a flexible general-purpose layout or fixed buckets when you have tested an appropriate bucket count. The default target-table settings use dynamic buckets; a fixed layout uses four buckets unless a different positive count is supplied. An existing table keeps its current bucket mode even when the requested setting differs.
+
+</PreparationStep>
+<PreparationStep title="Prepare new target tables">
+
+When you need specific keys, partitions, buckets, file formats, or compaction behavior, create the Paimon target table before starting the pipeline. Existing tables keep their schema and table options. The values below are table-creation options, not connection fields, so do not place them under `config` in the connection YAML.
+
+| Setting | Purpose |
+|---|---|
+| `hashKey` | When enabled and more than five key fields are present, create `_hash_key` and use it as the Paimon primary key. Default: `false`. |
+| `partitionKey` | Fields used to partition a newly created table. Empty means unpartitioned. |
+| `bucketMode` | `dynamic` creates a dynamic-bucket table; `fixed` uses `bucketCount`. Default: `dynamic`. |
+| `bucketCount` | Positive bucket count for fixed mode. Default: `4`. |
+| `fileFormat` | Optional new-table format: `orc`, `parquet`, `avro`, `csv`, `json`, `lance`, or `blob`. Empty uses the Paimon default. |
+| `compression` | Optional compression: `none`, `snappy`, `lz4`, `zstd`, `gzip`, or `bzip2`. Empty uses the Paimon default. |
+| `tableProperties` | Additional Paimon table options as key-value pairs. Review custom keys against the Paimon version used by the deployment. |
+| `writeBufferSize` | Writer memory buffer in MiB. Connector default: `256`. More memory can reduce flushing but must fit the runtime memory budget. |
+| `writeThreads` | Parallel writer count. Connector default: `4`; test concurrency with the chosen bucket layout. |
+| `enableAutoCompaction` | Enable automatic compaction for newly created tables. Disabling it creates a write-only table that needs external compaction ownership. |
+| `compactionIntervalMinutes` | Full-compaction interval when automatic compaction is enabled. Confirm the deployment-provided default before relying on it. |
+| `targetFileSize` | Target data-file size in MiB. Connector default: `128`. |
+| `enablePrimaryKeyUpdate` | Detect a changed primary key and write a delete for the old key followed by an insert for the new key. Requires complete before-update data. Default: `false`. |
+
+Use your Paimon table-management workflow to apply these options before the first tapstate write.
+
+</PreparationStep>
+<PreparationStep title="Choose append or upsert behavior">
+
+Use `append` for insert-only data. Use `upsert` when the source can update or delete rows, and make sure both the source and Paimon table expose a stable key. If primary keys can change, enable primary-key update detection only when the source supplies the full row before every update.
+
+</PreparationStep>
+</PreparationSteps>
+
+## Create a connection
+
+Create a source connection with the warehouse storage fields and the required read mode:
+
+```yaml title="tapstate-work/source/lake_paimon.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: lake_paimon
+connector: paimon
+config:
+  warehouse: s3://company-lake/paimon
+  storageType: s3
+  s3Endpoint: https://s3.amazonaws.com
+  s3AccessKey: ${S3_ACCESS_KEY}
+  s3SecretKey: ${S3_SECRET_KEY}
+  s3Region: us-east-1
+  database: default
+mode: snapshot
+tables:
+  - orders
+```
+
+Use `mode: cdc` after completing and testing the full-load-to-CDC preparation path.
+
+A target connection uses the same Paimon storage contract without source mode or table selection:
+
+```yaml title="tapstate-work/source/analytics_paimon.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: analytics_paimon
+connector: paimon
+config:
+  warehouse: s3://company-lake/analytics-paimon
+  storageType: s3
+  s3Endpoint: https://s3.amazonaws.com
+  s3AccessKey: ${S3_ACCESS_KEY}
+  s3SecretKey: ${S3_SECRET_KEY}
+  s3Region: us-east-1
+  database: analytics
+```
+
+Reference the target connection from a pipeline. Use `ddl: fail` because existing Paimon tables are not changed automatically:
+
+```yaml title="tapstate-work/pipeline/orders_to_paimon.tapstate.yml"
+version: tapstate/v1
+kind: pipeline
+id: orders_to_paimon
+source: orders_mysql
+serve:
+  from: /.*/
+  sync:
+    - id: write_to_paimon
+      source: analytics_paimon
+      write_mode: upsert
+      ddl: fail
+```
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+Before production, verify the actual storage and table behavior in a staging pipeline:
+
+1. discover the configured database and a selected table;
+2. complete and reconcile a small Snapshot read;
+3. for CDC, observe an insert, update, and delete, then resume after an interruption;
+4. for a target, create or use a representative table and confirm an insert, keyed update, and delete.
+
+## Limitations
+
+- Paimon 0.6 and later are supported, with 0.8.2 or later recommended. The included client libraries are Paimon 1.3.1; verify older warehouses and mixed-version readers in staging.
+- The connection creates a filesystem catalog from `warehouse`. Hive, JDBC, and REST catalogs are not supported by these connection fields.
+- Insert, update, and delete are supported. Do not use pipeline DDL apply for schema evolution. A missing target table may be created, but an existing table's schema and options are not replaced.
+- Snapshot reads return the current final state; their offset argument is not used for resumable batch progress. Restarting an interrupted Snapshot can rescan data, so the destination write mode must tolerate replay.
+- CDC positions are maintained per table as Paimon snapshot IDs. A new stream with no position starts after the latest snapshot. Test snapshot retention and the initial-load handoff before production use.
+- The CDC reader represents `UPDATE_BEFORE` as a delete and `UPDATE_AFTER` as an insert. Use stable keys and test downstream update semantics with representative changes.
+- Paimon does not provide secondary indexes. Primary-key, partition, and bucket choices affect update routing, file layout, and compaction cost.
+- A primary-key change requires complete before-update data when `enablePrimaryKeyUpdate` is enabled. Without it, the write fails rather than silently moving the row.
+- When soft-delete handling converts a delete into an update marker, the source event must contain the complete row before deletion. Otherwise non-key columns can be written as `null`.
+- Write concurrency, batching, file size, and compaction settings are workload-dependent. Measure them with the target storage and query engines you will use.
+- Keep S3 and OSS secrets outside committed resource files. Limit them to the required bucket and prefix and rotate them through your deployment's secret-management process.
+
+## Reference
+
+### Connection settings
+
+`storageType` accepts `s3`, `hdfs`, `oss`, or `local`. Supply only the conditional fields for the selected backend.
+
+| Field | Required | Default | Use |
+|---|---:|---|---|
+| `warehouse` | Yes | — | Root of the Paimon warehouse. An explicit `s3://`, `s3a://`, `hdfs://`, `oss://`, or `file://` scheme is preserved or normalized for the selected backend. |
+| `storageType` | Yes | `local` | Storage backend: `s3`, `hdfs`, `oss`, or `local`. |
+| `database` | Yes | `default` | One Paimon database selected by this connection. |
+| `s3Endpoint` | With S3 | — | Full S3 or S3-compatible endpoint, including `http://` or `https://`. |
+| `s3AccessKey` | With S3 | — | Access-key ID for the selected bucket and prefix. |
+| `s3SecretKey` | With S3 | — | Secret access key; use a secret reference. |
+| `s3Region` | No | — | Region for the S3 service when required. |
+| `s3Properties` | No | Connection and timeout properties | Additional Hadoop S3A properties as `propKey`/`propValue` pairs. |
+| `hdfsHost` | With HDFS | — | HDFS NameNode host. |
+| `hdfsPort` | No | `9000` | HDFS NameNode RPC port. Use `8020` when that is the cluster's configured port. |
+| `hdfsUser` | No | `hadoop` | HDFS user used for filesystem access. |
+| `ossEndpoint` | With OSS | — | Public or VPC OSS endpoint, without the bucket name. |
+| `ossAccessKey` | With OSS | — | Access-key ID for the selected bucket and prefix. |
+| `ossSecretKey` | With OSS | — | Access-key secret; use a secret reference. |
+
+`s3Properties` defaults to connection-pool and establish-timeout entries. When overriding it, use an array of objects such as:
+
+```yaml
+s3Properties:
+  - propKey: fs.s3a.connection.maximum
+    propValue: "1000"
+  - propKey: fs.s3a.connection.establish.timeout
+    propValue: "5000"
+```
+
+### Data compatibility
+
+Paimon 0.6 and later support the following data-type baseline:
+
+| Family | Paimon types and behavior |
+|---|---|
+| Boolean and numeric | `BOOLEAN`, `TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `FLOAT`, `DOUBLE`, `DECIMAL` |
+| Character | `CHAR`, `VARCHAR`, `STRING` |
+| Binary | `BINARY`, `VARBINARY`, `BYTES` |
+| Date and time | `DATE`, `TIME`, `TIMESTAMP`, `TIMESTAMP WITH LOCAL TIME ZONE` |
+| Structured | `ARRAY`, `MAP`, `ROW`, `MULTISET`, `VARIANT`; structured values may be serialized as JSON strings when mapped to a string target |
+
+Preserve precision and logical types when choosing a file format. For example, verify DATE representation and decimal precision in Parquet with every engine that will read the table. Unknown target types fall back to `STRING`, so test uncommon and nested schemas before allowing automatic table creation.

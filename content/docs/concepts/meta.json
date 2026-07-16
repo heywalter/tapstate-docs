@@ -1,0 +1,12 @@
+{
+  "title": "Concepts",
+  "pages": [
+    "[Use cases](/docs/overview/use-cases)",
+    "[Architecture](/docs/overview/architecture)",
+    "connections-and-connectors",
+    "capture-modes",
+    "dsl",
+    "storage",
+    "[tapstate vs. a streaming stack](/docs/overview/vs-streaming-stack)"
+  ]
+}

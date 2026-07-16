@@ -1,0 +1,97 @@
+---
+title: Zoho Desk
+description: Configure Zoho Desk as a tapstate snapshot source
+sidebar:
+  order: 46
+ai:
+  kind: connector
+  id: zoho-desk
+  category: saas-business-commerce-apis
+  maturity: preview
+  useAs: [source]
+  modes: [snapshot]
+  aliases: [zoho desk, zoho-desk, zoho desk snapshot, zoho desk source, zoho desk webhook]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use Zoho Desk as a supported Snapshot source for service data.
+
+<ConnectorProfile
+  category="SaaS, business & commerce APIs"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source"
+  capabilities="Snapshot, API read"
+  compatibility="Zoho Desk API"
+/>
+
+## Before you begin
+
+### Source
+
+1. In Zoho Desk, open the API settings and record the organization ID.
+2. In the Zoho API Console, create a **Self Client** and store its client ID and client secret.
+3. Generate an authorization code for the required Desk scopes. The connector uses:
+
+![Locate the Zoho Desk organization ID](/images/connectors/zoho-desk-organization-id.png)
+
+![Create a Self Client and obtain its credentials in Zoho API Console](/images/connectors/zoho-self-client-credentials.png)
+
+```text
+Desk.tickets.ALL,Desk.search.READ,Desk.contacts.READ,
+Desk.contacts.WRITE,Desk.contacts.UPDATE,Desk.contacts.CREATE,
+Desk.tasks.ALL,Desk.basic.READ,Desk.basic.CREATE,
+Desk.settings.ALL,Desk.events.ALL,Desk.articles.READ,
+Desk.articles.CREATE,Desk.articles.UPDATE,Desk.articles.DELETE
+```
+
+![Generate and copy the Zoho authorization code](/images/connectors/zoho-authorization-code.png)
+
+Reduce this scope list if your selected modules need less access. Authorization codes expire; generate one immediately before the deployed connection flow exchanges it. Keep every credential in a secret manager.
+
+Available modules include `Tickets`, `Departments`, `Products`, `OrganizationFields`, and `Contracts`.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/support_zoho_desk.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: support_zoho_desk
+connector: zoho-desk
+config:
+  orgId: ${ZOHO_DESK_ORG_ID}
+  clientID: ${ZOHO_DESK_CLIENT_ID}
+  clientSecret: ${ZOHO_DESK_CLIENT_SECRET}
+  generateCode: ${ZOHO_DESK_AUTHORIZATION_CODE}
+  connectionMode: DocumentMode
+  streamReadType: WebHook
+mode: snapshot
+```
+
+`streamReadType` defaults to `WebHook`, but the supported read mode remains Snapshot.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This connector performs Snapshot reads only. It does not provide target writes, schema changes, or real-time webhook delivery.
+- Do not rely on `streamReadType: WebHook` for incremental delivery.
+- Reusing one Zoho client ID and secret across many connections can hit Zoho token limits.
+- In the connector's webhook model, deleted records arrive as update events with `IsDel = TRUE`; a later full read does not recreate those deletion events.
+- `getTokenMsg`, `getRefreshMsg`, and `hookText` are reserved fields. Leave them unset.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `orgId`, `clientID`, `clientSecret`, `generateCode` | Yes | — | Zoho Desk organization and authorization material. |
+| `connectionMode` | No | `DocumentMode` | Connection-mode value. |
+| `streamReadType` | No | `WebHook` | Compatibility value; it does not enable CDC. |
+| `getTokenMsg`, `getRefreshMsg`, `hookText` | No | — | Reserved fields; leave unset. |

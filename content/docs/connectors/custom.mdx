@@ -1,0 +1,103 @@
+---
+title: Custom Connection
+description: Configure a script-defined Custom Connection as a tapstate snapshot or CDC source and data-writing target
+sidebar:
+  order: 60
+ai:
+  kind: connector
+  id: custom
+  category: custom-development
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [custom connection, custom connector, script source, script target, javascript connector]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use Custom Connection when the integration is defined by scripts rather than a vendor-specific connector. It is intended for controlled development and integration work where you own the script lifecycle.
+
+<ConnectorProfile
+  category="Custom & development"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Snapshot, CDC, Data write, Script-defined behavior"
+  compatibility="Custom JavaScript connector"
+/>
+
+## Before you begin
+
+### Source
+
+<SourceModeTabs>
+<SourceModeTab value="snapshot">
+
+Use **Snapshot** for a one-time script-defined read. Decide the output collection name and stable unique keys, then provide a `historyScript` that produces the expected records.
+
+Set `syncType: initial_sync` and keep script inputs, secrets, retries, and error handling under your own change control.
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc">
+
+Use **Snapshot + CDC** when you need an initial script-defined read followed by incremental work. Provide both `historyScript` and `cdcScript`, use `syncType: initial_sync+cdc`, and design an idempotent checkpoint or cursor strategy in the script contract.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+Use a `targetScript` only after defining its input shape and failure behavior. Give the script the smallest credentials and network access it needs, and define its conflict policy and transaction boundary before production. Schema changes are not handled automatically.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/orders_custom.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: orders_custom
+connector: custom
+config:
+  collectionName: orders
+  uniqueKeys: id
+  syncType: initial_sync+cdc
+  jsEngineName: graal.js
+  customBeforeOpr: false
+  historyScript: ${CUSTOM_HISTORY_SCRIPT}
+  cdcScript: ${CUSTOM_CDC_SCRIPT}
+  customAfterOpr: false
+mode: cdc
+tables:
+  - orders
+```
+
+For a one-time read, use `mode: snapshot`, `syncType: initial_sync`, and `historyScript`. For a target connection, omit `mode` and `tables`, then provide `targetScript` when the deployed contract requires it.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- Test `historyScript`, `cdcScript`, and `targetScript` with representative payloads and failure cases before production use.
+- Define timeout, retry, pagination, output-schema, checkpoint, and error-handling expectations in the script and its operational runbook.
+- Keep scripts and secret values under review. Do not commit credentials into workspace files.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `collectionName` | Yes | — | Logical collection or table name. |
+| `uniqueKeys` | Yes | — | Stable key field or fields used by the custom contract. |
+| `syncType` | Yes | `initial_sync` | `initial_sync`, `cdc`, or `initial_sync+cdc`. |
+| `jsEngineName` | Yes | `graal.js` | `graal.js` or `nashorn`. |
+| `historyScript` | No | — | Script for the initial read. |
+| `cdcScript` | No | — | Script for incremental work. |
+| `targetScript` | No | — | Script for a target connection. |
+| `customBeforeOpr`, `customBeforeScript` | `customBeforeOpr` yes | `false` | Optional pre-operation hook and script. |
+| `customAfterOpr`, `customAfterScript` | `customAfterOpr` yes | `false` | Optional post-operation hook and script. |
+| `batchProcess` | No | `false` | Boolean for batch-oriented script handling. |

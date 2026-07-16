@@ -1,0 +1,79 @@
+---
+title: Apache ActiveMQ
+description: Configure Apache ActiveMQ as a tapstate stream source or target
+sidebar:
+  order: 31
+ai:
+  kind: connector
+  id: activemq
+  category: streaming-messaging
+  maturity: preview
+  useAs: [source, target]
+  modes: [stream]
+  aliases: [apache activemq, activemq, activemq stream, activemq queue, activemq source, activemq target]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use Apache ActiveMQ to read or write queue messages through the supported stream connector.
+
+<ConnectorProfile
+  category="Streaming & messaging"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Stream read, Stream write"
+  compatibility="ActiveMQ Classic 5.14.x · Artemis 2.39.x"
+/>
+
+## Before you begin
+
+### Source
+
+Create a broker account restricted to consuming from the intended queues. Messages must use JSON-object bodies. Test acknowledgements, redelivery, and malformed records in a staging queue.
+
+### Target
+
+Grant the same account permission to publish only to the intended queues. Pre-create production queues with the retention, durability, and dead-letter policy required by downstream consumers.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/events_activemq.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: events_activemq
+connector: activemq
+config:
+  mqQueueString: orders.events
+  brokerURL: tcp://activemq.internal:61616
+  mqUsername: ${ACTIVEMQ_USER}
+  mqPassword: ${ACTIVEMQ_PASSWORD}
+mode: stream
+```
+
+For a target-only connection, omit `mode`.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- Queue reads and writes are supported. Topic mode, transactions, schema changes, and a specific delivery guarantee are not included.
+- Stage ActiveMQ Classic and Artemis broker URLs separately, including acknowledgements and recovery after a broker restart.
+
+## Reference
+
+| Field | Required | Use |
+|---|---|---|
+| `mqQueueString` | No | Optional queue selection. |
+| `brokerURL` | Yes | Broker connection string, for example `tcp://host:61616`. |
+| `mqUsername`, `mqPassword` | No | Broker credentials. Keep the password in an environment variable. |
+
+### Message data compatibility
+
+The documented connector baseline accepts `OBJECT`, `ARRAY`, `NUMBER`, `INTEGER`, `BOOLEAN`, `STRING` values shorter than 200 characters, and `TEXT`. Verify the actual message envelope and character encoding with a staging queue.

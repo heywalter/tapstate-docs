@@ -1,0 +1,79 @@
+---
+title: Azure Cosmos DB
+description: Configure Azure Cosmos DB as a tapstate snapshot source
+sidebar:
+  order: 8
+ai:
+  kind: connector
+  id: azure-cosmosdb
+  category: databases
+  maturity: preview
+  useAs: [source]
+  modes: [snapshot]
+  aliases: [azure cosmos db, cosmos db, cosmos snapshot, azure cosmos source]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use Azure Cosmos DB to copy the records that exist now from a NoSQL account and database.
+
+<ConnectorProfile
+  category="Databases"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source"
+  capabilities="Snapshot, Resource discovery"
+  compatibility="Azure Cosmos DB for NoSQL"
+/>
+
+## Before you begin
+
+### Source
+
+1. Select an Azure Cosmos DB account that uses the NoSQL API and the database to read.
+2. Copy the account host and a key with the smallest practical read permission.
+
+![Locate the Azure Cosmos DB account URI and access keys](/images/connectors/azure-cosmosdb-keys.png)
+
+3. Choose the consistency level that matches the account policy. The documented default is `Session`.
+
+Keep the account key in a secret manager. This connection uses the Azure Cosmos DB for NoSQL API and account-key authentication.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/catalog_cosmos.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: catalog_cosmos
+connector: azure-cosmosdb
+config:
+  host: catalog-prod.documents.azure.com:443
+  accountKey: ${COSMOS_ACCOUNT_KEY}
+  databaseName: catalog
+  consistencyLevel: Session
+mode: snapshot
+tables:
+  - products
+```
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This connector supports Snapshot reads only. CDC, target writes, and schema changes are not included.
+- Treat consistency, partitioning, capacity settings, and API rate limits as deployment concerns. Confirm them against the selected Cosmos account before running a production pipeline.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `host` | Yes | — | Azure Cosmos DB account host. |
+| `accountKey` | Yes | — | Account key; supply through an environment variable. |
+| `databaseName` | Yes | — | Cosmos database name. |
+| `consistencyLevel` | Yes | `Session` | `Strong`, `BoundedStaleness`, `Session`, `Eventual`, or `ConsistentPrefix`. |

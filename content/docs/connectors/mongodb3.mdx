@@ -1,0 +1,175 @@
+---
+title: MongoDB 3.4 and earlier
+description: Configure MongoDB 3.2 or 3.4 as a tapstate snapshot or CDC source and data-writing target
+sidebar:
+  order: 66
+ai:
+  kind: connector
+  id: mongodb3
+  category: databases
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [mongodb 3.4, mongodb below 3.4, mongodb 3.2, mongodb oplog, mongodb legacy cdc]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use this connector for MongoDB 3.2 and 3.4. Use the standard MongoDB guide for newer deployments.
+
+<ConnectorProfile category="Databases" maturity="Preview" maturityLabel="Available for evaluation" worksAs="Source, Target" capabilities="Snapshot, CDC through the Oplog, Data write" compatibility="MongoDB 3.2 and 3.4 · Replica sets and sharded clusters" />
+
+## Before you begin
+
+### Source
+
+Choose the outcome you need. Each tab is a complete preparation path; you do not need to combine steps from both tabs.
+
+<SourceModeTabs label="Choose the MongoDB source read mode">
+<SourceModeTab value="snapshot">
+
+Use **Snapshot** to copy selected collections once. Create a least-privilege reader:
+
+**1. Create a dedicated reader**
+
+```js
+use admin
+db.createUser({
+  user: "tapstate_reader",
+  pwd: "replace-with-a-secret",
+  roles: [
+    { role: "read", db: "your_database" },
+    { role: "clusterMonitor", db: "admin" }
+  ]
+})
+```
+
+**2. Prepare a sharded cluster**
+
+For a sharded cluster, pause the Balancer during the initial copy and clean up orphaned documents before the run.
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc">
+
+Use **Snapshot + CDC** to copy existing documents and then read Oplog changes. The source must be a replica set or sharded cluster; convert a standalone server to a single-member replica set before using CDC.
+
+**1. Prepare the topology and Oplog**
+
+Confirm that every shard is a replica set and keep enough Oplog history to cover the longest expected interruption. A 24-hour window is a practical minimum to validate against the actual write rate.
+
+**2. Create a dedicated CDC reader**
+
+```js
+use admin
+db.createUser({
+  user: "tapstate_reader",
+  pwd: "replace-with-a-secret",
+  roles: [
+    { role: "read", db: "your_database" },
+    { role: "read", db: "local" },
+    { role: "read", db: "config" },
+    { role: "clusterMonitor", db: "admin" }
+  ]
+})
+```
+
+In a sharded cluster, create equivalent users on shard primaries because shard servers cannot retrieve these user permissions from the config database.
+
+**3. Prepare a sharded-cluster snapshot**
+
+Pause the Balancer during the initial copy and clean up orphaned documents before the run. Resume balancing only after the initial copy has completed and the pipeline is following Oplog changes.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+Grant write access to the destination database:
+
+```js
+use admin
+db.createUser({
+  user: "tapstate_writer",
+  pwd: "replace-with-a-secret",
+  roles: [{ role: "readWrite", db: "analytics" }]
+})
+```
+
+MongoDB 3.2 targets may also require read access to `local` for deployment-specific validation.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/legacy_mongo.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: legacy_mongo
+connector: mongodb3
+config:
+  isUri: true
+  uri: "mongodb://${MONGO_USER}:${MONGO_PASSWORD}@rs0-1.internal:27017,rs0-2.internal:27017/orders?replicaSet=rs0&authSource=admin"
+  schemaLimit: "1024"
+  mongodbLoadSchemaSampleSize: "1000"
+  ssl: false
+mode: cdc
+tables:
+  - users
+  - /orders_.*/
+```
+
+For individual connection fields, set `isUri: false` and provide `host`, `database`, `user`, `password`, and optional `additionalString`. When `ssl: true`, supply the required key and certificate settings for your deployment.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+Verify a small snapshot, an insert, an update, and a delete in staging. Confirm that the Oplog window still contains the stored position after a controlled pause.
+
+## Limitations
+
+- This guide covers only MongoDB 3.2 and 3.4. Use the current MongoDB connector for later versions.
+- CDC requires an Oplog. If it rotates past the stored position, recovery requires a new snapshot.
+- Shard balancing and orphaned documents can affect snapshot consistency.
+- Legacy Oplog update events may contain only modified fields. When a pipeline depends on a non-`_id` key, a changed sub-document, or an embedded-array `PULL`, verify that the captured event contains the complete document needed for routing or writing.
+- Delete events normally contain only `_id`. A target update condition that does not include `_id` needs an explicitly tested delete-handling design.
+- Test TLS files, certificate validation, and server policy against the deployment before using production data.
+
+## Reference
+
+### Supported operations
+
+| Direction | Data changes | Schema changes |
+|---|---|---|
+| Source CDC | `INSERT`, `UPDATE`, `DELETE` from the Oplog | Not included |
+| Target | Insert, update, and delete documents | Not included |
+
+### Data compatibility
+
+| Family | Supported baseline |
+|---|---|
+| Text and code | `String`, `JavaScript`, `Symbol` |
+| Numeric | `Double`, `Int32`, `Int64`, `Decimal128` |
+| Structured | `Document`, `Array` |
+| Binary and identity | `Binary`, `ObjectId` |
+| Boolean | `Boolean` |
+| Date and time | `Date`, `Timestamp` |
+| Special | `MinKey`, `MaxKey`, `Null` |
+
+### Connection settings
+
+| Field | Required | Default | Use |
+|---|---:|---|---|
+| `isUri` | Yes | `true` | Use a MongoDB URI, or set `false` for individual fields. |
+| `uri` | URI mode | — | Full connection URI. |
+| `host`, `database` | Individual mode | — | Host list and database name. |
+| `user`, `password` | No | — | Individual-mode credentials. |
+| `additionalString` | No | — | Additional URI or driver parameters. |
+| `schemaLimit` | No | `1024` | Maximum fields loaded per collection during discovery. |
+| `mongodbLoadSchemaSampleSize` | No | `1000` | Documents sampled for schema discovery. |
+| `ssl` | No | `false` | Enable the configured TLS path. |
+| `sslKey`, `sslPass` | With TLS | — | Client key material and its password. |
+| `sslValidate`, `sslCA` | With certificate validation | — | Enable certificate validation and supply CA material. |

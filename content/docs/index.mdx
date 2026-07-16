@@ -1,12 +1,91 @@
 ---
-title: What is TapState?
-description: Capture, transform, and serve operational data in one declarative workflow.
+title: Tapstate docs
+description: Learn the tapstate product model, prepare connectors, and build reviewable data paths
+ai:
+  kind: guide
+  id: documentation-home
+  aliases: [tapstate docs, tapstate documentation, tapstate getting started]
 ---
 
-TapState is an open-source data platform for turning database changes into live operational state.
+import { LinkCard, CardGrid } from '@/components/mdx';
 
-It brings three steps into one declarative workflow:
+Tapstate connects operational systems through one governed Capture–Transform–Serve data path. Use these docs to understand the model, prepare external systems, and describe a path as reviewable resources.
 
-- **Capture** changes from operational data sources.
-- **Transform** data as it moves.
-- **Serve** fresh state to applications, APIs, and AI agents.
+## Start here
+
+<CardGrid>
+  <LinkCard
+    title="What is tapstate?"
+    description="Understand the customer problem and the tapstate product model."
+    href="/docs/overview/what-is-tapstate"
+  />
+  <LinkCard
+    title="Quickstart"
+    description="See how a source, target, and pipeline workspace fit together."
+    href="/docs/overview/quickstart"
+  />
+  <LinkCard
+    title="Connections and connectors"
+    description="Understand connector definitions, connection roles, and scope."
+    href="/docs/concepts/connections-and-connectors"
+  />
+  <LinkCard
+    title="Capture modes"
+    description="Choose Snapshot, Full load + CDC, Stream, or API by outcome."
+    href="/docs/concepts/capture-modes"
+  />
+</CardGrid>
+
+## Complete a task
+
+<CardGrid>
+  <LinkCard
+    title="Prepare a connector"
+    description="Find roles, modes, permissions, limitations, and exact field names."
+    href="/docs/connectors"
+  />
+  <LinkCard
+    title="Author resources"
+    description="Learn the declarative resource model and pipeline relationship."
+    href="/docs/concepts/dsl"
+  />
+  <LinkCard
+    title="Look up fields"
+    description="Use the DSL grammar and resource reference for exact syntax."
+    href="/docs/reference/dsl-grammar"
+  />
+  <LinkCard
+    title="Troubleshoot"
+    description="Separate authoring, connector, deployment, and data problems."
+    href="/docs/guides/troubleshooting"
+  />
+</CardGrid>
+
+## Understand the product
+
+<CardGrid>
+  <LinkCard
+    title="Architecture"
+    description="Review the logical data plane, control plane, and state boundaries."
+    href="/docs/overview/architecture"
+  />
+  <LinkCard
+    title="Use cases"
+    description="Match customer outcomes to the data path they need."
+    href="/docs/overview/use-cases"
+  />
+  <LinkCard
+    title="Compare approaches"
+    description="Choose between a unified path and a composable streaming stack."
+    href="/docs/overview/vs-streaming-stack"
+  />
+  <LinkCard
+    title="State and storage"
+    description="Understand working, recovery, and materialized state."
+    href="/docs/concepts/storage"
+  />
+</CardGrid>
+
+## AI-readable documentation
+
+The HTML pages, [`llms.txt`](/llms.txt), combined context, and page-level Markdown are generated from the same content. Connector frontmatter supports discovery; the page body remains canonical for people and agents.

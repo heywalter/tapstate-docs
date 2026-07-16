@@ -1,0 +1,101 @@
+---
+title: CSV
+description: Configure CSV files as tapstate sources or data-writing targets
+sidebar:
+  order: 50
+ai:
+  kind: connector
+  id: csv
+  category: files
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [csv, csv file, csv snapshot, csv cdc, csv source, csv target, sftp csv, s3 csv]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use CSV files from local storage, FTP, SFTP, SMB, S3-compatible storage, or OSS as a pipeline source or target.
+
+<ConnectorProfile
+  category="Files"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Snapshot, CDC, Data write"
+  compatibility="Local, FTP, SFTP, SMB, S3FS, OSS"
+/>
+
+## Before you begin
+
+### Source
+
+<SourceModeTabs label="Choose the CSV source read mode">
+<SourceModeTab value="snapshot">
+
+Use **Snapshot** to read the files that match the configured path now. Place files where the tapstate runtime can reach them. For remote storage, use a dedicated account restricted to the required path or bucket. Keep headers and delimiters consistent across files in the same logical dataset.
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc">
+
+Use **Snapshot + CDC** when new or changed files should be picked up after the initial read. The connector scans the configured path every 60 seconds. New and modified files are re-read; deleting a file does not emit row deletions.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+Choose an output path and storage account with write access limited to that location. Before production, agree on the naming, overwrite, partitioning, and conflict policy with downstream file consumers.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/orders_csv.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: orders_csv
+connector: csv
+config:
+  protocol: sftp
+  encoding: UTF-8
+  sftpHost: sftp.internal
+  sftpPort: "22"
+  sftpUsername: ${SFTP_USER}
+  sftpPassword: ${SFTP_PASSWORD}
+  filePathString: /exports/orders/*.csv
+mode: snapshot
+```
+
+For a target connection, omit `mode`; validate naming, overwrite, and write semantics with the runtime before production use.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- The connection exposes Snapshot, CDC, and target roles. Target output layout and conflict behavior depend on the selected storage path and downstream file contract.
+- CDC detects new and modified files on a 60-second scan. File or row deletion is not propagated from the source.
+- A connection represents one logical table. When matching CSV files have different headers, schema discovery uses the combined header set.
+- Target naming, overwrite, partitioning, and conflict behavior must be agreed with downstream file consumers.
+- Treat `oss` as a storage protocol option, not an endorsement of a regional deployment; S3-compatible storage is also available through `s3fs`.
+
+## Reference
+
+| Scope | Fields | Notes |
+|---|---|---|
+| Common | `protocol`, `encoding`, `filePathString` | Protocol defaults to `local`; encoding defaults to `UTF-8`. |
+| FTP | `ftpHost`, `ftpPort`, `ftpUsername`, `ftpPassword`, `ftpPassiveMode`, `ftpConnectTimeout`, `ftpDataTimeout` | Defaults: port `21`, passive mode `true`, connect timeout `60`, data timeout `0`. |
+| SFTP | `sftpHost`, `sftpPort`, `sftpUsername`, `sftpPassword` | Default SFTP port is `22`. |
+| SMB | `smbHost`, `smbUsername`, `smbPassword`, `smbShareDir` | Select this group only for `smb`. |
+| S3FS / OSS | `accessKey`, `secretKey`, `endpoint`, `region`, `bucket` | Use secret-aware variables for key material. |
+
+`protocol` accepts `local`, `ftp`, `sftp`, `smb`, `s3fs`, or `oss`. Provide only the transport-specific fields for the selected protocol, then validate that resource before production.
+
+### Data compatibility
+
+CSV schema inference supports `BOOLEAN`, `DATETIME`, `INTEGER`, `NUMBER`, `STRING`, and `TEXT`. Keep headers, delimiters, and value formats consistent across files that belong to the same logical table.

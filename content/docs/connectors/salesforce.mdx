@@ -1,0 +1,65 @@
+---
+title: Salesforce
+description: Configure Salesforce as a tapstate API source
+sidebar:
+  order: 44
+ai:
+  kind: connector
+  id: salesforce
+  category: saas-business-commerce-apis
+  maturity: preview
+  useAs: [source]
+  modes: [api]
+  aliases: [salesforce, salesforce api, salesforce crm, salesforce source]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use Salesforce as a supported API source for CRM data.
+
+<ConnectorProfile
+  category="SaaS, business & commerce APIs"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source"
+  capabilities="API read"
+  compatibility="Salesforce API"
+/>
+
+## Before you begin
+
+### Source
+
+Have a Salesforce administrator approve the connected account and least-privilege object access. Ensure the authorization value is stored in a secret manager or environment variable.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/revenue_salesforce.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: revenue_salesforce
+connector: salesforce
+config:
+  code: ${SALESFORCE_AUTHORIZATION_CODE}
+mode: api
+```
+
+Before production, verify authentication expiry and refresh, object selection, and incremental reads with a non-production Salesforce organization.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This connector reads Salesforce API data only. Target writes and schema changes are not included; Salesforce API limits still apply.
+
+## Reference
+
+| Field | Required | Use |
+|---|---|---|
+| `code` | Yes | Documented authorization value. Keep it outside committed files. |

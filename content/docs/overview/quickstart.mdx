@@ -1,0 +1,112 @@
+---
+title: Quickstart
+description: Create a source, target, and pipeline workspace, then validate the resource files
+ai:
+  kind: guide
+  id: quickstart
+  aliases: [tapstate quickstart, tapstate workspace, create tapstate yml, validate workspace]
+---
+
+This walkthrough shows how tapstate resources fit together. You will define a MySQL Snapshot source, a MongoDB target connection, and a pipeline that references both.
+
+## What you will create
+
+```text
+tapstate-work/
+├── source/
+│   ├── orders_source.tapstate.yml
+│   └── customer_view.tapstate.yml
+└── pipeline/
+    └── orders_to_customer_view.tapstate.yml
+```
+
+The source resource reads existing MySQL rows. The target connection supplies MongoDB destination settings. The pipeline links the two.
+
+## Before you begin
+
+- Install or obtain the tapstate CLI supplied with your environment. Command availability can vary by tapstate version.
+- Keep credentials in environment variables or your deployment's secret mechanism.
+- Read the [MySQL](/docs/connectors/mysql) and [MongoDB](/docs/connectors/mongodb) preparation guides.
+- Use non-production credentials and endpoints for an authoring walkthrough.
+
+Check the installed command first:
+
+```bash
+tapstate --version
+```
+
+If the command is unavailable, follow the installation instructions supplied with your tapstate environment before continuing.
+
+## 1. Create the MySQL source
+
+```bash
+tapstate new --non-interactive \
+  --kind source \
+  --connector mysql \
+  --id orders_source \
+  --mode snapshot \
+  --set host=db.internal \
+  --set port=3306 \
+  --set database=orders \
+  --set username='${MYSQL_USER}' \
+  --set password='${MYSQL_PASSWORD}' \
+  --workdir tapstate-work
+```
+
+Snapshot copies the selected current data as a bounded read. It does not continue with later changes. To evaluate continuous capture, follow the complete Full load + CDC preparation path in the MySQL guide.
+
+## 2. Create the target connection
+
+```bash
+tapstate new --non-interactive \
+  --kind source \
+  --connector mongodb \
+  --id customer_view \
+  --set isUri=true \
+  --set uri='${MONGODB_URI}' \
+  --workdir tapstate-work
+```
+
+A target-only connection supplies connector configuration to a pipeline. It does not declare a source read mode.
+
+## 3. Create the pipeline
+
+```bash
+tapstate new --non-interactive \
+  --kind pipeline \
+  --id orders_to_customer_view \
+  --source orders_source \
+  --sync-to customer_view \
+  --workdir tapstate-work
+```
+
+Review the generated files before continuing. Confirm that IDs and references match and that no secret value was written literally.
+
+## 4. Validate the workspace
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+An exit code of `0` means the installed validator accepted the resource structure, references, modes, and recognized connector fields. The number and wording in success output can vary by version.
+
+Next, run the connection in a non-production environment. Confirm credentials and network access, then verify a representative source read or target write before using production data.
+
+## 5. Inspect the resources
+
+If your CLI version provides these inspection commands, use them to review the workspace and field grammar:
+
+```bash
+tapstate ls --workdir tapstate-work
+tapstate desc orders_to_customer_view --workdir tapstate-work
+tapstate explain source.mode
+```
+
+Use structured output only when your tapstate CLI supports it. Do not infer runtime success from an authoring or inspection command.
+
+## Next steps
+
+- Learn how [connections and connectors](/docs/concepts/connections-and-connectors) differ.
+- Choose the right [capture mode](/docs/concepts/capture-modes).
+- Use [Troubleshooting](/docs/guides/troubleshooting) to isolate authoring, deployment, and data problems.
+- Continue with the selected source and target connector guides before using the same pattern with production data.

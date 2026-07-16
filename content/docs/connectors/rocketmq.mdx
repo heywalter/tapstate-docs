@@ -1,0 +1,78 @@
+---
+title: Apache RocketMQ
+description: Configure Apache RocketMQ as a tapstate stream source or target
+sidebar:
+  order: 33
+ai:
+  kind: connector
+  id: rocketmq
+  category: streaming-messaging
+  maturity: preview
+  useAs: [source, target]
+  modes: [stream]
+  aliases: [apache rocketmq, rocketmq, rocketmq stream, rocketmq topic, rocketmq source, rocketmq target]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use Apache RocketMQ to read or write topic messages through the supported stream connector.
+
+<ConnectorProfile
+  category="Streaming & messaging"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Stream read, Stream write"
+  compatibility="RocketMQ 4.9.x+"
+/>
+
+## Before you begin
+
+### Source
+
+Create a least-privilege RocketMQ account with read access to the intended topics. Confirm the NameServer endpoint, port, and any TLS policy with the RocketMQ administrator.
+
+### Target
+
+Grant a dedicated writer permission only for the destination topics. Pre-create them with the queue and retention policy expected by downstream consumers.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/events_rocketmq.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: events_rocketmq
+connector: rocketmq
+config:
+  mqTopicString: orders.events
+  mqHost: nameserver.rocketmq.internal
+  mqPort: "9876"
+  mqUsername: ${ROCKETMQ_USER}
+  mqPassword: ${ROCKETMQ_PASSWORD}
+  useTLS: false
+mode: stream
+```
+
+For a target-only connection, omit `mode`. Set `useTLS: true` only when the endpoint and runtime are configured for it.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- Test message ordering, retries, consumer groups, and delivery guarantees before production. Schema changes are not applicable to this stream connector.
+- `useTLS` enables encrypted transport. Test certificate trust and hostname verification with the broker endpoint before production.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `mqTopicString` | No | — | Optional topic selection. |
+| `mqHost`, `mqPort` | Yes | — | RocketMQ NameServer host and port. |
+| `mqUsername`, `mqPassword` | No | — | Account credentials; use an environment variable for the password. |
+| `useTLS` | No | `false` | Boolean TLS setting. |

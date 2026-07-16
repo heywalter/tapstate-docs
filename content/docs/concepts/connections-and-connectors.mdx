@@ -1,0 +1,90 @@
+---
+title: Connections and connectors
+description: Understand how connector definitions become reusable source and target connections
+ai:
+  kind: concept
+  id: connections-and-connectors
+  aliases: [tapstate connections, connector definition, source connection, target connection]
+---
+
+import { LinkCard, CardGrid } from '@/components/mdx';
+
+A **connector** defines how tapstate understands a system. A **connection** supplies the endpoint, credentials, scope, and role for one use of that connector.
+
+```text
+Connector definition     Connection resource         Pipeline reference
+MySQL fields + modes  →  orders_mysql            →  source: orders_mysql
+MongoDB write support → customer_view            →  sync target
+```
+
+## Connector definition
+
+The connector definition answers questions that should stay consistent across environments:
+
+- Which connector ID identifies the integration?
+- Can it read, write, or do both?
+- Which read modes are declared?
+- Which configuration keys and value shapes are recognized?
+- Which preparation steps and limitations apply to the external system?
+
+The [connector directory](/docs/connectors) is the reader-facing index for those answers. A connector definition can validate known fields and modes; connectivity and permissions are checked when the connection is used.
+
+## Connection resource
+
+A connection applies the connector definition to one endpoint and set of credentials. Give each connection a stable ID that describes its job rather than its password, host, or environment.
+
+Typical source concerns include:
+
+- endpoint and database scope;
+- the account used for discovery and reads;
+- selected tables or table-name patterns;
+- Snapshot, CDC, Stream, or API read mode;
+- source-side log retention and recovery position.
+
+Typical target concerns include:
+
+- the destination namespace;
+- write and table-creation privileges;
+- append or key-based update behavior;
+- schema-change policy;
+- conflict and retry behavior.
+
+In these docs, **Source** and **Target** describe what the connection does in a data path. They are not literal database role names. Create database accounts that follow your organization's privilege model.
+
+## Source and target use
+
+A source connection includes a read mode because tapstate must know how to obtain records. A target-only connection supplies destination configuration to a pipeline and does not need a source read mode.
+
+Do not infer a target role from writable-looking fields or CDC support from a database family. Use the roles and modes listed on the connector page.
+
+## Scope connections narrowly
+
+Prefer separate connections when any of these differ:
+
+- environment or network boundary;
+- credential owner or rotation policy;
+- database, warehouse, or tenant;
+- source versus target privileges;
+- read mode or recovery policy.
+
+This keeps reviews understandable and limits the impact of a leaked or over-privileged credential.
+
+## Next steps
+
+<CardGrid>
+  <LinkCard
+    title="Choose a capture mode"
+    description="Decide between Snapshot, Snapshot + CDC, Stream, and API reads."
+    href="/docs/concepts/capture-modes"
+  />
+  <LinkCard
+    title="Browse connectors"
+    description="Find roles, modes, preparation steps, limitations, and exact field names."
+    href="/docs/connectors"
+  />
+  <LinkCard
+    title="Understand resources"
+    description="See how connections and pipelines fit into the declarative model."
+    href="/docs/concepts/dsl"
+  />
+</CardGrid>

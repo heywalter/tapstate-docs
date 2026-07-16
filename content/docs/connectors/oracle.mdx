@@ -1,0 +1,232 @@
+---
+title: Oracle
+description: Configure Oracle source and target prerequisites for snapshots and change data capture
+sidebar:
+  order: 4
+ai:
+  kind: connector
+  id: oracle
+  category: databases
+  maturity: ga
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [oracle snapshot, oracle cdc, oracle logminer, oracle source, oracle target]
+---
+
+import { ConnectorProfile } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use Oracle with tapstate for an initial full load, redo-log CDC, DDL capture, and destination writes.
+
+<ConnectorProfile
+  category="Databases"
+  maturity="GA"
+  maturityLabel="Generally available"
+  worksAs="Source, Target"
+  capabilities="Snapshot, CDC, DDL capture, Data write"
+  compatibility="Oracle 9i, 10g, 11g, 12c, 18c, 19c+ · Single instance and RAC"
+/>
+
+## Before you begin
+
+### Source
+
+Choose the outcome you need. Each tab is a complete preparation path; you do not need to combine steps from both tabs.
+
+<SourceModeTabs label="Choose the Oracle source read mode">
+<SourceModeTab value="snapshot" label="Full load (Snapshot)" description="Copy existing rows once">
+
+Use **Full load** (`Snapshot`) to copy the rows that exist now. It does not require ARCHIVELOG, supplemental logging, or LogMiner.
+
+**1. Create a dedicated reader**
+
+Create a dedicated account in the database or pluggable database that contains the source objects:
+
+```sql
+CREATE USER tapstate IDENTIFIED BY "replace-with-a-secret";
+GRANT CREATE SESSION TO tapstate;
+GRANT SELECT ON V_$DATABASE TO tapstate;
+```
+
+For a common user in a multitenant database, switch to `CDB$ROOT`, use the required common-user prefix such as `C##`, and specify the appropriate container scope. Confirm whether one tapstate connection represents a single PDB or a common account before granting `CONTAINER=ALL`.
+
+**2. Grant read access to the selected objects**
+
+Use narrowly scoped object grants where possible; `SELECT ANY TABLE` is broader:
+
+```sql
+GRANT SELECT ON app_schema.orders TO tapstate;
+GRANT SELECT ON app_schema.customers TO tapstate;
+```
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc" label="Full load + CDC" description="Copy existing rows, then follow redo changes">
+
+Use **Full load + CDC** to copy existing rows and then capture redo-log changes.
+
+**1. Create a reader with snapshot and mining access**
+
+Create the account in the database or PDB that contains the source objects, grant `SELECT` on the selected tables, and grant the data-dictionary and transaction access used by LogMiner:
+
+```sql
+CREATE USER tapstate IDENTIFIED BY "replace-with-a-secret";
+
+GRANT CREATE SESSION,
+      ALTER SESSION,
+      EXECUTE_CATALOG_ROLE,
+      SELECT ANY DICTIONARY,
+      SELECT ANY TRANSACTION,
+      SELECT ANY TABLE
+TO tapstate;
+
+GRANT SELECT ON V_$DATABASE TO tapstate;
+
+-- Oracle 12c and later
+GRANT LOGMINING TO tapstate;
+```
+
+Replace broad grants with equivalent object-level access when your security policy requires it, and test that the account can read the required `V$` views for the selected CDC implementation.
+
+For a multitenant database, switch to the correct container before creating the user and applying grants. Common users normally require the configured common-user prefix and an explicit container scope.
+
+**2. Enable ARCHIVELOG**
+
+Perform this change during an approved maintenance window. First check the current state:
+
+```sql
+SELECT LOG_MODE FROM V$DATABASE;
+```
+
+If it is not `ARCHIVELOG`, restart and enable it as a privileged administrator:
+
+```sql
+SHUTDOWN IMMEDIATE;
+STARTUP MOUNT;
+ALTER DATABASE ARCHIVELOG;
+ALTER DATABASE OPEN;
+```
+
+**3. Enable supplemental logging**
+
+Redo records must contain the keys needed to identify changed rows:
+
+```sql
+ALTER DATABASE ADD SUPPLEMENTAL LOG DATA (PRIMARY KEY) COLUMNS;
+
+-- Apply primary-key logging to one table when database-wide logging is not appropriate.
+-- ALTER TABLE app_schema.orders
+--   ADD SUPPLEMENTAL LOG DATA (PRIMARY KEY) COLUMNS;
+
+-- Use full logging for a table without a reliable key.
+ALTER TABLE app_schema.orders
+  ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+
+-- Use this only when every table in the database needs full-row logging.
+-- ALTER DATABASE ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+
+ALTER SYSTEM SWITCH LOGFILE;
+```
+
+For a PDB, run `ALTER SESSION SET CONTAINER=PDB_name;` before applying table-level logging. If required after a database restart, open the PDBs:
+
+```sql
+ALTER PLUGGABLE DATABASE ALL OPEN;
+```
+
+Size the archive destination for the longest expected outage and confirm that archived logs remain available until tapstate has consumed them.
+
+**4. Confirm the CDC method supplied by your deployment**
+
+The preparation above is for LogMiner. Some Oracle deployments use a direct raw-log capture path with a separately installed component, different permissions, and different source-node support. Do not prepare or select it unless your tapstate deployment documents that path.
+
+**5. Decide whether to capture DDL**
+
+DDL capture has additional dictionary and object requirements. If DDL collection is available in your Oracle connection, enable it only after staging add, rename, alter, and drop-column changes.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+**1. Create a dedicated target schema**
+
+```sql
+CREATE USER tapstate IDENTIFIED BY "replace-with-a-secret";
+GRANT CREATE SESSION, CREATE TABLE TO tapstate;
+ALTER USER tapstate QUOTA UNLIMITED ON target_tablespace;
+```
+
+Use a bounded tablespace quota instead of `UNLIMITED` when your capacity policy requires one.
+
+**2. Grant write access**
+
+If tapstate writes into another owner's schema, grant object-level `SELECT`, `INSERT`, `UPDATE`, and `DELETE` privileges on the destination tables. Add `CREATE ANY TABLE`, index privileges, or `ALTER` only when the pipeline is explicitly allowed to create or evolve objects.
+
+## Create a connection
+
+Use the Oracle connection workflow available in your tapstate environment. Enter the prepared endpoint, service name or SID, credentials, and source or target role using the fields provided there.
+
+## Validate the configuration
+
+Before production, use a staging schema to verify:
+
+1. table discovery and a small snapshot;
+2. an insert, update, and delete through CDC;
+3. a log switch while the task is running;
+4. restart from the saved redo position;
+5. representative `NUMBER`, timestamp, LOB, and empty-string values.
+
+These checks help confirm the database-side prerequisites without changing them:
+
+```sql
+SELECT LOG_MODE, SUPPLEMENTAL_LOG_DATA_MIN
+FROM V$DATABASE;
+
+SELECT DEST_NAME, STATUS, DESTINATION
+FROM V$ARCHIVE_DEST_STATUS
+WHERE STATUS <> 'INACTIVE';
+
+SELECT RESOURCE_NAME, LIMIT
+FROM DBA_PROFILES
+WHERE PROFILE = (SELECT PROFILE FROM DBA_USERS WHERE USERNAME = 'TAPSTATE')
+  AND RESOURCE_NAME = 'CONNECT_TIME';
+```
+
+## Limitations
+
+- LogMiner and direct raw-log capture have different type, architecture, and operational constraints. This guide documents the LogMiner preparation that can be applied without assuming a tapstate-only raw-log component.
+- With LogMiner, table and column identifiers longer than 30 characters can be affected by Oracle LogMiner limits in some versions and configurations.
+- `INTERVAL` and `XMLTYPE` are not supported by the LogMiner baseline. The direct raw-log baseline does not support `TIMESTAMP WITH LOCAL TIME ZONE`.
+- Oracle empty strings become `NULL`. A source `NOT NULL` string column can therefore fail when written to Oracle if the source contains empty strings.
+- DDL and a large burst of DML on the same table can make dictionary reconstruction unreliable. Stage schema changes separately from heavy write windows when possible.
+- RAC LogMiner capture can produce duplicate events during recovery. Downstream writes need stable keys and idempotent handling, especially for tables without primary keys.
+- Oracle 19c LogMiner scans online redo together with archived logs. In RAC, it must follow multiple redo threads; large redo logs and uneven archiving can increase incremental-read latency.
+- Large or long-running uncommitted transactions retain mining state. After a restart, recovery can resume from the earliest uncommitted SCN and replay already-seen events, so the destination must handle them idempotently.
+- Virtual columns require staging with representative changes. If their incremental values cannot be reproduced reliably, pre-create the target shape or exclude the virtual expression from the replicated contract.
+- Archive-log exhaustion stops recoverable CDC. Monitor the recovery area and long-running or uncommitted transactions.
+- A restrictive profile `CONNECT_TIME` can terminate the mining session and interrupt CDC. Use a service-account profile that matches the pipeline's expected lifetime.
+- Partition-table DML can be captured, but adding partitions is not part of the documented DDL baseline.
+- Configure Oracle Net encryption according to your environment and use the connection settings supplied by your tapstate deployment.
+
+## Reference
+
+### Compatibility
+
+| Signal | Supported baseline |
+|---|---|
+| Versions | Oracle 9i, 10g, 11g, 12c, 18c, 19c+ |
+| Architectures | Single instance and RAC. The LogMiner baseline reads primary nodes in Data Guard, Active Data Guard, and ASM deployments; standby-node capture requires the separately supplied raw-log contract. |
+| Source modes | Snapshot and CDC |
+| Target | Insert, update, and delete; object creation and DDL apply depend on granted privileges |
+| DDL | Add, rename, alter, and drop columns |
+
+### Data compatibility
+
+| Family | Supported baseline |
+|---|---|
+| Text | `VARCHAR2`, `CHAR`, `NVARCHAR2`, `NCHAR`, `CLOB`, `NCLOB` |
+| Numeric | `NUMBER`, `INTEGER`, `FLOAT`, `BINARY_FLOAT`, `BINARY_DOUBLE` |
+| Date and time | `DATE`, `TIMESTAMP`, `TIMESTAMP WITH TIME ZONE`, `TIMESTAMP WITH LOCAL TIME ZONE`, `INTERVAL` |
+| Other | `BLOB`, `XMLTYPE` |
+
+Oracle targets do not support `TIMESTAMP WITH LOCAL TIME ZONE` or `INTERVAL` in the documented connector baseline. Method-specific source exclusions are listed in [Limitations](#limitations).

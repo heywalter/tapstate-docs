@@ -1,0 +1,133 @@
+---
+title: PolarDB for MySQL
+description: Configure Alibaba Cloud PolarDB for MySQL as a tapstate snapshot or CDC source and data-writing target
+sidebar:
+  order: 64
+ai:
+  kind: connector
+  id: polar-db-mysql
+  category: databases
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [polardb mysql, polar db mysql, aliyun polardb mysql, polardb cdc]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use PolarDB for MySQL for one-time copies, Binlog-based change capture, and destination writes.
+
+<ConnectorProfile category="Databases" maturity="Preview" maturityLabel="Available for evaluation" worksAs="Source, Target" capabilities="Snapshot, CDC, DDL capture and apply, Data write" compatibility="All PolarDB for MySQL versions" />
+
+## Before you begin
+
+### Source
+
+<SourceModeTabs label="Choose the PolarDB for MySQL source read mode">
+<SourceModeTab value="snapshot">
+
+Use **Snapshot** to copy the rows that exist now. Allow the tapstate runtime network through the PolarDB cluster whitelist, then grant a reader access to the selected database:
+
+```sql
+CREATE USER 'tapstate_reader'@'%' IDENTIFIED BY 'replace-with-a-secret';
+GRANT SELECT, SHOW VIEW ON `orders`.* TO 'tapstate_reader'@'%';
+FLUSH PRIVILEGES;
+```
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc">
+
+Use **Snapshot + CDC** to copy existing rows and continue from MySQL Binlog changes.
+
+**1. Create a dedicated CDC reader**
+
+```sql
+CREATE USER 'tapstate_reader'@'%' IDENTIFIED BY 'replace_with_a_secret';
+```
+
+Restrict `%` to the tapstate runtime network origin whenever possible.
+
+**2. Grant snapshot and replication access**
+
+```sql
+GRANT SELECT, SHOW VIEW ON `orders`.* TO 'tapstate_reader'@'%';
+GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'tapstate_reader'@'%';
+FLUSH PRIVILEGES;
+```
+
+**3. Enable and retain Binary Logging**
+
+Enable [Binary Logging](https://www.alibabacloud.com/help/en/polardb/polardb-for-mysql/user-guide/enable-binary-logging) for the cluster and retain logs long enough to cover the longest planned interruption. A seven-day retention window is a useful starting point, but size it for the actual change rate and recovery objective.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+Use a dedicated writer for destination tables:
+
+```sql
+CREATE USER 'tapstate_writer'@'%' IDENTIFIED BY 'replace-with-a-secret';
+GRANT SELECT, INSERT, UPDATE, DELETE ON `analytics`.* TO 'tapstate_writer'@'%';
+GRANT CREATE, ALTER, DROP ON `analytics`.* TO 'tapstate_writer'@'%';
+FLUSH PRIVILEGES;
+```
+
+## Create a connection
+
+```yaml title="tapstate-work/source/orders_polardb.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: orders_polardb
+connector: polar-db-mysql
+config:
+  host: pc-abc.mysql.polardb.rds.aliyuncs.com
+  port: "3306"
+  database: orders
+  username: ${POLARDB_READER_USER}
+  password: ${POLARDB_READER_PASSWORD}
+  addtionalString: useUnicode=yes&characterEncoding=UTF-8
+  timezone: "+00:00"
+mode: cdc
+tables:
+  - orders
+```
+
+Use the primary cluster endpoint appropriate for the selected role. For a target, omit `mode` and `tables` and provide writer credentials.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+Stage a snapshot and a short CDC run before production. Verify cluster access from the runtime network and inspect Binlog retention after a controlled interruption.
+
+## Limitations
+
+- CDC needs Binary Logging and retained Binlog files; if the capture position expires, re-snapshot the affected tables.
+- Whitelist, endpoint, and account configuration are enforced by Alibaba Cloud and PolarDB at runtime.
+- Test target table evolution and conflict behavior with representative data before enabling production writes.
+
+## Reference
+
+### Supported operations
+
+| Direction | Data changes | Schema changes |
+|---|---|---|
+| Source CDC | `INSERT`, `UPDATE`, `DELETE` | Add, rename, change, and drop columns; changing a column to auto-increment is not supported |
+| Target | Insert, update, and delete by the selected write mode | Add, rename, change, and drop columns when the pipeline DDL policy allows it |
+
+### Connection settings
+
+| Field | Required | Default | Use |
+|---|---:|---|---|
+| `host` | Yes | — | PolarDB cluster endpoint. |
+| `port` | Yes | — | MySQL listener port. |
+| `database` | Yes | — | Database to connect to. |
+| `username`, `password` | Username yes | — | PolarDB account credentials. |
+| `addtionalString` | No | `useUnicode=yes&characterEncoding=UTF-8` | Additional JDBC parameters. Use this exact field spelling. |
+| `timezone` | No | Empty | UTC offset for temporal conversion. |

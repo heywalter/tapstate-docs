@@ -1,0 +1,100 @@
+---
+title: TDengine
+description: Configure TDengine as a tapstate snapshot or CDC source and data-writing target
+sidebar:
+  order: 16
+ai:
+  kind: connector
+  id: tdengine
+  category: databases
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [tdengine, tdengine snapshot, tdengine cdc, tdengine source, tdengine target]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use TDengine to copy existing time-series data, follow later records with CDC, or write pipeline data to a target.
+
+<ConnectorProfile
+  category="Databases"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Snapshot, CDC, Data write, Target DDL apply"
+  compatibility="TDengine 3.x"
+/>
+
+## Before you begin
+
+### Source
+
+<SourceModeTabs>
+<SourceModeTab value="snapshot">
+
+Use **Snapshot** to copy current data once. Allow the tapstate environment to reach TDengine's REST endpoint on port `6041`, then create a read account for the selected database.
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc">
+
+Use **Snapshot + CDC** when you also need later records. Allow access to TDengine's native subscription port `6030`, keep the required TDengine client driver available, and verify a subscription with representative data before production.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+Create a dedicated writer for the destination database. Decide whether the pipeline may create normal, super, or child tables before granting schema-management privileges.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/telemetry_tdengine.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: telemetry_tdengine
+connector: tdengine
+config:
+  host: tdengine.internal
+  port: "6041"
+  database: telemetry
+  user: ${TDENGINE_USER}
+  password: ${TDENGINE_PASSWORD}
+  loadTableOptions: [NORMAL_TABLE, SUPER_TABLE, CHILD_TABLE]
+  originPort: "6030"
+mode: cdc
+tables:
+  - readings
+```
+
+Use `mode: snapshot` for a one-time copy. For a target connection, omit `mode` and `tables`, then use destination credentials.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- Source DDL capture is not included. A target can add, rename, alter, and drop columns when the pipeline DDL policy allows it.
+- This guide covers TDengine 3.x, REST access on port `6041`, and native subscriptions on port `6030`; verify the installed TDengine client version in staging.
+- TDengine cannot change the width of some column types. Test table and type behavior with representative data before production writes.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `host` | Yes | — | TDengine host. |
+| `port` | Yes | `6041` | REST endpoint port. |
+| `database` | Yes | — | Database name. |
+| `user` | Yes | — | Database account. |
+| `password` | No | — | Account password; supply through an environment variable. |
+| `loadTableOptions` | No | normal, super, and child tables | Table families to load. |
+| `supportWebSocket` | No | `false` | Enable the connector's WebSocket path; test connectivity before production. |
+| `originPort` | No | `6030` | Native subscription port. |
+| `extParams` | No | — | Connector-specific parameters. |
+| `timezone` | No | empty | UTC offset used by the connector. |

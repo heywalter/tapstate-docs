@@ -1,0 +1,73 @@
+---
+title: Metabase
+description: Configure Metabase as a tapstate API source
+sidebar:
+  order: 47
+ai:
+  kind: connector
+  id: metabase
+  category: saas-business-commerce-apis
+  maturity: preview
+  useAs: [source]
+  modes: [api]
+  aliases: [metabase, metabase api, metabase source, metabase analytics]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use Metabase as a supported API source for analytics content.
+
+<ConnectorProfile
+  category="SaaS, business & commerce APIs"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source"
+  capabilities="API read"
+  compatibility="Self-hosted or cloud-registered Metabase"
+/>
+
+## Before you begin
+
+### Source
+
+1. Confirm the Metabase instance is reachable from the tapstate environment, whether it is self-hosted or cloud-registered.
+2. Create a least-privilege Metabase account for the intended analytics content.
+3. Record the full HTTP or HTTPS base URL, including a non-default port when applicable.
+
+Grant the account access only to the Metabase collections and content the pipeline needs.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/finance_metabase.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: finance_metabase
+connector: metabase
+config:
+  username: ${METABASE_USERNAME}
+  password: ${METABASE_PASSWORD}
+  matebaseDomainName: https://metabase.internal.example
+mode: api
+```
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This connector reads Metabase content only; it does not write records or apply schema changes.
+- Use an HTTPS base URL when Metabase requires encrypted transport.
+- Metabase permissions and API limits are evaluated by the service at runtime.
+
+## Reference
+
+| Field | Required | Use |
+|---|---|---|
+| `username` | Yes | Metabase login account. |
+| `password` | Yes | Login password; inject through an environment variable. |
+| `matebaseDomainName` | Yes | Full Metabase HTTP or HTTPS base URL. Use this exact field spelling. |

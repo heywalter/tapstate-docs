@@ -1,0 +1,10 @@
+{
+  "title": "Get started",
+  "pages": [
+    "what-is-tapstate",
+    "quickstart",
+    "use-cases",
+    "architecture",
+    "vs-streaming-stack"
+  ]
+}

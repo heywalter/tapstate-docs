@@ -1,0 +1,86 @@
+---
+title: Apache Hudi
+description: Configure Apache Hudi as a tapstate data-writing target
+sidebar:
+  order: 26
+ai:
+  kind: connector
+  id: hudi
+  category: warehouses-analytics
+  maturity: preview
+  useAs: [target]
+  modes: []
+  aliases: [apache hudi, hudi, hudi target, hudi hive, hudi kerberos]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use Apache Hudi as a destination backed by the configured Hadoop and Hive environment.
+
+<ConnectorProfile
+  category="Warehouses & analytics"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Target"
+  capabilities="Data write"
+  compatibility="Apache Hudi 0.11.0"
+/>
+
+## Before you begin
+
+### Target
+
+Install a Hadoop client compatible with the cluster on the machine that runs tapstate, then check its version:
+
+```bash
+hadoop -version
+```
+
+Obtain the cluster address, destination database, Hadoop and Hive site configuration, and a least-privilege account. If Kerberos is enabled, obtain the keytab, Kerberos configuration, and Hive principal from the platform administrator. The principal is environment-specific; do not copy an example principal from another cluster.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/lake_hudi.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: lake_hudi
+connector: hudi
+config:
+  nameSrvAddr: hive-metastore.internal:9083
+  database: analytics
+  user: ${HUDI_USER}
+  password: ${HUDI_PASSWORD}
+  krb5: false
+  hadoopCoreSiteXML: ${HADOOP_CORE_SITE_XML}
+  hdfsSiteXML: ${HDFS_SITE_XML}
+  hiveSiteXML: ${HIVE_SITE_XML}
+  ssl: true
+  extParams: "sasl.qop=auth-conf;auth=KERBEROS"
+```
+
+When `krb5: true`, also provide `krb5Keytab`, `krb5Conf`, and `principal`.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This connector is documented for target writes only. Source reads, CDC, schema changes, and automatic table-layout behavior are not included.
+- Site XML and Kerberos material are sensitive deployment inputs; do not commit them to a workspace.
+- The documented connector baseline is Hudi 0.11.0. Verify metastore integration and exact table behavior in staging.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `nameSrvAddr`, `database` | Yes | — | Cluster/metastore address and destination database. |
+| `user`, `password` | No | — | Account and secret. |
+| `krb5` | No | `false` | Enable Kerberos-related fields. |
+| `krb5Keytab`, `krb5Conf`, `principal` | With Kerberos | — | Keytab, Kerberos config, and Hive principal. |
+| `hadoopCoreSiteXML`, `hdfsSiteXML`, `hiveSiteXML` | Yes | — | Hadoop/HDFS/Hive configuration material. |
+| `ssl`, `extParams`, `timezone` | No | `true`, empty timezone | Optional connector settings. |

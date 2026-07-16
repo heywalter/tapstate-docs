@@ -1,0 +1,42 @@
+---
+title: Tapstate vs. a streaming stack
+description: Compare a unified operational-data path with independently operated capture, broker, processing, and serving systems
+ai:
+  kind: concept
+  id: tapstate-vs-streaming-stack
+  aliases: [tapstate vs kafka, tapstate vs flink, cdc streaming stack, operational data architecture]
+---
+
+Debezium, Kafka, Flink, and purpose-built serving stores form a proven, composable architecture. Tapstate is designed around a different tradeoff: one governed model for capture, transformation, and current operational state.
+
+## Compare the operating models
+
+| Decision | Composable streaming stack | tapstate product model |
+|---|---|---|
+| Product boundary | Separate capture, broker, processing, and serving systems | One Capture–Transform–Serve data path |
+| Component choice | Select and replace each layer independently | Use an integrated resource and connector contract |
+| Operations | Tune, upgrade, observe, and recover each layer | Reduce handoffs and duplicated configuration |
+| Processing depth | Broad event-time, windowing, and stateful-compute ecosystem | Focus on operational integration, reshaping, joins, and current state |
+| Authoring | Connector configuration, topics, jobs, and sink definitions | Reviewable tapstate resources |
+
+## Choose a composable stack when
+
+- complex event-time windows or advanced stateful processing are central;
+- Kafka is already the organizational backbone;
+- independent scaling and replacement of each layer is a requirement;
+- the team already operates the stack reliably;
+- mature production evidence matters more than a unified control model.
+
+## Evaluate tapstate when
+
+- the dominant problem is keeping operational state current across systems;
+- duplicated connector, schema, and pipeline configuration slows delivery;
+- a reviewable resource contract and deterministic validation are valuable;
+- teams want one ownership boundary for a common data path;
+- agent-assisted authoring is useful, but deterministic controls must remain authoritative.
+
+## Use both when boundaries are clear
+
+The approaches are not mutually exclusive. A governed operational path can publish selected streams to Kafka, while a broader streaming platform handles specialized event processing and organization-wide distribution.
+
+Compare cost, latency, correctness, recovery, and source impact only with the same workload and availability target. Architectural diagrams and configuration simplicity are not substitutes for measured production evidence.

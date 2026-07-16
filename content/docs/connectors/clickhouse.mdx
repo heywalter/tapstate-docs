@@ -1,0 +1,140 @@
+---
+title: ClickHouse
+description: Configure ClickHouse as a tapstate snapshot source or data-writing target
+sidebar:
+  order: 21
+ai:
+  kind: connector
+  id: clickhouse
+  category: warehouses-analytics
+  maturity: ga
+  useAs: [source, target]
+  modes: [snapshot]
+  aliases: [clickhouse, clickhouse snapshot, clickhouse source, clickhouse target]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use ClickHouse for point-in-time reads or as an analytical destination.
+
+<ConnectorProfile
+  category="Warehouses & analytics"
+  maturity="GA"
+  maturityLabel="Generally available"
+  worksAs="Source, Target"
+  capabilities="Snapshot, Schema discovery, Data write, Target DDL apply"
+  compatibility="ClickHouse 20.x–24.x"
+/>
+
+## Before you begin
+
+### Source
+
+Create a least-privilege reader for the selected database:
+
+```sql
+CREATE USER tapstate_reader IDENTIFIED WITH sha256_password BY 'replace_with_a_secret';
+GRANT SELECT ON analytics.* TO tapstate_reader;
+```
+
+### Target
+
+Create a writer. Add table-creation and alteration permissions only when pipelines are allowed to manage destination tables.
+
+```sql
+CREATE USER tapstate_writer IDENTIFIED WITH sha256_password BY 'replace_with_a_secret';
+GRANT SELECT, INSERT, CREATE TABLE, ALTER TABLE,
+      ALTER UPDATE, DROP TABLE, TRUNCATE
+ON analytics.* TO tapstate_writer;
+```
+
+Remove creation, alteration, drop, and truncate privileges when the pipeline writes only to existing tables.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/analytics_clickhouse.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: analytics_clickhouse
+connector: clickhouse
+config:
+  host: clickhouse.internal
+  port: "8123"
+  database: analytics
+  user: ${CLICKHOUSE_USER}
+  password: ${CLICKHOUSE_PASSWORD}
+mode: snapshot
+tables:
+  - events
+```
+
+For a target-only connection, omit `mode` and `tables`.
+
+```yaml title="tapstate-work/source/analytics_clickhouse_target.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: analytics_clickhouse_target
+connector: clickhouse
+config:
+  host: analytics-clickhouse.internal
+  port: "8123"
+  database: analytics
+  user: ${CLICKHOUSE_WRITER_USER}
+  password: ${CLICKHOUSE_WRITER_PASSWORD}
+```
+
+```yaml title="tapstate-work/pipeline/events_to_clickhouse.tapstate.yml"
+version: tapstate/v1
+kind: pipeline
+id: events_to_clickhouse
+source: analytics_clickhouse
+serve:
+  from: /.*/
+  sync:
+    - id: write_to_clickhouse
+      source: analytics_clickhouse_target
+      write_mode: upsert
+      ddl: fail
+```
+
+Pre-create ClickHouse tables when their engine, sort key, partitioning, or retention must be controlled. Keep `ddl: fail` until table creation and evolution have been tested against the chosen engine.
+
+A ClickHouse target can add, rename, alter, and drop columns. Use `ddl: apply` only after those operations have passed staging against the exact ClickHouse version and table engine.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This guide covers point-in-time reads. Treat CDC and source DDL delivery as staging-test cases rather than assuming either behavior.
+- ClickHouse HTTP is commonly served on port `8123`; confirm the endpoint and any encryption settings with your deployment rather than assuming a TLS field.
+- When tapstate creates a target table, it uses `ReplacingMergeTree` with the primary key as the sort key when one is available; otherwise it uses `MergeTree` without a sort key. Pre-create tables when that layout does not fit the query or retention design.
+- Binary source values are Base64-encoded into ClickHouse strings because the supported ClickHouse type set has no binary type.
+- Updates and deletes on MergeTree-family tables are operationally different from row-store DML. Test table engines, sort keys, mutation behavior, and deduplication with representative data before production writes.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `host` | Yes | — | ClickHouse host. |
+| `port` | Yes | `8123` | HTTP endpoint port. |
+| `database` | Yes | — | Database name. |
+| `user` | Yes | — | Database user. |
+| `password` | No | — | Password; inject through an environment variable. |
+| `extParams` | No | — | Connector-specific connection parameters. |
+| `timezone` | No | empty | UTC offset used by the connector. |
+
+### Data compatibility
+
+| Family | Supported baseline |
+|---|---|
+| Text | `FixedString`, `String`, `UUID` |
+| Integer | `Int8`, `UInt8`, `Int16`, `UInt16`, `Int32`, `UInt32`, `UInt64`, `Int128`, `UInt128`, `Int256`, `UInt256` |
+| Numeric | `Float32`, `Float64`, `Decimal` |
+| Date and time | `Date`, `Date32`, `DateTime`, `DateTime64` |
+| Other | `Enum8`, `Enum16`, `Tuple` |

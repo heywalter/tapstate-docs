@@ -1,0 +1,30 @@
+---
+title: Supported connectors
+description: Find the tapstate connector that can read from or write to your system
+sidebar:
+  order: 1
+ai:
+  kind: guide
+  id: supported-connectors
+  maturity: ga
+  aliases: [connector directory, supported connectors, connector matrix, connector compatibility, supported databases, supported data sources]
+---
+
+import { SupportedConnectorMatrix } from '@/components/mdx';
+
+Choose the system you want tapstate to read from or write to. Select a connector name to open its setup guide, including prerequisites, connection fields, supported read modes, and limitations.
+
+<SupportedConnectorMatrix />
+
+## Maturity labels
+
+- **GA** means the connector has a stable, generally available contract intended for production use.
+- **Preview** means the connector is ready to evaluate, but its configuration or behavior may still change before GA. Test representative production workloads before adopting it broadly.
+
+Tapstate uses **GA** and **Preview** for published connectors.
+
+## How to read roles and modes
+
+- **Source** reads from the listed system. The read mode tells you whether that happens as a one-time Snapshot, Snapshot + CDC, stream, or API read.
+- **Target** means the connector can write data. Check its guide before relying on table creation, schema evolution, or a particular write behavior.
+- A dash under **Read mode** means the connector is target-only.

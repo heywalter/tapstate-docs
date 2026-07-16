@@ -1,0 +1,156 @@
+---
+title: OceanBase
+description: Configure MySQL-compatible OceanBase as a tapstate snapshot or CDC source and data-writing target
+sidebar:
+  order: 10
+ai:
+  kind: connector
+  id: oceanbase
+  category: databases
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [oceanbase, oceanbase mysql mode, oceanbase snapshot, oceanbase cdc, oceanbase source, oceanbase target]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use OceanBase for MySQL-compatible deployments. Copy current rows once, or continue with CDC after preparing the required log service. Oracle-compatible deployments need a separate connector and are not covered by this guide.
+
+<ConnectorProfile
+  category="Databases"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Snapshot, CDC, DDL capture, Data write, Target DDL apply"
+  compatibility="OceanBase 4.0+ · MySQL-compatible · single node or cluster"
+/>
+
+## Before you begin
+
+### Source
+
+<SourceModeTabs>
+<SourceModeTab value="snapshot">
+
+Use **Snapshot** when you need the rows that exist now. Add the runtime network to the OceanBase [tenant allowlist](https://en.oceanbase.com/docs/common-oceanbase-database-10000000001971592), confirm access to the selected tenant, then create a least-privilege reader:
+
+```sql
+CREATE USER 'tapstate_reader' IDENTIFIED BY 'replace_with_a_secret';
+GRANT SELECT ON `orders`.* TO 'tapstate_reader';
+```
+
+A one-time copy does not require the OceanBase log service.
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc">
+
+Use **Snapshot + CDC** when the target must start with existing rows and then receive later data and supported schema changes. In addition to the reader access, deploy the [OceanBase Binlog Service](https://en.oceanbase.com/docs/community-obd-en-10000000002136447). It uses OBProxy for client access and `obbinlog` for incremental log conversion.
+
+**1. Create a dedicated reader**
+
+```sql
+CREATE USER 'tapstate_reader' IDENTIFIED BY 'replace_with_a_secret';
+GRANT SELECT ON `orders`.* TO 'tapstate_reader';
+```
+
+**2. Prepare the Binlog Service path**
+
+Record the Root Server list, raw-log server host and port, plus CDC credentials required by your deployment. Configure them as `rootServerList`, `rawLogServerHost`, `rawLogServerPort`, `cdcUser`, and `cdcPassword`. The [Binlog Service overview](https://en.oceanbase.com/docs/common-ocp-10000000002168919) explains the roles of OBProxy and `obbinlog`.
+
+**3. Decide whether to use native CDC**
+
+`useNativeCdc` defaults to `false`. Enable it only after validating native CDC with the intended OceanBase topology.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+Add the runtime network to the tenant allowlist, then create a dedicated writer for the destination database. Grant schema-management privileges only when a pipeline is explicitly allowed to create or alter destination tables.
+
+```sql
+CREATE USER 'tapstate_writer' IDENTIFIED BY 'replace_with_a_secret';
+GRANT ALL ON `analytics`.* TO 'tapstate_writer';
+```
+
+Scope that grant more narrowly where the tenant's authorization model allows it.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/orders_oceanbase.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: orders_oceanbase
+connector: oceanbase
+config:
+  host: obproxy.internal
+  port: "2881"
+  tenant: sales
+  database: orders
+  user: ${OCEANBASE_READER_USER}
+  password: ${OCEANBASE_READER_PASSWORD}
+  rootServerList: ob-root-1.internal:2882,ob-root-2.internal:2882
+  rawLogServerHost: oblog.internal
+  rawLogServerPort: "50051"
+  cdcUser: root@sys
+  cdcPassword: ${OCEANBASE_CDC_PASSWORD}
+  useNativeCdc: false
+  timezone: "+00:00"
+mode: cdc
+tables:
+  - orders
+```
+
+Use `mode: snapshot` for a one-time copy. For a target connection, omit `mode` and `tables`, and use the writer credentials. CDC-specific values are optional; set them only for the deployed service topology that needs them.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This page covers MySQL-compatible OceanBase only. Oracle-compatible OceanBase needs its own guide.
+- Source CDC parses add column, rename column, change column attributes, and drop column events. Other DDL remains outside the documented scope.
+- The target connector applies the same four column-level operations when the pipeline DDL policy permits them.
+- Test tenant access, Binlog Service recovery, and representative data types before production use.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `host` | Yes | — | OceanBase endpoint, commonly an OBProxy host. |
+| `port` | Yes | `2881` | OceanBase service port; provide it as a string. |
+| `tenant` | No | — | OceanBase logical tenant. |
+| `database` | Yes | — | Database name. |
+| `user`, `password` | `user` yes | — | Tenant account and optional password; inject the password through an environment variable. |
+| `extParams` | No | — | Connector-specific connection parameters. |
+| `rootServerList` | No | — | OceanBase Root Server list for a CDC deployment. |
+| `rawLogServerHost`, `rawLogServerPort` | No | `50051` port | Raw log service endpoint. |
+| `cdcUser`, `cdcPassword` | No | `root@sys` user | CDC service credentials. |
+| `useNativeCdc` | No | `false` | Select the native CDC reader when it is available in your tapstate environment. |
+| `timezone` | No | empty | UTC offset used by the connector. |
+
+### Supported operations
+
+| Direction | Data changes | Schema changes |
+|---|---|---|
+| Source CDC | `INSERT`, `UPDATE`, `DELETE` | Add, rename, change, and drop columns |
+| Target | Insert, update, and delete by the selected write mode | Add, rename, change, and drop columns when the pipeline DDL policy allows it |
+
+### Data compatibility
+
+| Family | Supported baseline |
+|---|---|
+| Text and binary strings | `CHAR`, `VARCHAR`, `TINYTEXT`, `TEXT`, `MEDIUMTEXT`, `LONGTEXT`, `BINARY`, `VARBINARY` |
+| Integer | `TINYINT`, `SMALLINT`, `MEDIUMINT`, `INT`, `BIGINT` |
+| Numeric | `DECIMAL`, `FLOAT`, `DOUBLE` |
+| Date and time | `DATE`, `TIME`, `DATETIME`, `TIMESTAMP`, `YEAR` |
+| Enumerated and structured | `ENUM`, `SET`, `JSON`, `BIT` |
+| Binary large object | `TINYBLOB`, `BLOB`, `MEDIUMBLOB`, `LONGBLOB` |
+| Spatial | `POINT`, `LINESTRING`, `POLYGON`, `GEOMETRY`, `MULTIPOINT`, `MULTILINESTRING`, `MULTIPOLYGON`, `GEOMCOLLECTION` |

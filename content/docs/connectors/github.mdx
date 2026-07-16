@@ -1,0 +1,66 @@
+---
+title: GitHub
+description: Configure GitHub as a tapstate API source
+sidebar:
+  order: 42
+ai:
+  kind: connector
+  id: GitHub
+  category: saas-business-commerce-apis
+  maturity: preview
+  useAs: [source]
+  modes: [api]
+  aliases: [github, github api, github source, github issues, github pull requests]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use GitHub as a supported API source for repository data.
+
+<ConnectorProfile
+  category="SaaS, business & commerce APIs"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source"
+  capabilities="API read"
+  compatibility="GitHub API"
+/>
+
+## Before you begin
+
+### Source
+
+Decide which organization and repositories the integration may read, then arrange the required GitHub authorization with an administrator. Keep the resulting credential out of source control and grant only the scopes needed for the objects you intend to ingest. For the browser authorization sequence, see GitHub's [OAuth app authorization documentation](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps).
+
+## Create a connection
+
+```yaml title="tapstate-work/source/engineering_github.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: engineering_github
+connector: GitHub
+config:
+  code: ${GITHUB_AUTHORIZATION_CODE}
+mode: api
+```
+
+Provide the authorization code returned by the approved GitHub OAuth flow. Confirm its scopes and expiry behavior with a non-production repository before enabling the connection for production data.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This connector reads repository data only; it does not write records or apply schema changes.
+- GitHub API rate limits and OAuth scope restrictions apply to every read.
+
+## Reference
+
+| Field | Required | Use |
+|---|---|---|
+| `code` | Yes | Documented authorization value. Store it in a secret-aware environment variable. |

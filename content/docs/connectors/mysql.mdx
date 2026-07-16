@@ -1,0 +1,340 @@
+---
+title: MySQL
+description: Configure MySQL as a tapstate source or target connection
+sidebar:
+  order: 2
+ai:
+  kind: connector
+  id: mysql
+  category: databases
+  maturity: ga
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [mysql snapshot, mysql full load, mysql cdc, mysql binlog, mysql source, mysql target]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Connect MySQL to tapstate for an initial full load, ongoing change data capture (CDC), or writes to a MySQL target.
+
+<ConnectorProfile
+  category="Databases"
+  maturity="GA"
+  maturityLabel="Generally available"
+  worksAs="Source, Target"
+  capabilities="Snapshot, CDC, DDL capture, Data write, Target DDL apply"
+  compatibility="MySQL 5.0–9.x · Single node and primary-replica"
+/>
+
+## Before you begin
+
+### Source
+
+Choose the outcome you need. Each tab is a complete preparation path; you do not need to combine steps from both tabs. In tapstate, a connection's `mode` describes what it can read: `snapshot` is a bounded full load and `cdc` is a change-capable source.
+
+Ensure the tapstate runtime can reach the MySQL host and port. Prefer a private network path; when using a routed or internet path, allow only the runtime origin and protect the connection appropriately.
+
+<SourceModeTabs>
+<SourceModeTab value="snapshot" label="Full load (Snapshot)" description="Copy existing rows once">
+
+Use **Full load** (`Snapshot`) when you need one copy of the rows that exist now. Tapstate reads the selected tables and stops after the copy completes.
+
+**1. Create a dedicated reader**
+
+Restrict `%` to the tapstate runtime network origin whenever possible.
+
+```sql
+CREATE USER 'tapstate_reader'@'%' IDENTIFIED BY 'your_password';
+```
+
+**2. Grant read access**
+
+```sql
+GRANT SELECT ON `your_database`.* TO 'tapstate_reader'@'%';
+FLUSH PRIVILEGES;
+```
+
+Snapshot does not require MySQL Binlog or replication privileges.
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc" label="Full load + CDC" description="Copy existing rows, then stay in sync">
+
+Use **Full load + CDC** when the target must start with existing rows and then stay current as MySQL receives inserts, updates, and deletes. Create the connection with `mode: cdc` after completing the preparation below.
+
+**1. Create a dedicated CDC reader**
+
+Restrict `%` to the tapstate runtime network origin whenever possible.
+
+```sql
+CREATE USER 'tapstate_reader'@'%' IDENTIFIED BY 'your_password';
+```
+
+**2. Grant read and replication access**
+
+```sql
+GRANT SELECT ON `your_database`.* TO 'tapstate_reader'@'%';
+GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'tapstate_reader'@'%';
+FLUSH PRIVILEGES;
+```
+
+**3. Enable Binlog for CDC**
+
+CDC reads row events from the MySQL binary log. Configure a non-zero unique `server_id`, row-based logging, full row images, and enough retention to cover the longest planned interruption.
+
+```ini
+[mysqld]
+server_id         = 223344
+log_bin           = mysql-bin
+binlog_format     = ROW
+binlog_row_image  = FULL
+
+# MySQL 8.0.1 and later: use this retention setting.
+binlog_expire_logs_seconds = 604800
+
+# Earlier versions: use this setting instead of binlog_expire_logs_seconds.
+# expire_logs_days = 7
+```
+
+Retain Binlog files for at least seven days and longer than the largest realistic interruption or maintenance window. If `binlog-do-db` or `binlog-ignore-db` is configured, make sure the selected database is included. Restart MySQL during an approved maintenance window after changing server settings.
+
+**4. Verify the active Binlog settings**
+
+```sql
+SHOW VARIABLES WHERE Variable_name IN (
+  'log_bin',
+  'binlog_format',
+  'binlog_row_image'
+);
+```
+
+Confirm `log_bin = ON`, `binlog_format = ROW`, and `binlog_row_image = FULL`. Also inspect the retention setting that applies to your server: `binlog_expire_logs_seconds` on MySQL 8.0.1 and later, or `expire_logs_days` on earlier versions.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+Create a separate least-privilege writer. The target needs DML privileges for replicated row changes. Add schema privileges only when the pipeline is explicitly approved to create or evolve destination tables.
+
+```sql
+CREATE USER 'tapstate_writer'@'%' IDENTIFIED BY 'your_password';
+
+-- Replicate inserts, updates, and deletes.
+GRANT SELECT, INSERT, UPDATE, DELETE
+  ON `analytics`.* TO 'tapstate_writer'@'%';
+
+-- Add only when an approved pipeline may create or evolve target tables.
+GRANT CREATE, ALTER, DROP, CREATE ROUTINE, CREATE TEMPORARY TABLES
+  ON `analytics`.* TO 'tapstate_writer'@'%';
+
+FLUSH PRIVILEGES;
+```
+
+Do not grant `CREATE ROUTINE` or `CREATE TEMPORARY TABLES` unless the approved deployment or workload requires them. Write behavior and DDL handling belong to the pipeline, not to the connection; configure and stage-test them in [Create a pipeline](#create-a-pipeline).
+
+## Create a connection
+
+Tapstate stores each MySQL connection as a `.tapstate.yml` file in the workspace. Create a source connection when tapstate reads MySQL; create a target connection when a pipeline writes to MySQL.
+
+### Source connection
+
+The example below creates a CDC-capable source connection. The connection's `mode` controls its read capability.
+
+```bash
+tapstate new --non-interactive \
+  --kind source \
+  --connector mysql \
+  --id orders_source \
+  --mode cdc \
+  --set host=db.internal \
+  --set port=3306 \
+  --set database=orders \
+  --set username='${MYSQL_USER}' \
+  --set password='${MYSQL_PASSWORD}' \
+  --workdir tapstate-work
+```
+
+For a full-load-only source, change `--mode cdc` to `--mode snapshot`. The generated connection uses the same MySQL fields; only the read mode differs.
+
+Edit `tapstate-work/source/orders_source.tapstate.yml` to select tables and the reading behavior:
+
+```yaml title="tapstate-work/source/orders_source.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: orders_source
+connector: mysql
+config:
+  deploymentMode: standalone
+  host: db.internal
+  port: "3306"
+  database: orders
+  username: ${MYSQL_USER}
+  password: ${MYSQL_PASSWORD}
+  addtionalString: "useUnicode=yes&characterEncoding=UTF-8"
+  timezone: "+00:00"
+mode: cdc
+tables:
+  - orders
+  - /customers_.*/
+```
+
+For a one-time full load, use `mode: snapshot`. For a CDC-capable source, use `mode: cdc` after completing the Binlog preparation. Before production, validate the intended full-load and CDC behavior in a staging pipeline.
+
+### Create a pipeline
+
+Create a pipeline after both connections exist:
+
+```bash
+tapstate new --non-interactive \
+  --kind pipeline \
+  --id orders_to_analytics \
+  --source orders_source \
+  --sync-to analytics_mysql \
+  --workdir tapstate-work
+```
+
+The generated pipeline connects the source to the target. The following is the supported sync shape, with the conservative DDL default made explicit:
+
+```yaml title="tapstate-work/pipeline/orders_to_analytics.tapstate.yml"
+version: tapstate/v1
+kind: pipeline
+id: orders_to_analytics
+source: orders_source
+serve:
+  from: /.*/
+  sync:
+    - id: write_to_analytics
+      source: analytics_mysql
+      write_mode: upsert
+      ddl: fail
+```
+
+`upsert` is the default write mode: it writes new rows and updates existing rows by primary key; deletes remove the matching target row. `append` always inserts and does not apply updates or deletes. The `ddl` policy defaults to `fail`; choose `apply` or `ignore` only after staging has shown that the source delivers the needed schema-change events and that the target schema behavior is acceptable.
+
+Use a literal item such as `orders` for a fixed table. Use a `/regex/` item to discover matching tables; keep patterns narrow so a newly created table is not included accidentally.
+
+#### Use a primary-replica topology
+
+Set `deploymentMode: master-slave`, then list the primary first. Use this path instead of standalone `host` and `port`.
+
+```yaml
+config:
+  deploymentMode: master-slave
+  masterSlaveAddress:
+    - host: mysql-primary.internal
+      port: "3306"
+    - host: mysql-replica-1.internal
+      port: "3306"
+  database: orders
+  username: ${MYSQL_USER}
+  password: ${MYSQL_PASSWORD}
+```
+
+For CDC from a replica, make sure it writes replicated events to its own binlog (`log_slave_updates = 1`). Check `SHOW REPLICA STATUS` (or `SHOW SLAVE STATUS` on older MySQL) and resolve replication lag before using it as a source.
+
+### Target connection
+
+A MySQL target is represented by the same `kind: source` connection resource, but it has no reader `mode` or `tables`. This lets a pipeline refer to it as an output connection.
+
+```bash
+tapstate new --non-interactive \
+  --kind source \
+  --connector mysql \
+  --id analytics_mysql \
+  --set host=warehouse.internal \
+  --set port=3306 \
+  --set database=analytics \
+  --set username='${MYSQL_WRITER}' \
+  --set password='${MYSQL_WRITER_PASSWORD}' \
+  --workdir tapstate-work
+```
+
+The command creates `tapstate-work/source/analytics_mysql.tapstate.yml`:
+
+```yaml title="tapstate-work/source/analytics_mysql.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: analytics_mysql
+connector: mysql
+config:
+  host: warehouse.internal
+  port: "3306"
+  database: analytics
+  username: ${MYSQL_WRITER}
+  password: ${MYSQL_WRITER_PASSWORD}
+```
+
+This target connection deliberately omits `mode` and `tables`: in the tapstate resource model it supplies the destination connector and configuration for a pipeline sync. Before using `upsert`, confirm that the target tables have the keys and column types needed to identify an existing row. If existing target tables must be preserved, verify column order and types against the source in a staging run.
+
+## Validate the configuration
+
+Run validation after creating or editing the connection files:
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+The validation result shown above illustrates the CLI resource contract. Filenames, locations, resource counts, and error codes vary with the workspace.
+
+## Limitations
+
+### Source limitations
+
+- Only tables and indexes are in scope. Temporary tables, hidden columns, triggers, views, and stored procedures are not replicated.
+- CDC parses the MySQL binlog and can increase source CPU and disk I/O under a high change rate. Monitor both resources during peak workloads.
+- Keep Binlog files for at least seven days, and longer than the longest realistic outage or maintenance window. A CDC job cannot start or resume from a position that has expired or been deleted.
+- Set `binlog_format = ROW` and `binlog_row_image = FULL`. Ensure `binlog-do-db` includes the selected database and `binlog-ignore-db` does not exclude it.
+- Primary-replica addressing requires a planned failover test. Before a switchover, verify replication consistency, `log_slave_updates = 1` on the replica used for CDC, and acceptable replica lag.
+- In MySQL 5.6 and earlier, normalize negative `TIME` values before CDC testing.
+- MySQL-compatible databases can add non-native schemas or functions that the MySQL parser does not understand. Test those variants before production use.
+
+### Target limitations
+
+- If a target table already exists, keep its column order and data types compatible with the source or writes can fail.
+- Indexes are applied during initial table creation. Later source index changes are not automatically propagated.
+- Initial creation supports standard, unique, primary-key, and composite indexes. Treat full-text indexes as limited and create them explicitly when required.
+- In heterogeneous pipelines, spatial, custom, `ENUM`, and `SET` values may be represented as strings. Verify the generated target schema before loading production data.
+- Lower-to-higher MySQL version movement is generally safer. Higher-to-lower movement can fail on unsupported features, relaxed time formats, or invalid date values.
+- Treat `ADD COLUMN`, `CHANGE COLUMN`, `DROP COLUMN`, and `RENAME COLUMN` as staging-test cases. Keep `ddl: fail` until you have verified the exact source event and target behavior your pipeline requires.
+
+### Consistency and conflicts
+
+- Source and target support does not imply active-active conflict resolution. Do not update the same business keys from both sides unless the pipeline defines an external conflict policy.
+- Writes made outside the replication path can cause source-target differences.
+- Avoid DDL on participating source tables during a snapshot. Schema changes can invalidate the snapshot or cause it to fail.
+- Validate row counts and keyed samples after a snapshot, then test `INSERT`, `UPDATE`, and `DELETE` events before opening the target to consumers.
+
+## Reference
+
+### Connection settings
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `deploymentMode` | No | `standalone` | Select `standalone` for one server or `master-slave` for a primary-replica list. |
+| `host` | With `standalone` | — | MySQL hostname or IP address. |
+| `port` | With `standalone` | `3306` | MySQL service port. Use a quoted string in `.tapstate.yml`. |
+| `masterSlaveAddress` | With `master-slave` | — | Ordered array of `{ host, port }`; put the primary first. |
+| `database` | Yes | — | Database name. Create separate connections for separate databases. |
+| `username` | Yes | — | Database account name. |
+| `password` | No | — | Database password. Supply this from secret-aware environment handling. |
+| `addtionalString` | No | `useUnicode=yes&characterEncoding=UTF-8` | Additional connection parameters. Use this exact field spelling; do not change it to `additionalString`. |
+| `timezone` | No | empty | UTC offset for timezone-naive values, for example `+00:00` or `+08:00`. |
+
+### Data compatibility
+
+| Category | Supported MySQL types |
+| --- | --- |
+| String | `CHAR`, `VARCHAR`, `TINYTEXT`, `TEXT`, `MEDIUMTEXT`, `LONGTEXT`, `BINARY`, `VARBINARY` |
+| Integer | `TINYINT`, `SMALLINT`, `MEDIUMINT`, `INT`, `BIGINT` |
+| Numeric | `DECIMAL`, `FLOAT`, `DOUBLE` |
+| Date and time | `DATE`, `TIME`, `DATETIME`, `TIMESTAMP`, `YEAR` |
+| Large objects | `TINYBLOB`, `BLOB`, `MEDIUMBLOB`, `LONGBLOB` |
+| Spatial | `POINT`, `LINESTRING`, `POLYGON`, `GEOMETRY`, `MULTIPOINT`, `MULTILINESTRING`, `MULTIPOLYGON`, `GEOMCOLLECTION` |
+| Other | `BIT`, `ENUM`, `SET`, `JSON` |
+
+- Replicated row changes include `INSERT`, `UPDATE`, and `DELETE`.
+- Adding, changing, renaming, and dropping columns remain a pipeline-level staging check; see [Target limitations](#target-limitations).
+- Test heterogeneous pipelines with spatial, custom, `ENUM`, and `SET` values because downstream systems commonly represent them as strings.

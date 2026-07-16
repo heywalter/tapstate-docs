@@ -1,0 +1,181 @@
+---
+title: MariaDB
+description: Configure MariaDB as a tapstate snapshot or CDC source and data-writing target
+sidebar:
+  order: 9
+ai:
+  kind: connector
+  id: mariadb
+  category: databases
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [mariadb, mariadb snapshot, mariadb cdc, mariadb binlog, mariadb source, mariadb target]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use MariaDB to copy existing tables once or to keep a downstream system current from binary-log changes.
+
+<ConnectorProfile
+  category="Databases"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Snapshot, CDC, Data write"
+  compatibility="MariaDB 10.x"
+/>
+
+## Before you begin
+
+### Source
+
+Choose the outcome you need. Each tab is a complete preparation path; you do not need to combine steps from both tabs.
+
+<SourceModeTabs>
+<SourceModeTab value="snapshot">
+
+Use **Snapshot** when you need the rows that exist now and do not need later changes.
+
+**1. Create a dedicated reader**
+
+```sql
+CREATE USER 'tapstate_reader'@'%' IDENTIFIED BY 'replace_with_a_secret';
+```
+
+Restrict `%` to the tapstate runtime network origin whenever possible.
+
+**2. Grant read access**
+
+```sql
+GRANT SELECT ON `orders`.* TO 'tapstate_reader'@'%';
+FLUSH PRIVILEGES;
+```
+
+Snapshot does not require replication privileges or binary logging.
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc">
+
+Use **Snapshot + CDC** when the target must begin with existing rows and then receive inserts, updates, and deletes.
+
+**1. Create a dedicated CDC reader**
+
+```sql
+CREATE USER 'tapstate_reader'@'%' IDENTIFIED BY 'replace_with_a_secret';
+```
+
+Restrict `%` to the tapstate runtime network origin whenever possible.
+
+**2. Grant read and replication access**
+
+```sql
+GRANT SELECT ON `orders`.* TO 'tapstate_reader'@'%';
+GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'tapstate_reader'@'%';
+FLUSH PRIVILEGES;
+```
+
+**3. Enable row-based binary logging**
+
+Enable row-based binary logging and retain logs longer than the longest credible pipeline interruption:
+
+```ini
+[mysqld]
+server_id       = 223344
+log_bin         = mariadb-bin
+expire_logs_days = 10
+max_binlog_size = 100M
+binlog_format   = ROW
+binlog_row_image = FULL
+```
+
+`server_id` must be unique among servers and replication clients. Set `expire_logs_days` to a recovery window longer than the longest expected interruption, and size `max_binlog_size` for your write volume.
+
+Restart MariaDB during an approved maintenance window.
+
+**4. Verify the active settings**
+
+Verify the effective settings:
+
+```sql
+SHOW VARIABLES LIKE 'log_bin';
+SHOW VARIABLES LIKE 'binlog_format';
+SHOW VARIABLES LIKE 'binlog_row_image';
+SHOW BINARY LOGS;
+```
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+**1. Create a dedicated writer**
+
+```sql
+CREATE USER 'tapstate_writer'@'%' IDENTIFIED BY 'replace_with_a_secret';
+```
+
+**2. Grant the approved write operations**
+
+Grant table-creation or alteration privileges only when the destination schema is allowed to be managed by a pipeline.
+
+```sql
+GRANT SELECT, INSERT, UPDATE, DELETE,
+      ALTER, CREATE, CREATE ROUTINE, CREATE TEMPORARY TABLES, DROP
+ON `analytics`.* TO 'tapstate_writer'@'%';
+FLUSH PRIVILEGES;
+```
+
+Remove `ALTER`, `CREATE`, routine, temporary-table, and `DROP` privileges when the pipeline must write only to existing tables.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/orders_mariadb.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: orders_mariadb
+connector: mariadb
+config:
+  host: mariadb.internal
+  port: "3306"
+  database: orders
+  username: ${MARIADB_USER}
+  password: ${MARIADB_PASSWORD}
+  addtionalString: "useUnicode=yes&characterEncoding=UTF-8"
+  timezone: "+00:00"
+mode: cdc
+tables:
+  - orders
+```
+
+For a one-time copy, use `mode: snapshot`. For a target connection, omit `mode` and `tables`, and use the writer credentials.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- Snapshot and CDC are supported for MariaDB; DDL capture and application are not included.
+- The documented preparation applies to MariaDB 10.x. Test the exact version, replication topology, and data types with representative data before production use.
+- CDC requires `ROW` binary logging with a full row image. Statement- or mixed-format logs do not provide the documented change record.
+- Expired binary logs break resume from the saved position. Monitor log retention and free disk space instead of relying only on a fixed number of days.
+- `server_id` collisions can disrupt replication clients. Assign a stable, unique value in every environment.
+- Configure MariaDB transport security according to your environment using the connection options available in tapstate.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `host` | Yes | — | MariaDB host. |
+| `port` | Yes | — | MariaDB service port, represented as a string. |
+| `database` | Yes | — | Database name. |
+| `username` | Yes | — | Database account. |
+| `password` | No | — | Account password; supply through a secret-aware environment variable. |
+| `addtionalString` | No | `useUnicode=yes&characterEncoding=UTF-8` | Extra connector parameters. Use this exact field spelling. |
+| `timezone` | No | empty | UTC offset used for timezone-naive values. |

@@ -1,0 +1,126 @@
+---
+title: PolarDB for PostgreSQL
+description: Configure Alibaba Cloud PolarDB for PostgreSQL as a tapstate snapshot or CDC source and data-writing target
+sidebar:
+  order: 65
+ai:
+  kind: connector
+  id: polar-db-postgres
+  category: databases
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [polardb postgresql, polar db postgres, aliyun polardb postgres, polardb wal]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use PolarDB for PostgreSQL for snapshots, WAL-based change capture, and destination writes.
+
+<ConnectorProfile category="Databases" maturity="Preview" maturityLabel="Available for evaluation" worksAs="Source, Target" capabilities="Snapshot, CDC, Data write" compatibility="Alibaba Cloud PolarDB for PostgreSQL 11+" />
+
+## Before you begin
+
+### Source
+
+<SourceModeTabs label="Choose the PolarDB for PostgreSQL source read mode">
+<SourceModeTab value="snapshot">
+
+Use **Snapshot** to read the selected schema and tables once:
+
+```sql
+CREATE USER tapstate_reader WITH PASSWORD 'replace-with-a-secret';
+GRANT CONNECT ON DATABASE database_name TO tapstate_reader;
+GRANT USAGE ON SCHEMA schema_name TO tapstate_reader;
+GRANT SELECT ON ALL TABLES IN SCHEMA schema_name TO tapstate_reader;
+```
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc">
+
+Use **Snapshot + CDC** to follow ongoing changes after the initial copy.
+
+**1. Grant snapshot and replication access**
+
+```sql
+CREATE USER tapstate_reader WITH PASSWORD 'replace-with-a-secret';
+GRANT CONNECT ON DATABASE database_name TO tapstate_reader;
+GRANT USAGE ON SCHEMA schema_name TO tapstate_reader;
+GRANT SELECT ON ALL TABLES IN SCHEMA schema_name TO tapstate_reader;
+ALTER USER tapstate_reader REPLICATION;
+```
+
+**2. Configure logical WAL**
+
+Configure logical WAL, enough replication slots and senders for concurrent pipelines, and a `pg_hba.conf` rule that allows the runtime network. For `pgoutput`, make sure the required publication exists and selected tables have a suitable replica identity.
+
+**3. Choose and test the decoding method**
+
+`logPluginName` selects the decoding path. `pgoutput` is built in; `wal2json` and `decoderbufs` require the corresponding server plugin. The accepted values also include `wal2json_rds`, `wal2json_streaming`, and `wal2json_rds_streaming`; select one of these only when your deployment supplies its matching managed-service setup. Test the selected plugin with one insert, update, and delete before enabling a production pipeline.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+Grant a dedicated writer access to the intended destination schema:
+
+```sql
+GRANT CONNECT ON DATABASE database_name TO tapstate_writer;
+GRANT USAGE, CREATE ON SCHEMA schema_name TO tapstate_writer;
+GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE
+  ON ALL TABLES IN SCHEMA schema_name TO tapstate_writer;
+GRANT USAGE, SELECT, UPDATE
+  ON ALL SEQUENCES IN SCHEMA schema_name TO tapstate_writer;
+```
+
+## Create a connection
+
+```yaml title="tapstate-work/source/orders_polardb_pg.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: orders_polardb_pg
+connector: polar-db-postgres
+config:
+  host: pc-abc.pg.polardb.rds.aliyuncs.com
+  port: "5432"
+  database: orders
+  schema: public
+  user: ${POLARDB_PG_READER_USER}
+  password: ${POLARDB_PG_READER_PASSWORD}
+  logPluginName: pgoutput
+  timezone: "+00:00"
+mode: cdc
+tables:
+  - orders
+```
+
+Use `snapshot` for a one-time copy. For a target, omit `mode` and `tables` and use writer credentials.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+Run a staging snapshot and verify an insert, update, and delete through the selected decoding path before production.
+
+## Limitations
+
+- CDC depends on retained WAL and an available replication slot. If the required position is no longer available, take a new snapshot.
+- Tables without a usable replica identity can produce incomplete keys for updates and deletes.
+- Configure TLS and DDL handling only through options available in your tapstate environment, then test them before production.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---:|---|---|
+| `host`, `port` | Yes | — | PolarDB PostgreSQL endpoint and listener port. |
+| `database`, `schema` | Yes | — | Database and schema to discover. |
+| `user`, `password` | User no | — | Database credentials. |
+| `extParams` | No | — | Additional connection parameters. |
+| `logPluginName` | Yes | `pgoutput` | Decoding method: `pgoutput`, `decoderbufs`, `wal2json`, `wal2json_rds`, `wal2json_streaming`, or `wal2json_rds_streaming`. |
+| `timezone` | No | Empty | UTC offset for temporal conversion. |

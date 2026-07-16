@@ -1,0 +1,136 @@
+---
+title: MySQL PXC
+description: Configure MySQL Percona XtraDB Cluster as a tapstate snapshot or CDC source and data-writing target
+sidebar:
+  order: 9
+ai:
+  kind: connector
+  id: mysql-pxc
+  category: databases
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [mysql pxc, percona xtradb cluster, mysql pxc snapshot, mysql pxc cdc, mysql pxc source, mysql pxc target]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use MySQL Percona XtraDB Cluster (PXC) to copy existing rows or start with a copy and continue from binary-log changes.
+
+<ConnectorProfile
+  category="Databases"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Snapshot, CDC, Data write"
+  compatibility="MySQL PXC 5.0–8.x"
+/>
+
+## Before you begin
+
+### Source
+
+<SourceModeTabs>
+<SourceModeTab value="snapshot">
+
+Use **Snapshot** when you need the current rows once. Create a least-privilege reader for the selected database:
+
+```sql
+CREATE USER 'tapstate_reader'@'%' IDENTIFIED BY 'replace_with_a_secret';
+GRANT SELECT ON `orders`.* TO 'tapstate_reader'@'%';
+FLUSH PRIVILEGES;
+```
+
+Snapshot does not require replication privileges or binary logging.
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc">
+
+Use **Snapshot + CDC** when the downstream system must start current and then receive new inserts, updates, and deletes.
+
+**1. Create a reader with replication access**
+
+```sql
+CREATE USER 'tapstate_reader'@'%' IDENTIFIED BY 'replace_with_a_secret';
+GRANT SELECT ON `orders`.* TO 'tapstate_reader'@'%';
+GRANT REPLICATION SLAVE, REPLICATION CLIENT ON *.* TO 'tapstate_reader'@'%';
+FLUSH PRIVILEGES;
+```
+
+**2. Enable row-based binary logging**
+
+Enable row-based binary logging with a unique `server_id` and retain logs longer than the longest credible interruption:
+
+```ini
+[mysqld]
+server_id         = 223344
+log_bin           = mysql-bin
+binlog_format     = ROW
+binlog_row_image  = FULL
+```
+
+**3. Restart and verify the active settings**
+
+Restart during an approved maintenance window, then confirm `binlog_format` is `ROW` and `binlog_row_image` is `FULL` on the node used for CDC.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+Create a separate writer and grant only the data privileges required for destination tables. Grant schema-management privileges only if a pipeline is allowed to create or alter tables.
+
+```sql
+CREATE USER 'tapstate_writer'@'%' IDENTIFIED BY 'replace_with_a_secret';
+GRANT SELECT, INSERT, UPDATE, DELETE ON `analytics`.* TO 'tapstate_writer'@'%';
+FLUSH PRIVILEGES;
+```
+
+## Create a connection
+
+```yaml title="tapstate-work/source/orders_pxc.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: orders_pxc
+connector: mysql-pxc
+config:
+  host: pxc-router.internal
+  port: "3306"
+  database: orders
+  username: ${PXC_READER_USER}
+  password: ${PXC_READER_PASSWORD}
+  addtionalString: "useUnicode=yes&characterEncoding=UTF-8"
+  timezone: "+00:00"
+mode: cdc
+tables:
+  - orders
+```
+
+Use `mode: snapshot` for a one-time copy. For a target connection, omit `mode` and `tables` and supply the writer credentials. Use the exact field name `addtionalString`.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- Snapshot and CDC are included. DDL capture and application are not included.
+- The connector warns that changes caused by database-level cascade actions may not be represented in the binary log. Test those relationships end to end and use target-side logic where required.
+- Validate failover, node routing, and PXC version behavior with representative workloads before production use.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `host` | Yes | — | Reachable PXC endpoint or cluster router. |
+| `port` | Yes | — | MySQL service port; field type is string. |
+| `database` | Yes | — | Database name. |
+| `username` | Yes | — | Reader or writer account. |
+| `password` | No | — | Account password; supply through an environment variable. |
+| `addtionalString` | No | `useUnicode=yes&characterEncoding=UTF-8` | Extra connector parameters. Use this exact field spelling. |
+| `timezone` | No | empty | UTC offset used by the connector. |

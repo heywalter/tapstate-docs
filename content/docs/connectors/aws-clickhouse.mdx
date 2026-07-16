@@ -1,0 +1,84 @@
+---
+title: ClickHouse Cloud on AWS
+description: Configure ClickHouse Cloud on AWS as a tapstate snapshot source or data-writing target
+sidebar:
+  order: 23
+ai:
+  kind: connector
+  id: aws-clickhouse
+  category: warehouses-analytics
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot]
+  aliases: [aws clickhouse, clickhouse cloud aws, aws clickhouse snapshot, aws clickhouse target]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use ClickHouse Cloud on AWS for point-in-time reads or as an analytical destination.
+
+<ConnectorProfile
+  category="Warehouses & analytics"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Snapshot, Data write"
+  compatibility="ClickHouse Cloud on AWS"
+/>
+
+## Before you begin
+
+### Source
+
+Create a least-privilege ClickHouse Cloud account for the selected database and make its endpoint reachable from the future runtime network. Use Snapshot when you need a bounded copy of existing rows.
+
+### Target
+
+Create a separate writer for the destination database. Grant table creation or alteration privileges only if the pipeline is allowed to manage destination schemas.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/analytics_aws_clickhouse.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: analytics_aws_clickhouse
+connector: aws-clickhouse
+config:
+  host: abc123.us-east-1.aws.clickhouse.cloud
+  port: "8443"
+  database: analytics
+  user: ${CLICKHOUSE_USER}
+  password: ${CLICKHOUSE_PASSWORD}
+  timezone: "+00:00"
+mode: snapshot
+tables:
+  - events
+```
+
+For a target connection, omit `mode` and `tables` and use writer credentials.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- Snapshot reads are supported; CDC and source schema-change capture are not included.
+- Use the ClickHouse Cloud endpoint and security configuration supplied for your service.
+- Test table engines, sort keys, data-type mapping, and destination behavior with representative data before production writes.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `host` | Yes | — | ClickHouse Cloud endpoint host. |
+| `port` | Yes | `8443` | Documented service port; type is string. |
+| `database` | Yes | — | Database name. |
+| `user` | Yes | — | Cloud database account. |
+| `password` | No | — | Password; inject through an environment variable. |
+| `extParams` | No | — | Connector-specific connection parameters. |
+| `timezone` | No | empty | UTC offset used by the connector. |

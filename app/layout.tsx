@@ -1,16 +1,30 @@
-import { RootProvider } from 'fumadocs-ui/provider/next';
-import './global.css';
 import { Inter } from 'next/font/google';
+import { Provider } from '@/components/provider';
+import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
+import { docsBaseUrl, isSiteIndexable } from '@/lib/shared';
+import './global.css';
 
 const inter = Inter({
   subsets: ['latin'],
 });
 
-export default function Layout({ children }: LayoutProps<'/'>) {
+export const metadata: Metadata = {
+  metadataBase: new URL(docsBaseUrl),
+  title: {
+    default: 'Tapstate',
+    template: '%s | tapstate',
+  },
+  robots: isSiteIndexable
+    ? { index: true, follow: true }
+    : { index: false, follow: false, nocache: true },
+};
+
+export default function Layout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={inter.className} suppressHydrationWarning>
       <body className="flex flex-col min-h-screen">
-        <RootProvider>{children}</RootProvider>
+        <Provider>{children}</Provider>
       </body>
     </html>
   );

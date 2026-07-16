@@ -1,0 +1,100 @@
+---
+title: Redis
+description: Configure Redis as a tapstate source or data-writing target
+sidebar:
+  order: 10
+ai:
+  kind: connector
+  id: redis
+  category: databases
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot, cdc]
+  aliases: [redis, redis snapshot, redis cdc, redis standalone, redis sentinel, redis cluster, redis target]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use Redis for supported Snapshot or CDC reads, or as a destination for pipeline data. Validate the intended key model and source semantics in a staging environment before production use.
+
+<ConnectorProfile
+  category="Databases"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Snapshot, CDC, Data write"
+  compatibility="Redis 2.8–6.0"
+/>
+
+## Before you begin
+
+### Source
+
+<SourceModeTabs label="Choose the Redis source read mode">
+<SourceModeTab value="snapshot">
+
+Use **Snapshot** to read the intended key namespace once. Confirm the value encoding and account access needed for the data you intend to read.
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc">
+
+Use **Snapshot + CDC** only after validating inserts, updates, expirations, and deletes with representative keys. This connection does not require Redis Streams or keyspace-notification settings.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### Target
+
+Choose the deployment mode—`standalone`, `sentinel`, or `cluster`—and create an account with the least Redis ACL permissions required by the destination keyspace. Decide how pipeline records map to keys and whether the schema metadata key should be retained before writing production data.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/cache_redis.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: cache_redis
+connector: redis
+config:
+  deploymentMode: standalone
+  host: redis.internal
+  port: "6379"
+  sentinelName: ${REDIS_SENTINEL_NAME}
+  database: "0"
+  username: ${REDIS_USER}
+  password: ${REDIS_PASSWORD}
+  schemaKey: "-schema-key-"
+mode: snapshot
+```
+
+Use `mode: cdc` only after staging it. For Sentinel, set `deploymentMode: sentinel`, provide `sentinelAddress`, and use the configured master service name for `sentinelName`. For cluster mode, provide endpoints that cover the cluster topology. Keep `sentinelName` in every resource because the field is required by the connection format.
+
+For a target-only connection, omit `mode`.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- Redis Streams and keyspace notifications are not configuration options for this connector. Validate the key types and change events your pipeline depends on before production.
+- The documented target baseline is Redis 2.8–6.0. Test newer versions and managed offerings before production use.
+- Schema changes are not included.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `deploymentMode` | No | `standalone` | `standalone`, `sentinel`, or `cluster`. |
+| `host` | Yes | — | Redis host. |
+| `port` | Yes | `6379` | Redis port; field type is string. |
+| `sentinelName` | Yes | — | Sentinel master service name. Keep the field in standalone and cluster resources as well. |
+| `sentinelAddress` | No | — | Sentinel endpoint array. |
+| `database` | Yes | `0` | Redis logical database. |
+| `username` | No | — | Redis ACL user. |
+| `password` | No | — | Redis password; use an environment variable. |
+| `schemaKey` | Yes | `-schema-key-` | Key used to store connector schema metadata. |

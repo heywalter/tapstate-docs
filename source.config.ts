@@ -1,12 +1,33 @@
 import { defineConfig, defineDocs } from 'fumadocs-mdx/config';
 import { metaSchema, pageSchema } from 'fumadocs-core/source/schema';
+import { z } from 'zod';
 
-// You can customize Zod schemas for frontmatter and `meta.json` here
-// see https://fumadocs.dev/docs/mdx/collections
+/** Small, discovery-oriented metadata for agents and documentation tooling. */
+const aiSchema = z.object({
+  kind: z.enum(['connector', 'concept', 'reference', 'guide']),
+  id: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/),
+  category: z.enum([
+    'databases',
+    'warehouses-analytics',
+    'streaming-messaging',
+    'files',
+    'saas-business-commerce-apis',
+    'custom-development',
+  ]).optional(),
+  maturity: z.enum(['experimental', 'preview', 'ga', 'deprecated']).optional(),
+  useAs: z.array(z.enum(['source', 'target'])).min(1).optional(),
+  modes: z.array(z.string().min(1)).optional(),
+  aliases: z.array(z.string().min(1)).optional(),
+});
+
+const docsPageSchema = pageSchema.extend({
+  ai: aiSchema.optional(),
+});
+
 export const docs = defineDocs({
   dir: 'content/docs',
   docs: {
-    schema: pageSchema,
+    schema: docsPageSchema,
     postprocess: {
       includeProcessedMarkdown: true,
     },

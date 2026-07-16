@@ -1,0 +1,55 @@
+---
+title: AI-readable documentation
+description: Canonical tapstate documentation surfaces for search engines, agents, and language models
+sidebar:
+  order: 1
+ai:
+  kind: reference
+  id: ai-readable-docs
+  aliases: [tapstate llms txt, tapstate markdown, ai documentation, llm documentation]
+---
+
+Tapstate publishes reader HTML and AI-readable Markdown from the same source tree. The [llms.txt proposal](https://llmstxt.org/) provides a compact discovery layer, but it does not replace canonical HTML, page metadata, or the sitemap.
+
+## Discovery surfaces
+
+Use the smallest surface that answers the task:
+
+| Surface | URL | Purpose |
+|---|---|---|
+| Canonical documentation | `https://tapstate.com/docs` | Primary human and crawler surface with canonical metadata and structured data. |
+| `llms.txt` | `https://tapstate.com/llms.txt` | Compact index with page links and descriptions. |
+| `llms-full.txt` | `https://tapstate.com/llms-full.txt` | Combined documentation context for tools that need a single file. |
+| Page Markdown | `https://tapstate.com/llms.mdx/docs/<page>/content.md` | Canonical page body plus explicit agent metadata and expanded tabs. |
+| Sitemap | `https://tapstate.com/sitemap.xml` | Canonical reader-page discovery for search engines and crawlers. |
+
+## Give an assistant context
+
+For product discovery, start with `llms.txt`. For a connector or DSL decision, provide the page-level Markdown so the assistant receives the exact maturity, modes, limitations, preparation steps, and every tab body.
+
+```text
+Read https://tapstate.com/llms.mdx/docs/connectors/mysql/content.md,
+then help me prepare a MySQL Snapshot + CDC source.
+```
+
+The public site does not currently expose standalone JSON Schema or example-corpus URLs. Use the [DSL reference](/docs/reference/dsl-grammar) and the validation interface supplied with your tapstate environment.
+
+## Content contract
+
+- Reader HTML is canonical and includes canonical URLs, breadcrumb data, and article structured data.
+- Connector frontmatter is a compact discovery index; the page body remains the authoritative explanation.
+- Interactive tabs expand into labeled sections in Page Markdown and `llms-full.txt`.
+- Maturity describes the connector release level. Do not infer unverified UI, runtime, TLS, or connection-test behavior from upstream documentation.
+- A connector catalog describes fields and modes, but not whether a deployment can run them. Confirm availability and behavior in the target tapstate environment.
+
+## What assistants can do with these docs
+
+With canonical page Markdown, an assistant can:
+
+- find a connector by system, role, or capture mode;
+- explain required permissions and external-system preparation;
+- draft `.tapstate.yml` resources from documented fields;
+- compare a resource with the reference and repair validation errors;
+- preserve page links and limitations in its answer.
+
+Continue with [Authoring with AI](/docs/for-ai/authoring) for a reviewable workflow.

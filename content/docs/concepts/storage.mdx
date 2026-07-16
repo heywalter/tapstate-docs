@@ -1,0 +1,60 @@
+---
+title: State and storage
+description: Understand the state a tapstate data path must retain for current reads, recovery, and audit
+ai:
+  kind: concept
+  id: state-and-storage
+  aliases: [tapstate storage, operational state, checkpoints, materialized state]
+---
+
+Tapstate separates three kinds of state: working state used while records are processed, recovery state needed after an interruption, and materialized state read by downstream consumers.
+
+Choose concrete storage engines, retention, replication, and high-availability behavior for the deployment you operate.
+
+## Operational state and analytical history
+
+Operational consumers usually need the latest valid state of an account, order, inventory item, or entitlement. Analytical systems usually retain a longer history optimized for scans, aggregation, and model training.
+
+| Concern | Operational state | Analytical history |
+|---|---|---|
+| Primary question | What is true now? | What happened over time? |
+| Common access | Key lookup, current view, event reaction | Scan, aggregate, compare periods |
+| Update pattern | Continuous changes and deletes | Batch or append-oriented ingestion |
+| Failure sensitivity | Stale state can affect an action | Delayed data usually affects analysis timing |
+
+The two are complementary. A production design can maintain current state for applications while retaining approved history in a warehouse or lake.
+
+## Working state
+
+The data plane needs short-lived state for active processing, buffering, routing, and lookups. Working state improves throughput, but it must not be the only copy of information required after restart.
+
+## Recovery state
+
+Durable recovery state includes:
+
+- connector positions, offsets, or checkpoints;
+- pipeline identity and canonical configuration;
+- retry and failure context;
+- schema and mapping state;
+- ownership information needed to prevent conflicting execution.
+
+Recovery semantics should answer whether a restart resumes, replays, skips, or redelivers records. Connector retention must be long enough for the saved position to remain usable.
+
+## Materialized state
+
+Materialized state is the current consumer-facing result. It may live in a target database, search system, warehouse, lakehouse, or future serving layer.
+
+Its correctness depends on:
+
+- stable keys for updates and deletes;
+- defined append or update behavior;
+- schema-change policy;
+- ordering and duplicate handling;
+- reconciliation with the system of record;
+- retention and deletion requirements.
+
+## Audit history
+
+An audit or replay store answers different questions from a current view. Before retaining change history, define the legal basis, sensitive-field handling, retention period, access policy, and deletion process.
+
+Choose retention, replay, and recovery settings for the workload and deployment you operate. A current-state destination does not automatically provide long-term history.

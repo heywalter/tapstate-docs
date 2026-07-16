@@ -1,0 +1,102 @@
+---
+title: Troubleshoot a tapstate configuration
+description: Isolate authoring, connector, deployment, and data-correctness problems without confusing one layer for another
+ai:
+  kind: guide
+  id: troubleshooting
+  aliases: [tapstate troubleshooting, validation error, connector error, cdc not working]
+---
+
+Start by identifying which layer produced the failure. A resource-file error, a connection failure, and incorrect destination data require different evidence and different fixes.
+
+## Identify the failing layer
+
+| Layer | Typical evidence | What it can establish |
+|---|---|---|
+| Documentation and resource shape | Page reference, YAML diff, schema diagnostic | Whether the resource follows the documented contract |
+| Connector contract | Connector ID, mode, field names, preparation guide | Whether the requested role and configuration are declared |
+| Deployment and connectivity | Runtime logs, network test, authentication response | Whether this deployment can reach and authenticate to the system |
+| Data movement | Checkpoints, source and target samples, record counts | Whether Snapshot, CDC, transforms, and writes behave correctly |
+
+Do not use evidence from one layer as proof of another. A valid resource file is the starting point; connectivity and data movement still need to be verified in the environment where the connection runs.
+
+## Check the workspace first
+
+Run the validation command supplied with your tapstate environment before investigating the external system:
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+Review the filename, location, diagnostic code, message, and suggested fix. Correct one layer at a time, then validate again.
+
+### Unknown field or invalid value
+
+- Confirm the connector ID and exact field spelling in its [Reference](/docs/connectors) section.
+- Remove fields copied from an upstream UI or another connector version unless the tapstate contract exposes them.
+- Check whether the field is conditional on another value, such as authentication method or storage type.
+
+### Invalid mode
+
+- Use only modes shown on the connector page.
+- Do not add `cdc` because the underlying database supports a transaction log.
+- A target-only connection does not need a source read mode.
+
+### Missing or unresolved reference
+
+- Confirm that pipeline references match resource IDs exactly.
+- Keep every referenced resource in the selected work directory.
+- Check for renamed files whose internal `id` did not change with the filename.
+
+## Check external-system preparation
+
+If the resource shape is valid but a deployment cannot connect or discover objects:
+
+1. Confirm DNS, port, routing, firewall, and allowlist rules from the runtime host.
+2. Authenticate with the same account outside tapstate when a safe vendor tool is available.
+3. Recheck source and target privileges separately.
+4. Verify the database, schema, warehouse, tenant, topic, bucket, or API scope.
+5. Follow the connector page's mode-specific preparation path.
+
+For TLS and connection testing, use only the fields and workflow supported by the tapstate environment you operate. Do not copy certificate fields or test commands from another product.
+
+## Check Snapshot or CDC behavior
+
+For an incomplete Snapshot:
+
+- compare the selected object list with source discovery;
+- check table-pattern and include/exclude rules;
+- compare counts at a stable source boundary;
+- inspect unsupported objects and data types in the connector limitations.
+
+For CDC that stops or falls behind:
+
+- check log, WAL, Oplog, snapshot, or broker retention;
+- confirm that the saved recovery position still exists;
+- verify replication or change-capture privileges;
+- inspect long transactions and source-side cleanup jobs;
+- test insert, update, delete, stop, and resume in staging.
+
+## Check target correctness
+
+- Confirm that updates and deletes have a stable key.
+- Distinguish append behavior from key-based update behavior.
+- Review automatic table creation and schema-change policy.
+- Check target constraints, column types, partitioning, and conflict handling.
+- Design downstream processing to tolerate duplicate delivery unless your deployment documents a stronger delivery guarantee.
+
+## Collect a useful diagnostic bundle
+
+Before escalating, collect:
+
+- tapstate version and deployment type;
+- connector ID, role, and mode;
+- redacted resource files;
+- exact command and exit code;
+- complete diagnostic or runtime error;
+- relevant connector-page URL;
+- external-system version and topology;
+- timestamp and smallest reproducible dataset;
+- expected and observed records.
+
+Remove passwords, tokens, private keys, and customer data before sharing the bundle.

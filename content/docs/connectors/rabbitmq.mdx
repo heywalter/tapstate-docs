@@ -1,0 +1,101 @@
+---
+title: RabbitMQ
+description: Configure RabbitMQ as a tapstate stream source or target
+sidebar:
+  order: 31
+ai:
+  kind: connector
+  id: rabbitmq
+  category: streaming-messaging
+  maturity: preview
+  useAs: [source, target]
+  modes: [stream]
+  aliases: [rabbitmq, rabbitmq stream, rabbitmq queue, amqp, rabbitmq source, rabbitmq target]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use RabbitMQ to read or write streaming queue messages.
+
+<ConnectorProfile
+  category="Streaming & messaging"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Stream read, Stream write"
+  compatibility="RabbitMQ 3.8.x+"
+/>
+
+## Before you begin
+
+### Source
+
+Create a dedicated user with AMQP read access to the intended virtual host and management-API access for queue metadata. The following commands use the default virtual host:
+
+```bash
+rabbitmqctl add_user tapstate_reader replace_with_a_secret
+rabbitmqctl set_permissions -p / tapstate_reader ".*" ".*" ".*"
+rabbitmqctl set_user_tags tapstate_reader management
+```
+
+Use narrower permissions in production and verify the correct AMQP and management endpoint ports with your RabbitMQ deployment.
+
+### Target
+
+Grant the destination account permission to publish only to the intended exchanges and queues. Pre-create production queues, bindings, durability, and dead-letter policy before enabling delivery.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/events_rabbitmq.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: events_rabbitmq
+connector: rabbitmq
+config:
+  mqQueueString: orders.events
+  mqHost: rabbitmq.internal
+  mqPort: "5672"
+  apiPort: "8090"
+  mqUsername: ${RABBITMQ_USER}
+  mqPassword: ${RABBITMQ_PASSWORD}
+  virtualHost: "/"
+mode: stream
+```
+
+For a target connection, omit `mode`. The default `apiPort` is `8090`; change it to the RabbitMQ management port used by your deployment, commonly `15672`.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- RabbitMQ messages must contain JSON object bodies. Arrays and scalar JSON values are supported as field values inside that object, not as the top-level message body.
+- Queue delivery uses direct routing through the default exchange. Custom exchanges and routing keys are not configurable here.
+- Test acknowledgements, redelivery, and failure recovery before production; no transactional delivery guarantee is documented.
+- Do not put broker credentials in a committed `.tapstate.yml` file.
+
+## Troubleshooting
+
+- `ACCESS_REFUSED - Login was refused using authentication mechanism PLAIN` usually means the username or password is incorrect, or the account lacks permission on the selected virtual host. Recheck `rabbitmqctl set_permissions` for that virtual host.
+- `401 Unauthorized` or `HttpClientErrorException: 401` means the management API rejected the account or the API port is incorrect. Grant the narrow `management` tag with `rabbitmqctl set_user_tags tapstate_reader management`, then test the configured management endpoint directly.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `mqQueueString` | No | — | Comma-separated queue selection, if supported by the deployment. |
+| `mqHost` | Yes | — | RabbitMQ host. |
+| `mqPort` | Yes | — | AMQP port, represented as a string. |
+| `apiPort` | Yes | `8090` | Management/API port. Set it to the port exposed by your RabbitMQ deployment. |
+| `mqUsername` | No | — | RabbitMQ user. |
+| `mqPassword` | No | — | Password; use an environment variable. |
+| `virtualHost` | No | — | RabbitMQ virtual host. |
+
+### Message data compatibility
+
+Message fields can contain `OBJECT`, `ARRAY`, `NUMBER`, `INTEGER`, `BOOLEAN`, `STRING` values shorter than 200 characters, and `TEXT`. Queue delivery uses the default exchange.

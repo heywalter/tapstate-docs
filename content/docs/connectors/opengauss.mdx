@@ -1,0 +1,137 @@
+---
+title: openGauss
+description: Configure openGauss as a tapstate snapshot source or data-writing target
+sidebar:
+  order: 10
+ai:
+  kind: connector
+  id: open-gauss
+  category: databases
+  maturity: preview
+  useAs: [source, target]
+  modes: [snapshot]
+  aliases: [opengauss, open gauss, opengauss snapshot, opengauss source, opengauss target]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use openGauss to copy the rows that exist now, or as a destination for data written by a tapstate pipeline.
+
+<ConnectorProfile
+  category="Databases"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source, Target"
+  capabilities="Snapshot, Schema discovery, Data write, Target DDL apply"
+  compatibility="openGauss 3.0+"
+/>
+
+## Before you begin
+
+### Source
+
+Create a dedicated reader and grant access only to the schema and tables that tapstate will copy.
+
+```sql
+CREATE USER tapstate_reader PASSWORD 'replace_with_a_secret';
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO tapstate_reader;
+```
+
+Run future-table grants through your approved database administration process when newly created tables must be included.
+
+### Target
+
+Create a dedicated writer for the destination schema.
+
+```sql
+CREATE USER tapstate_writer PASSWORD 'replace_with_a_secret';
+GRANT INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public TO tapstate_writer;
+```
+
+Add object-creation or alteration privileges only when your pipeline is explicitly allowed to create or evolve destination tables.
+
+## Create a connection
+
+### Snapshot source
+
+```bash
+tapstate new --non-interactive \
+  --kind source \
+  --connector open-gauss \
+  --id orders_opengauss \
+  --mode snapshot \
+  --set host=opengauss.internal \
+  --set port=5432 \
+  --set database=orders \
+  --set schema=public \
+  --set user='${OPENGAUSS_READER}' \
+  --set password='${OPENGAUSS_READER_PASSWORD}' \
+  --workdir tapstate-work
+```
+
+The resulting source connection uses documented field names:
+
+```yaml title="tapstate-work/source/orders_opengauss.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: orders_opengauss
+connector: open-gauss
+config:
+  host: opengauss.internal
+  port: "5432"
+  database: orders
+  schema: public
+  user: ${OPENGAUSS_READER}
+  password: ${OPENGAUSS_READER_PASSWORD}
+  logPluginName: pgoutput
+mode: snapshot
+tables:
+  - orders
+```
+
+### Target connection
+
+Targets use the same connection-resource envelope, without a read mode or table selection.
+
+```yaml title="tapstate-work/source/analytics_opengauss.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: analytics_opengauss
+connector: open-gauss
+config:
+  host: opengauss.internal
+  port: "5432"
+  database: analytics
+  schema: public
+  user: ${OPENGAUSS_WRITER}
+  password: ${OPENGAUSS_WRITER_PASSWORD}
+  logPluginName: pgoutput
+```
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This connector supports Snapshot reads only. Do not configure `mode: cdc`.
+- The `logPluginName` setting is documented, but its presence does not prove a supported CDC path.
+- Configure connection encryption using the options available in your tapstate environment and test it before production.
+
+## Reference
+
+| Field | Required | Default | Use |
+|---|---|---|---|
+| `host` | Yes | — | Database host. |
+| `port` | Yes | — | Database listener port. |
+| `database` | Yes | — | Database name. |
+| `schema` | Yes | — | Schema to read from or write to. |
+| `user` | No | — | Database user. Prefer an environment variable. |
+| `password` | No | — | Database password. Prefer an environment variable. |
+| `extParams` | No | — | Connector-specific connection parameters. |
+| `logPluginName` | Yes | `pgoutput` | Values: `pgoutput`, `decoderbufs`, `wal2json`, `wal2json_rds`, `wal2json_streaming`, and `wal2json_rds_streaming`. This page covers Snapshot only. |
+| `timezone` | No | empty | UTC offset used by the connector. |

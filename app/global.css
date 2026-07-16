@@ -2,6 +2,52 @@
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 
+/*
+ * tapstate brand tokens (2026-07-11)
+ *   --ts-accent      #2DD4BF  → dark surfaces (10.4:1 on #0A0E13, AAA)
+ *   --ts-accent-ink  #0F766E  → light surfaces (5.47:1 on white, AA)
+ * Rule: mint is never text on light backgrounds — marks/fills only.
+ */
+:root {
+  --ts-accent: #2dd4bf;
+  --ts-accent-ink: #0f766e;
+  --ts-logo-dim: #b9c5d4; /* dim strata of the Live Slice mark, light surfaces */
+
+  /* Light mode: dark teal carries links, active nav, and accents */
+  --color-fd-primary: hsl(175, 77%, 26%); /* #0F766E */
+  --color-fd-primary-foreground: hsl(0, 0%, 100%);
+  --color-fd-ring: hsl(175, 77%, 31%);
+}
+
+.dark {
+  --ts-logo-dim: #33415e; /* dim strata, dark surfaces */
+
+  /* Dark mode: mint accent on the brand navy-black (deck v7) */
+  --color-fd-primary: hsl(172, 66%, 50%); /* #2DD4BF */
+  --color-fd-primary-foreground: hsl(213, 31%, 6%);
+  --color-fd-ring: hsl(172, 66%, 50%);
+
+  --color-fd-background: hsl(213, 31%, 6%); /* #0A0E13 */
+  --color-fd-foreground: hsl(210, 30%, 93%); /* #E8EEF4 */
+  --color-fd-card: hsl(213, 32%, 9%); /* #10161F */
+  --color-fd-card-foreground: hsl(210, 30%, 93%);
+  --color-fd-popover: hsl(213, 31%, 10%);
+  --color-fd-popover-foreground: hsl(210, 25%, 87%);
+  --color-fd-muted: hsl(213, 28%, 12%);
+  --color-fd-muted-foreground: hsl(213, 17%, 62%); /* ≈ #8494A7 */
+  --color-fd-secondary: hsl(213, 28%, 13%);
+  --color-fd-secondary-foreground: hsl(210, 30%, 92%);
+  --color-fd-border: hsla(213, 30%, 55%, 0.2); /* ≈ #1D2733 line */
+  --color-fd-accent: hsla(213, 30%, 45%, 0.25);
+  --color-fd-accent-foreground: hsl(210, 25%, 90%);
+}
+
+.dark #nd-sidebar {
+  --color-fd-muted: hsl(213, 28%, 11%);
+  --color-fd-secondary: hsl(213, 28%, 14%);
+  --color-fd-muted-foreground: hsl(213, 17%, 66%);
+}
+
 html {
   scrollbar-gutter: stable;
 }
@@ -9,4 +55,13 @@ html {
 html > body[data-scroll-locked] {
   margin-right: 0px !important;
   --removed-body-scroll-bar-size: 0px !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }

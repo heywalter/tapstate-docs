@@ -1,0 +1,96 @@
+---
+title: XML
+description: Configure XML files as a tapstate source
+sidebar:
+  order: 53
+ai:
+  kind: connector
+  id: xml
+  category: files
+  maturity: preview
+  useAs: [source]
+  modes: [snapshot, cdc]
+  aliases: [xml, xml file, xml snapshot, xml cdc, xml source, sftp xml, s3 xml]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use XML files from local or supported remote storage as a source for structured pipeline data.
+
+<ConnectorProfile
+  category="Files"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source"
+  capabilities="Snapshot, CDC"
+  compatibility="Local, FTP, SFTP, SMB, S3FS, OSS"
+/>
+
+## Before you begin
+
+### Source
+
+<SourceModeTabs label="Choose the XML source read mode">
+<SourceModeTab value="snapshot">
+
+Use **Snapshot** to read the matching XML files once. Make files available to the tapstate runtime and restrict remote credentials to the required path or bucket. Decide how repeating elements and attributes map to records before creating a production pipeline.
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc">
+
+Use **Snapshot + CDC** when new or changed XML files should be picked up after the initial read. The connector scans the configured path every 60 seconds. New and modified files are re-read; deleting a file does not emit row deletions.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+## Create a connection
+
+```yaml title="tapstate-work/source/catalog_xml.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: catalog_xml
+connector: xml
+config:
+  protocol: sftp
+  encoding: UTF-8
+  sftpHost: sftp.internal
+  sftpPort: "22"
+  sftpUsername: ${SFTP_USER}
+  sftpPassword: ${SFTP_PASSWORD}
+  filePathString: /exports/catalog/*.xml
+mode: snapshot
+```
+
+Use `mode: cdc` after completing the staged file-change checks above.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This connector reads XML files only. Target writes and schema changes are not included.
+- CDC detects new and modified files on a 60-second scan. File or row deletion is not propagated.
+- Decide how repeating elements and attributes map to records, and validate representative nested content before production use.
+- Keep transport credentials out of committed workspace files.
+
+## Reference
+
+| Protocol | Fields |
+|---|---|
+| Common | `protocol`, `encoding`, `filePathString` |
+| FTP | `ftpHost`, `ftpPort`, `ftpUsername`, `ftpPassword`, `ftpPassiveMode`, `ftpConnectTimeout`, `ftpDataTimeout` |
+| SFTP | `sftpHost`, `sftpPort`, `sftpUsername`, `sftpPassword` |
+| SMB | `smbHost`, `smbUsername`, `smbPassword`, `smbShareDir` |
+| S3FS / OSS | `accessKey`, `secretKey`, `endpoint`, `region`, `bucket` |
+
+`protocol` accepts `local`, `ftp`, `sftp`, `smb`, `s3fs`, and `oss`; `encoding` defaults to `UTF-8`.
+
+### Data compatibility
+
+XML input supports `ARRAY`, `BOOLEAN`, `DATETIME`, `INTEGER`, `NUMBER`, `OBJECT`, `STRING`, and `TEXT`.

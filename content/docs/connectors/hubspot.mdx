@@ -1,0 +1,64 @@
+---
+title: HubSpot
+description: Configure HubSpot as a tapstate API source
+sidebar:
+  order: 43
+ai:
+  kind: connector
+  id: hubspot
+  category: saas-business-commerce-apis
+  maturity: preview
+  useAs: [source]
+  modes: [api]
+  aliases: [hubspot, hubspot api, hubspot crm, hubspot source]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use HubSpot as a supported API source for CRM data.
+
+<ConnectorProfile
+  category="SaaS, business & commerce APIs"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source"
+  capabilities="API read"
+  compatibility="HubSpot API"
+/>
+
+## Before you begin
+
+### Source
+
+Choose the HubSpot account and objects to expose, then arrange administrator-approved authorization with the smallest scopes needed. Store the resulting credential outside source control.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/marketing_hubspot.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: marketing_hubspot
+connector: hubspot
+config:
+  code: ${HUBSPOT_AUTHORIZATION_CODE}
+mode: api
+```
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This connector reads HubSpot API data only. Target writes, Snapshot, CDC, and schema changes are not included.
+- HubSpot authorization scopes and API limits determine which CRM data can be read. Confirm the selected account and objects in a non-production workspace before broader use.
+
+## Reference
+
+| Field | Required | Use |
+|---|---|---|
+| `code` | Yes | Documented authorization value; use a secret-aware environment variable. |

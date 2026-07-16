@@ -1,0 +1,66 @@
+---
+title: Zoho CRM
+description: Configure Zoho CRM as a tapstate API source
+sidebar:
+  order: 45
+ai:
+  kind: connector
+  id: zoho-crm
+  category: saas-business-commerce-apis
+  maturity: preview
+  useAs: [source]
+  modes: [api]
+  aliases: [zoho crm, zoho-crm, zoho api, zoho crm source]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+
+Use Zoho CRM as a supported API source.
+
+<ConnectorProfile
+  category="SaaS, business & commerce APIs"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source"
+  capabilities="API read"
+  compatibility="Zoho CRM API"
+/>
+
+## Before you begin
+
+### Source
+
+Have a Zoho CRM administrator approve the connected account and least-privilege CRM module access. Keep the authorization value in a secret manager or environment variable. Use the [Zoho API Console](https://api-console.zoho.com/) and the authorization flow supplied by your tapstate environment to obtain the required code.
+
+## Create a connection
+
+```yaml title="tapstate-work/source/sales_zoho.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: sales_zoho
+connector: zoho-crm
+config:
+  code: ${ZOHO_CRM_AUTHORIZATION_CODE}
+mode: api
+```
+
+Before production, verify token refresh, selected modules, and incremental reads with a non-production Zoho CRM organization.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- API source only; no target, Snapshot, CDC, DDL, or rate-limit contract is declared.
+- The resource schema does not guarantee access to every Zoho CRM module; application scopes and account permissions still apply.
+
+## Reference
+
+| Field | Required | Use |
+|---|---|---|
+| `code` | Yes | Documented authorization value. Keep it out of committed files. |

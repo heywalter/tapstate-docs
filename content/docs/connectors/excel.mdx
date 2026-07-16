@@ -1,0 +1,92 @@
+---
+title: Excel
+description: Configure Excel files as a tapstate source
+sidebar:
+  order: 52
+ai:
+  kind: connector
+  id: excel
+  category: files
+  maturity: preview
+  useAs: [source]
+  modes: [snapshot, cdc]
+  aliases: [excel, xls, xlsx, excel snapshot, excel cdc, excel source, sftp excel, s3 excel]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+Use XLS and XLSX files from local or supported remote storage as a pipeline source.
+
+<ConnectorProfile
+  category="Files"
+  maturity="Preview"
+  maturityLabel="Available for evaluation"
+  worksAs="Source"
+  capabilities="Snapshot, CDC"
+  compatibility="XLS, XLSX · Local, FTP, SFTP, SMB, S3FS, OSS"
+/>
+
+## Before you begin
+
+### Source
+
+<SourceModeTabs label="Choose the Excel source read mode">
+<SourceModeTab value="snapshot">
+
+Use **Snapshot** to read the matching workbooks once. Place them where the tapstate environment can reach them, then test the intended sheet structure with a representative XLS or XLSX workbook, including any merged cells or formulas.
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc">
+
+Use **Snapshot + CDC** when new or changed workbooks should be picked up after the initial read. The connector scans the configured path every 60 seconds. New and modified workbooks are re-read; deleting a workbook does not emit row deletions.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+## Create a connection
+
+```yaml title="tapstate-work/source/monthly_excel.tapstate.yml"
+version: tapstate/v1
+kind: source
+id: monthly_excel
+connector: excel
+config:
+  protocol: local
+  encoding: UTF-8
+  filePathString: /data/import/monthly-report.xlsx
+mode: snapshot
+```
+
+For SFTP, SMB, S3FS, or OSS, add only the matching transport fields described in Reference.
+
+## Validate the configuration
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+## Limitations
+
+- This connector reads Excel files. Target writes and schema changes are not included.
+- XLS and XLSX are supported, including workbooks with merged cells and formulas. Verify formula results and sheet layout with a representative workbook.
+- CDC detects new and modified workbooks on a 60-second scan. Workbook or row deletion is not propagated.
+- Keep credentials outside committed workspace files and test memory use with production-sized workbooks.
+
+## Reference
+
+| Protocol | Fields |
+|---|---|
+| Common | `protocol`, `encoding`, `filePathString` |
+| FTP | `ftpHost`, `ftpPort`, `ftpUsername`, `ftpPassword`, `ftpPassiveMode`, `ftpConnectTimeout`, `ftpDataTimeout` |
+| SFTP | `sftpHost`, `sftpPort`, `sftpUsername`, `sftpPassword` |
+| SMB | `smbHost`, `smbUsername`, `smbPassword`, `smbShareDir` |
+| S3FS / OSS | `accessKey`, `secretKey`, `endpoint`, `region`, `bucket` |
+
+`protocol` accepts `local`, `ftp`, `sftp`, `smb`, `s3fs`, and `oss`; `encoding` defaults to `UTF-8`.
+
+### Data compatibility
+
+Excel schema inference supports `BOOLEAN`, `DATE`, `DOUBLE`, `STRING`, and `TEXT`.

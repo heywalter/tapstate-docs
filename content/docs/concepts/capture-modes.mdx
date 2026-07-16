@@ -1,0 +1,67 @@
+---
+title: Capture modes
+description: Choose how a tapstate source reads existing data and later changes
+ai:
+  kind: concept
+  id: capture-modes
+  aliases: [snapshot, full load, cdc, full load and cdc, stream source, api source]
+---
+
+A capture mode defines where a source starts and whether it keeps reading after the initial data has been copied.
+
+## Choose the result you need
+
+| You need | Connector guide label | Data included | Keeps reading? | Prepare |
+|---|---|---|---|---|
+| One copy of the data that exists now | **Full load** (`Snapshot`) | Existing rows, documents, or files selected for the run | No | Read permissions and a stable source view |
+| Existing data plus later changes | **Full load + CDC** | The initial copy, followed by supported inserts, updates, and deletes | Yes | Full-load access plus database log, WAL, Oplog, or changelog access |
+| Messages from a broker or queue | **Stream** | Messages from the configured starting position | Yes | Topic or queue permissions, consumer identity, and retention |
+| Records exposed by a SaaS or business API | **API** | Objects returned by the service API | Connector-specific | Application credentials, scopes, rate limits, and pagination |
+
+Use only the modes shown in the connector guide. Database log support alone does not mean a connector supports CDC.
+
+## Which mode should I choose?
+
+- Choose **Full load** for a one-time migration, test dataset, or periodic replacement where later changes are not required.
+- Choose **Full load + CDC** when the destination must begin complete and then remain current.
+- Choose **Stream** for Kafka, a message queue, or another source that already produces an ordered stream of records.
+- Choose **API** for SaaS and business systems where the connector reads through a vendor API.
+
+## Full load (Snapshot)
+
+Full load reads the selected data once and completes. In tapstate resources, this is represented by `mode: snapshot`.
+
+Before running it, decide:
+
+- which tables, collections, or files to include;
+- whether the source can provide a consistent view while the copy runs;
+- whether a rerun replaces, appends, or reconciles destination data;
+- how you will compare record counts and representative values.
+
+## Full load + CDC
+
+Full load + CDC first copies the selected existing data, catches up with changes made during that copy, and then continues reading new changes. In tapstate resources, this is represented by `mode: cdc`.
+
+```text
+Initial copy  →  Catch up  →  Continue with new changes
+```
+
+Prepare and verify:
+
+1. The account can complete the initial read.
+2. The source emits the change records required by the connector.
+3. The change log is retained long enough for planned outages and restarts.
+4. The target has stable keys for updates and deletes.
+5. A staging run covers insert, update, delete, stop, and resume behavior.
+
+## Stream and API sources
+
+Stream sources start from an offset or broker-defined position. Retention controls how far back a consumer can start, and recovery can redeliver records.
+
+API sources follow the remote service's authorization, pagination, and rate-limit rules. Check the connector guide to learn whether it performs one read, polls for updates, or uses another incremental mechanism.
+
+## Validate the chosen path
+
+Use a staging dataset with representative data types, nulls, large values, and—when applicable—inserts, updates, and deletes. For a continuous source, stop and resume the pipeline, then compare the destination with a trusted source query.
+
+The [connector directory](/docs/connectors) lists the exact modes and preparation steps for each system. Continue with [Resources and pipelines](/docs/concepts/dsl) to see how a selected mode appears in `.tapstate.yml`.

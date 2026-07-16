@@ -1,0 +1,75 @@
+---
+title: Architecture
+description: See how tapstate organizes capture, transformation, delivery, control, and recovery
+ai:
+  kind: concept
+  id: architecture
+  aliases: [tapstate architecture, capture transform serve architecture, tapstate control plane]
+---
+
+import { TapStateArchitecture } from '@/components/mdx';
+
+Tapstate's target architecture separates the **data plane**, which moves and maintains records, from the **control plane**, which defines and operates data paths.
+
+<TapStateArchitecture />
+
+## Data plane
+
+### Capture
+
+Capture establishes the first usable state and, when supported, follows later changes. The source connector owns protocol-specific behavior such as database log positions, broker offsets, API pagination, and file discovery.
+
+The capture boundary must make these questions explicit:
+
+- Which objects and data types are readable?
+- What consistency boundary applies to the initial read?
+- How is the next change position represented and retained?
+- What happens after interruption, failover, or source topology change?
+
+### Transform
+
+Transform applies ordered, reviewable rules to records in flight. Typical operations include filtering, field mapping, normalization, enrichment, and routing.
+
+A transform should not silently change ownership of source truth. Its inputs, keys, delete behavior, and output schema must remain inspectable.
+
+### Materialize
+
+Materialization maintains a current representation for a destination or consumer. It translates change events into append, update, delete, or table-evolution behavior according to the target contract and pipeline policy.
+
+Stable keys are central to updates and deletes. Without them, a destination can accumulate duplicates or fail to remove old state.
+
+### Deliver
+
+Delivery exposes the result through a connector-defined destination or a future serving interface. The consumer boundary owns access patterns, authorization, data minimization, and service-level expectations.
+
+## Control plane
+
+The control plane is responsible for:
+
+- resource authoring and canonicalization;
+- schema and connector-aware validation;
+- applying versioned intent to a deployment;
+- lifecycle operations and authorization;
+- status, diagnostics, metrics, and audit information;
+- human- and agent-facing interfaces over the same operations.
+
+An AI assistant is a client of deterministic controls, not the source of product truth. Schema, Catalog, runtime state, and authorization decisions remain authoritative.
+
+## Durable state
+
+A running data path needs durable ownership of:
+
+- canonical resource definitions;
+- source positions and checkpoints;
+- recovery and retry state;
+- schema and mapping state;
+- materialized output state;
+- operational history needed for diagnosis.
+
+Store this state durably so restarts and failovers do not depend on process memory.
+
+## External-system boundary
+
+Source log retention, network paths, credentials, target constraints, API rate limits, and broker retention remain part of the deployment. Prepare and monitor them alongside the tapstate data path.
+
+Use connector pages for system-specific preparation and [Troubleshooting](/docs/guides/troubleshooting) to isolate authoring, deployment, and data-movement failures.
