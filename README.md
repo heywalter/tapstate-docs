@@ -5,11 +5,11 @@
 <h1 align="center">Tapstate documentation</h1>
 
 <p align="center">
-  Source for the product documentation at <a href="https://tapstate.com/docs">tapstate.com/docs</a>.
+  Source for the product documentation at <a href="https://tapstate.dev/docs">tapstate.dev/docs</a>.
 </p>
 
 <p align="center">
-  <a href="https://tapstate.com/docs"><img alt="Documentation" src="https://img.shields.io/badge/docs-tapstate.com%2Fdocs-0f766e" /></a>
+  <a href="https://tapstate.dev/docs"><img alt="Documentation" src="https://img.shields.io/badge/docs-tapstate.dev%2Fdocs-0f766e" /></a>
   <a href="https://github.com/tapstate/docs/blob/main/LICENSE"><img alt="License: CC BY 4.0" src="https://img.shields.io/badge/license-CC%20BY%204.0-2d7969" /></a>
   <img alt="Node.js 20.9 or later" src="https://img.shields.io/badge/node.js-%3E%3D20.9-339933?logo=nodedotjs&amp;logoColor=white" />
   <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-000000?logo=nextdotjs&amp;logoColor=white" />

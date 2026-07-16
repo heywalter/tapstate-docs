@@ -17,18 +17,18 @@ Use the smallest surface that answers the task:
 
 | Surface | URL | Purpose |
 |---|---|---|
-| Canonical documentation | `https://tapstate.com/docs` | Primary human and crawler surface with canonical metadata and structured data. |
-| `llms.txt` | `https://tapstate.com/llms.txt` | Compact index with page links and descriptions. |
-| `llms-full.txt` | `https://tapstate.com/llms-full.txt` | Combined documentation context for tools that need a single file. |
-| Page Markdown | `https://tapstate.com/llms.mdx/docs/<page>/content.md` | Canonical page body plus explicit agent metadata and expanded tabs. |
-| Sitemap | `https://tapstate.com/sitemap.xml` | Canonical reader-page discovery for search engines and crawlers. |
+| Canonical documentation | `https://tapstate.dev/docs` | Primary human and crawler surface with canonical metadata and structured data. |
+| `llms.txt` | `https://tapstate.dev/llms.txt` | Compact index with page links and descriptions. |
+| `llms-full.txt` | `https://tapstate.dev/llms-full.txt` | Combined documentation context for tools that need a single file. |
+| Page Markdown | `https://tapstate.dev/llms.mdx/docs/<page>/content.md` | Canonical page body plus explicit agent metadata and expanded tabs. |
+| Sitemap | `https://tapstate.dev/sitemap.xml` | Canonical reader-page discovery for search engines and crawlers. |
 
 ## Give an assistant context
 
 For product discovery, start with `llms.txt`. For a connector or DSL decision, provide the page-level Markdown so the assistant receives the exact maturity, modes, limitations, preparation steps, and every tab body.
 
 ```text
-Read https://tapstate.com/llms.mdx/docs/connectors/mysql/content.md,
+Read https://tapstate.dev/llms.mdx/docs/connectors/mysql/content.md,
 then help me prepare a MySQL Snapshot + CDC source.
 ```
 

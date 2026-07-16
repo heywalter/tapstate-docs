@@ -2,7 +2,7 @@ export const appName = 'tapstate';
 
 function configuredSiteUrl() {
   const value = process.env.TAPSTATE_SITE_URL?.trim();
-  if (!value) return 'https://tapstate.com';
+  if (!value) return 'https://tapstate.dev';
 
   try {
     return new URL(value).origin;

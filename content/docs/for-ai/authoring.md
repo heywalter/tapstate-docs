@@ -27,7 +27,7 @@ An assistant can discover the tapstate docs, draft `.tapstate.yml` resources, ex
 Start with:
 
 ```text
-https://tapstate.com/llms.txt
+https://tapstate.dev/llms.txt
 ```
 
 Then load the page-level Markdown for the connector or DSL area being edited. Connector frontmatter is only a discovery index; the page body is the canonical human and agent context.
