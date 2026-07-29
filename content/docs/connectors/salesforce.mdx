@@ -1,6 +1,6 @@
 ---
 title: Salesforce
-description: Configure Salesforce as a tapstate API source
+description: Connect Salesforce to tapstate with an authorization code to read CRM records through its API into downstream pipelines.
 sidebar:
   order: 44
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use Salesforce as a supported API source for CRM data.
 
 <ConnectorProfile
   category="SaaS, business & commerce APIs"
@@ -34,7 +32,7 @@ Have a Salesforce administrator approve the connected account and least-privileg
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/revenue_salesforce.tapstate.yml"
+```yaml title="tapstate-work/source/revenue_salesforce.tap.yml"
 version: tapstate/v1
 kind: source
 id: revenue_salesforce

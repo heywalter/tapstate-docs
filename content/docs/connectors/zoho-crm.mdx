@@ -1,6 +1,6 @@
 ---
 title: Zoho CRM
-description: Configure Zoho CRM as a tapstate API source
+description: Connect Zoho CRM to tapstate with an authorization code to read CRM records through its API into downstream pipelines.
 sidebar:
   order: 45
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use Zoho CRM as a supported API source.
 
 <ConnectorProfile
   category="SaaS, business & commerce APIs"
@@ -34,7 +32,7 @@ Have a Zoho CRM administrator approve the connected account and least-privilege 
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/sales_zoho.tapstate.yml"
+```yaml title="tapstate-work/source/sales_zoho.tap.yml"
 version: tapstate/v1
 kind: source
 id: sales_zoho

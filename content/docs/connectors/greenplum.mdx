@@ -1,6 +1,6 @@
 ---
 title: Greenplum
-description: Configure Greenplum as a tapstate snapshot source or data-writing target
+description: Connect a Greenplum database and schema to tapstate for MPP table snapshots or analytical target writes with DDL application.
 sidebar:
   order: 25
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use the Greenplum MPP architecture for point-in-time table reads or as a target for analytical data.
 
 <ConnectorProfile
   category="Warehouses & analytics"
@@ -38,7 +36,7 @@ Create a separate writer account limited to the destination schema. Grant DDL pr
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/mart_greenplum.tapstate.yml"
+```yaml title="tapstate-work/source/mart_greenplum.tap.yml"
 version: tapstate/v1
 kind: source
 id: mart_greenplum

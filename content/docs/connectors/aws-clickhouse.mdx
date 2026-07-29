@@ -1,6 +1,6 @@
 ---
 title: ClickHouse Cloud on AWS
-description: Configure ClickHouse Cloud on AWS as a tapstate snapshot source or data-writing target
+description: Connect ClickHouse Cloud on AWS to tapstate for snapshot reads or analytical target writes.
 sidebar:
   order: 23
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use ClickHouse Cloud on AWS for point-in-time reads or as an analytical destination.
 
 <ConnectorProfile
   category="Warehouses & analytics"
@@ -38,7 +36,7 @@ Create a separate writer for the destination database. Grant table creation or a
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/analytics_aws_clickhouse.tapstate.yml"
+```yaml title="tapstate-work/source/analytics_aws_clickhouse.tap.yml"
 version: tapstate/v1
 kind: source
 id: analytics_aws_clickhouse

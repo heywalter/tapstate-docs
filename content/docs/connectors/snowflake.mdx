@@ -1,6 +1,6 @@
 ---
 title: Snowflake
-description: Configure Snowflake as a tapstate snapshot source or data-writing target
+description: Connect Snowflake to tapstate for snapshot reads or writes into a selected database and schema.
 sidebar:
   order: 22
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use Snowflake to read existing tables or to deliver pipeline data into a selected database and schema.
 
 <ConnectorProfile
   category="Warehouses & analytics"
@@ -72,7 +70,7 @@ Remove `CREATE TABLE` when targets are pre-created. PAT and key-pair users need 
 
 Choose one `authMethod`: `password`, `pat`, or `keyPair`. Provide only the corresponding secret fields.
 
-```yaml title="tapstate-work/source/warehouse_snowflake.tapstate.yml"
+```yaml title="tapstate-work/source/warehouse_snowflake.tap.yml"
 version: tapstate/v1
 kind: source
 id: warehouse_snowflake

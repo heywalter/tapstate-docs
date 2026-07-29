@@ -1,6 +1,6 @@
 ---
 title: Custom Connection
-description: Configure a script-defined Custom Connection as a tapstate snapshot or CDC source and data-writing target
+description: Use a script-defined Custom Connection with tapstate for controlled snapshot, CDC, or target integration work.
 sidebar:
   order: 60
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use Custom Connection when the integration is defined by scripts rather than a vendor-specific connector. It is intended for controlled development and integration work where you own the script lifecycle.
 
 <ConnectorProfile
   category="Custom & development"
@@ -52,7 +50,7 @@ Use a `targetScript` only after defining its input shape and failure behavior. G
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/orders_custom.tapstate.yml"
+```yaml title="tapstate-work/source/orders_custom.tap.yml"
 version: tapstate/v1
 kind: source
 id: orders_custom

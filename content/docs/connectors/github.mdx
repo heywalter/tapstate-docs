@@ -1,6 +1,6 @@
 ---
 title: GitHub
-description: Configure GitHub as a tapstate API source
+description: Connect GitHub to tapstate with an authorization code to read repository records through its API into downstream pipelines.
 sidebar:
   order: 42
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use GitHub as a supported API source for repository data.
 
 <ConnectorProfile
   category="SaaS, business & commerce APIs"
@@ -34,7 +32,7 @@ Decide which organization and repositories the integration may read, then arrang
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/engineering_github.tapstate.yml"
+```yaml title="tapstate-work/source/engineering_github.tap.yml"
 version: tapstate/v1
 kind: source
 id: engineering_github

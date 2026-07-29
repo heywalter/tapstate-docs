@@ -1,6 +1,6 @@
 ---
 title: XML
-description: Configure XML files as a tapstate source
+description: Read structured XML documents with tapstate as snapshot or change-capable sources from local or supported remote storage.
 sidebar:
   order: 53
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use XML files from local or supported remote storage as a source for structured pipeline data.
 
 <ConnectorProfile
   category="Files"
@@ -46,7 +44,7 @@ Use **Snapshot + CDC** when new or changed XML files should be picked up after t
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/catalog_xml.tapstate.yml"
+```yaml title="tapstate-work/source/catalog_xml.tap.yml"
 version: tapstate/v1
 kind: source
 id: catalog_xml

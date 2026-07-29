@@ -1,6 +1,6 @@
 ---
 title: Apache ActiveMQ
-description: Configure Apache ActiveMQ as a tapstate stream source or target
+description: Connect Apache ActiveMQ to tapstate to read or write queue messages as a streaming source or target.
 sidebar:
   order: 31
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use Apache ActiveMQ to read or write queue messages through the supported stream connector.
 
 <ConnectorProfile
   category="Streaming & messaging"
@@ -38,7 +36,7 @@ Grant the same account permission to publish only to the intended queues. Pre-cr
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/events_activemq.tapstate.yml"
+```yaml title="tapstate-work/source/events_activemq.tap.yml"
 version: tapstate/v1
 kind: source
 id: events_activemq

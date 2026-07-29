@@ -1,6 +1,6 @@
 ---
 title: TDengine
-description: Configure TDengine as a tapstate snapshot or CDC source and data-writing target
+description: Connect TDengine to tapstate over REST or WebSocket paths for time-series snapshots, CDC, or target writes.
 sidebar:
   order: 16
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use TDengine to copy existing time-series data, follow later records with CDC, or write pipeline data to a target.
 
 <ConnectorProfile
   category="Databases"
@@ -50,7 +48,7 @@ Create a dedicated writer for the destination database. Decide whether the pipel
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/telemetry_tdengine.tapstate.yml"
+```yaml title="tapstate-work/source/telemetry_tdengine.tap.yml"
 version: tapstate/v1
 kind: source
 id: telemetry_tdengine

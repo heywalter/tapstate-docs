@@ -9,6 +9,21 @@ ai:
 
 Start by identifying which layer produced the failure. A resource-file error, a connection failure, and incorrect destination data require different evidence and different fixes.
 
+## Read the command result
+
+tapstate commands use these exit codes:
+
+| Code | Meaning |
+|---:|---|
+| `0` | Success |
+| `1` | A coded domain diagnostic or refused operation |
+| `2` | Invalid command usage |
+| `3` | Unavailable in this context, not connected, or not implemented |
+
+Use `tapstate --help` to inspect the commands in your installed version. In `v0.1.0`, subcommands do not accept their own `--help` option.
+
+Successful data is written to standard output; usage and diagnostics are written to standard error. Preserve both streams and the exit code when collecting evidence.
+
 ## Identify the failing layer
 
 | Layer | Typical evidence | What it can establish |
@@ -48,6 +63,72 @@ Review the filename, location, diagnostic code, message, and suggested fix. Corr
 - Keep every referenced resource in the selected work directory.
 - Check for renamed files whose internal `id` did not change with the filename.
 
+## Troubleshoot the online Quickstart
+
+The [online Quickstart](/docs/overview/quickstart-online) prints the MongoDB row count after it starts the pipeline. Treat only `the target now holds 5 rows` as a successful `v0.1.0` snapshot result. This version can return success even when the printed count is lower, so inspect the observable result instead of relying on the exit code alone.
+
+### Docker is unavailable
+
+```bash
+docker info
+docker compose version
+```
+
+Start Docker and confirm the Compose plugin is available. The demo needs to pull and run MySQL 8.0, MongoDB 7.0, and the tapstate server.
+
+### A container is unhealthy or stopped
+
+```bash
+docker compose ps
+docker compose logs --tail=200 mysql mongo server
+```
+
+Fix port conflicts or local resource pressure before rerunning. Keep passwords and tokens out of shared log bundles.
+
+### The five-row result does not appear
+
+Check the source and target independently:
+
+```bash
+docker compose exec mysql mysql -uroot -psecret appdb \
+  -e "SELECT COUNT(*) AS source_rows FROM orders;"
+
+docker compose exec mongo mongosh --quiet \
+  'mongodb://mongo:27017/warehouse?directConnection=true' \
+  --eval 'db.orders.countDocuments({})'
+```
+
+If MySQL has five rows and MongoDB does not, enter the CLI REPL and collect pipeline evidence:
+
+```bash
+./tapstate -w work
+```
+
+```text
+connect http://127.0.0.1:8080
+login admin
+status sync_orders
+metrics sync_orders
+logs sync_orders
+```
+
+Enter the password stored in the local `.env` file. Do not paste it into a shell command or diagnostic bundle.
+
+### A rerun reports an illegal lifecycle transition
+
+The script preserves generated assets and may encounter a pipeline that is already running after a partial or completed attempt. Inspect `status` first. For a clean local reset:
+
+```bash
+docker compose down -v
+sh quickstart.sh
+```
+
+`down -v` permanently removes the demo's local MySQL and MongoDB volumes. It does not remove files in the demo directory.
+
+### A connected command returns exit code 3
+
+In `v0.1.0`, connected commands need the state held by an interactive REPL. Start `tapstate`, then run `connect`, `login`, and the connected verb at the `tapstate>` prompt. Top-level one-shot forms cannot retain that session.
+
 ## Check external-system preparation
 
 If the resource shape is valid but a deployment cannot connect or discover objects:
@@ -84,6 +165,13 @@ For CDC that stops or falls behind:
 - Review automatic table creation and schema-change policy.
 - Check target constraints, column types, partitioning, and conflict handling.
 - Design downstream processing to tolerate duplicate delivery unless your deployment documents a stronger delivery guarantee.
+
+## Interpret observations carefully
+
+- `status` and `metrics` report observed state and may lag a lifecycle command briefly.
+- `status --watch` and `logs --follow` continue until you press <kbd>Ctrl</kbd>+<kbd>C</kbd>.
+- Logs are node-local in the preview and are not a durable audit history.
+- `snapshot` can report that no snapshot is available. Confirm source and target records instead of treating that response alone as proof of success or failure.
 
 ## Collect a useful diagnostic bundle
 

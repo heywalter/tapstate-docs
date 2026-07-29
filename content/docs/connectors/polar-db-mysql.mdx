@@ -1,6 +1,6 @@
 ---
 title: PolarDB for MySQL
-description: Configure Alibaba Cloud PolarDB for MySQL as a tapstate snapshot or CDC source and data-writing target
+description: Connect PolarDB for MySQL to tapstate for snapshots, Binlog-based CDC, or target writes.
 sidebar:
   order: 64
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use PolarDB for MySQL for one-time copies, Binlog-based change capture, and destination writes.
 
 <ConnectorProfile category="Databases" maturity="Preview" maturityLabel="Available for evaluation" worksAs="Source, Target" capabilities="Snapshot, CDC, DDL capture and apply, Data write" compatibility="All PolarDB for MySQL versions" />
 
@@ -76,7 +74,7 @@ FLUSH PRIVILEGES;
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/orders_polardb.tapstate.yml"
+```yaml title="tapstate-work/source/orders_polardb.tap.yml"
 version: tapstate/v1
 kind: source
 id: orders_polardb

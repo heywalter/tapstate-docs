@@ -1,30 +1,30 @@
 ---
-title: Quickstart
-description: Create a source, target, and pipeline workspace, then validate the resource files
+title: Author and validate a workspace
+description: Create source, target, and pipeline resources locally, then validate their structure and references
 ai:
   kind: guide
   id: quickstart
-  aliases: [tapstate quickstart, tapstate workspace, create tapstate yml, validate workspace]
+  aliases: [tapstate offline quickstart, tapstate workspace, create tapstate yml, validate workspace]
 ---
 
-This walkthrough shows how tapstate resources fit together. You will define a MySQL Snapshot source, a MongoDB target connection, and a pipeline that references both.
+Use the offline CLI to learn how tapstate resources fit together without connecting to a server. You will define a MySQL Snapshot source, a MongoDB target connection, and a pipeline that references both.
 
 ## What you will create
 
 ```text
 tapstate-work/
 ├── source/
-│   ├── orders_source.tapstate.yml
-│   └── customer_view.tapstate.yml
+│   ├── orders_source.tap.yml
+│   └── customer_view.tap.yml
 └── pipeline/
-    └── orders_to_customer_view.tapstate.yml
+    └── orders_to_customer_view.tap.yml
 ```
 
 The source resource reads existing MySQL rows. The target connection supplies MongoDB destination settings. The pipeline links the two.
 
 ## Before you begin
 
-- Install or obtain the tapstate CLI supplied with your environment. Command availability can vary by tapstate version.
+- [Install the tapstate CLI](/docs/overview/install). Command availability can vary by tapstate version.
 - Keep credentials in environment variables or your deployment's secret mechanism.
 - Read the [MySQL](/docs/connectors/mysql) and [MongoDB](/docs/connectors/mongodb) preparation guides.
 - Use non-production credentials and endpoints for an authoring walkthrough.
@@ -35,7 +35,7 @@ Check the installed command first:
 tapstate --version
 ```
 
-If the command is unavailable, follow the installation instructions supplied with your tapstate environment before continuing.
+If the command is unavailable, install it before continuing.
 
 ## 1. Create the MySQL source
 
@@ -90,7 +90,15 @@ tapstate validate --workdir tapstate-work
 
 An exit code of `0` means the installed validator accepted the resource structure, references, modes, and recognized connector fields. The number and wording in success output can vary by version.
 
-Next, run the connection in a non-production environment. Confirm credentials and network access, then verify a representative source read or target write before using production data.
+Offline validation does not require every catalog-required connection field,
+reject unknown connector keys, inspect environment-variable values, or open a
+network connection. For example, a syntactically valid resource that points to
+`mysql.invalid` can pass this step.
+
+Next, [register the connector JARs and run server-side connection tests](/docs/guides/register-connectors)
+in a non-production environment. Confirm credentials and network access, then
+verify a representative source read or target write before using production
+data.
 
 ## 5. Inspect the resources
 
@@ -106,7 +114,9 @@ Use structured output only when your tapstate CLI supports it. Do not infer runt
 
 ## Next steps
 
+- Run the [online Quickstart](/docs/overview/quickstart-online) to start the published MySQL-to-MongoDB demo.
 - Learn how [connections and connectors](/docs/concepts/connections-and-connectors) differ.
+- [Register and test connectors](/docs/guides/register-connectors) from the server environment.
 - Choose the right [capture mode](/docs/concepts/capture-modes).
 - Use [Troubleshooting](/docs/guides/troubleshooting) to isolate authoring, deployment, and data problems.
 - Continue with the selected source and target connector guides before using the same pattern with production data.

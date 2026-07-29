@@ -40,9 +40,9 @@ const tasks = [
   },
   {
     eyebrow: 'Ready to build',
-    title: 'Create your first data path',
-    description: 'Define connections and a pipeline as reviewable resources, then validate the workspace.',
-    href: '/docs/overview/quickstart',
+    title: 'Run your first data path',
+    description: 'Start the published MySQL-to-MongoDB demo, then verify snapshot and CDC results.',
+    href: '/docs/overview/quickstart-online',
     linkLabel: 'Start the quickstart',
     icon: Rocket,
   },
@@ -114,7 +114,7 @@ export default function HomePage() {
             </div>
 
             <div className="mt-5 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm">
-              <span className="text-fd-muted-foreground">Popular:</span>
+              <span className="text-fd-muted-foreground">Connector guides:</span>
               {popularConnectors.map((connector) => (
                 <Link
                   key={connector.href}
@@ -161,7 +161,7 @@ export default function HomePage() {
             <p className="m-0 text-xs font-semibold uppercase tracking-[0.15em] text-fd-primary">Connector guides</p>
             <h2 className="mb-0 mt-3 text-3xl font-semibold tracking-[-0.035em]">Prepare the system you already use.</h2>
             <p className="mb-0 mt-3 max-w-2xl text-base leading-7 text-fd-muted-foreground">
-              Each guide brings permissions, capture preparation, supported operations, limitations, and connection fields into one place.
+              Each guide brings permissions, capture preparation, documented roles and modes, limitations, and connection fields into one place.
             </p>
           </div>
           <ArrowLink href="/docs/connectors">View all connectors</ArrowLink>

@@ -1,6 +1,10 @@
 {
-  "title": "Guides",
+  "title": "Operate tapstate",
   "pages": [
+    "bootstrap-and-auth",
+    "register-connectors",
+    "apply-and-run",
+    "observe-a-pipeline",
     "troubleshooting"
   ]
 }

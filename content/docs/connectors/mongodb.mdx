@@ -1,6 +1,6 @@
 ---
 title: MongoDB
-description: Connect MongoDB as a tapstate source or target
+description: Connect MongoDB replica sets or sharded clusters to tapstate for snapshots, Oplog-based CDC, or target writes.
 sidebar:
   order: 6
 ai:
@@ -16,12 +16,11 @@ ai:
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
 
-Connect MongoDB replica set or sharded cluster deployments as a tapstate source or target for an initial full load and Oplog-based CDC.
-
 <ConnectorProfile
   category="Databases"
   maturity="GA"
   maturityLabel="Generally available"
+  releaseTested="Target in the published MySQL → MongoDB Snapshot + CDC flow"
   worksAs="Source, Target"
   capabilities="Snapshot, CDC, Schema discovery, Data write"
   compatibility="MongoDB 4.0+ · Replica sets and sharded clusters"
@@ -153,7 +152,7 @@ tables:
 
 For a target connection, keep the same MongoDB configuration but omit `mode` and `tables`:
 
-```yaml title="tapstate-work/source/analytics_mongodb.tapstate.yml"
+```yaml title="tapstate-work/source/analytics_mongodb.tap.yml"
 version: tapstate/v1
 kind: source
 id: analytics_mongodb
@@ -165,7 +164,7 @@ config:
 
 Create the pipeline after both connections exist:
 
-```yaml title="tapstate-work/pipeline/mongo_to_analytics.tapstate.yml"
+```yaml title="tapstate-work/pipeline/mongo_to_analytics.tap.yml"
 version: tapstate/v1
 kind: pipeline
 id: mongo_to_analytics
@@ -188,6 +187,31 @@ tapstate validate --workdir tapstate-work
 ```
 
 <ValidationStatusGuide />
+
+Validation does not require all connection fields, reject unknown connector
+keys, resolve the URI, or contact MongoDB. A syntactically valid resource that
+uses `mongo.invalid` can therefore pass validation.
+
+To check both roles, register the MongoDB connector JAR, apply the workspace,
+and run each test from an authenticated `v0.1.0` REPL:
+
+```bash
+tapstate -w tapstate-work
+```
+
+```text
+connect http://127.0.0.1:8080
+login admin
+apply
+test my-mongodb -o json
+test analytics_mongodb -o json
+```
+
+Only `outcome: PASSED` establishes that the connector accepted the supplied
+endpoint and credentials. A placeholder or unreachable host should produce
+`outcome: FAILED` or a coded connector test error; the exact checks and timeout
+come from the registered connector. See [Register and test connectors](/docs/guides/register-connectors)
+for the full sequence.
 
 ## Limitations
 

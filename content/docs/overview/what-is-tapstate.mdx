@@ -20,7 +20,11 @@ Keeping operational data fresh usually means assembling and operating separate C
 
 Each tool can be the right choice on its own. The operational cost comes from making the tools behave as one system: coordinating offsets, retries, schemas, serialization, upgrades, and observability across every boundary.
 
-Composable streaming stacks remain the right choice when a workload requires a highly customized event topology. Tapstate focuses on teams whose main requirement is to keep operational state current through one deployable data path. See [Tapstate vs. a streaming stack](/docs/overview/vs-streaming-stack) for the tradeoffs.
+Composable streaming stacks remain the right choice when a workload requires a
+highly customized event topology. Tapstate's target model focuses on teams whose
+main requirement is to keep operational state current through one deployable
+data path. See [Tapstate vs. a streaming stack](/docs/overview/vs-streaming-stack)
+for the tradeoffs.
 
 ## How tapstate works
 
@@ -32,11 +36,23 @@ Capture loads an initial data set and, when the connector supports it, follows c
 
 ### Transform — shape data incrementally as it moves
 
-Transform filters, maps, enriches, joins, and routes data incrementally so each downstream system receives data shaped for its job.
+The current preview filters, maps, runs scripted transforms, and merges streams
+as data moves. Stateful Nest and Join remain part of the declared and target
+model, but the current runtime refuses them.
 
-### Serve — maintain current, queryable state
+### Serve — deliver current state
 
-Serve writes or materializes the latest operational state for downstream applications and services. The target connector defines how writes, keys, deletes, and schema changes behave for that system.
+The current release verifies synchronized writes to a target connector.
+Queryable and push surfaces exist in the v1 declaration model but are not
+proven by the current release golden path.
+
+## Current preview boundary
+
+`v0.1.0` is a prerelease, single-node, in-memory runtime. The published
+end-to-end path is MySQL to MongoDB with an initial snapshot followed by CDC. A
+server restart replays from the source instead of resuming a persisted offset.
+See [Architecture](/docs/overview/architecture) for the current and target
+boundaries.
 
 ## When to use tapstate
 
@@ -47,7 +63,8 @@ Use tapstate when applications, APIs, automation, or AI agents depend on operati
 The documentation follows the same path you use to build a data pipeline:
 
 - **Prepare a system.** Use a [connector guide](/docs/connectors) to check roles, capture modes, permissions, limitations, and connection fields.
-- **Create a data path.** Follow the [quickstart](/docs/overview/quickstart) to define connections and a pipeline in `.tapstate.yml`.
+- **Run a data path.** Follow the [online Quickstart](/docs/overview/quickstart-online) to exercise the published MySQL-to-MongoDB path.
+- **Author a workspace.** Use the [offline walkthrough](/docs/overview/quickstart) to create and validate `.tap.yml` resources.
 - **Look up exact syntax.** Use the [reference](/docs/reference/dsl-grammar) for resource fields and examples.
 - **Work with an AI assistant.** Use [`llms.txt`](/llms.txt) or the page-level Markdown view to provide the same canonical content to an assistant.
 
@@ -56,8 +73,8 @@ The documentation follows the same path you use to build a data pipeline:
 <CardGrid>
   <LinkCard
     title="Quickstart"
-    description="Create a source and pipeline, then validate the workspace."
-    href="/docs/overview/quickstart"
+    description="Run the published MySQL-to-MongoDB snapshot and CDC demo."
+    href="/docs/overview/quickstart-online"
   />
   <LinkCard
     title="Architecture"
@@ -71,7 +88,7 @@ The documentation follows the same path you use to build a data pipeline:
   />
   <LinkCard
     title="Connectors"
-    description="Choose a source or target and prepare the external system."
+    description="Browse connector maturity, roles, modes, and setup guidance."
     href="/docs/connectors"
   />
 </CardGrid>

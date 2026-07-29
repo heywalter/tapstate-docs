@@ -1,6 +1,6 @@
 ---
 title: Architecture
-description: See how tapstate organizes capture, transformation, delivery, control, and recovery
+description: Separate the current tapstate preview architecture from the target Capture–Transform–Serve design
 ai:
   kind: concept
   id: architecture
@@ -9,67 +9,92 @@ ai:
 
 import { TapStateArchitecture } from '@/components/mdx';
 
-Tapstate's target architecture separates the **data plane**, which moves and maintains records, from the **control plane**, which defines and operates data paths.
+Tapstate has a working preview slice and a broader target architecture. The
+target explains design direction; it is not a statement that every component is
+implemented or production-ready.
+
+## Current preview architecture
+
+The `v0.1.0` release verifies one end-to-end path:
+
+```text
+.tap.yml workspace
+      │
+      ▼
+tapstate CLI ──→ single-node server
+                     │
+           MySQL snapshot + CDC
+                     │
+              filter / map
+                     │
+                     ▼
+                  MongoDB
+```
+
+### Control surface
+
+- The native CLI scaffolds and validates `*.tap.yml` resources offline.
+- A connected CLI session can register connector artifacts, apply resources,
+  start a pipeline, and inspect status, metrics, and logs.
+- The runtime and CLI are prerelease surfaces; command and API compatibility can
+  change before a stable release.
+
+### Data path
+
+- The published golden path reads MySQL, performs an initial snapshot followed
+  by CDC, applies a map step, and writes MongoDB.
+- The pipeline DAG wires `filter`, `map`, `js`, and `union`.
+- The v1 Schema can declare `nest` and `join`, but the current DAG builder
+  refuses both stateful transforms.
+- The Schema can declare `sync`, `query`, and `push`; the release golden path
+  verifies inline `serve.sync`.
+
+### Recovery and scale limits
+
+- The server is single-node and uses in-memory runtime state.
+- A server restart replays from the source instead of resuming a persisted
+  source offset.
+- High availability and production recovery guarantees are not part of the
+  current preview contract.
+
+See [Author and validate a workspace](/docs/overview/quickstart) for the offline authoring path.
+The product repository's online quickstart is the current runtime evidence for
+MySQL to MongoDB.
+
+## Target architecture
+
+The target design separates the **data plane**, which moves and maintains
+records, from the **control plane**, which defines and operates data paths.
 
 <TapStateArchitecture />
 
-## Data plane
+### Target data plane
 
-### Capture
+Capture establishes an initial state and follows later changes. Transform
+applies reviewable rules, including future stateful composition. Materialize
+maintains consumer-oriented state, and Deliver exposes that state through
+connector or query surfaces.
 
-Capture establishes the first usable state and, when supported, follows later changes. The source connector owns protocol-specific behavior such as database log positions, broker offsets, API pagination, and file discovery.
+The target recovery boundary owns source positions, checkpoints, retry state,
+schema state, and operational history durably. This is a design requirement,
+not a guarantee of the current in-memory preview.
 
-The capture boundary must make these questions explicit:
+### Target control plane
 
-- Which objects and data types are readable?
-- What consistency boundary applies to the initial read?
-- How is the next change position represented and retained?
-- What happens after interruption, failover, or source topology change?
+The target control plane covers versioned intent, lifecycle and authorization,
+status, diagnostics, metrics, audit information, and human- and agent-facing
+interfaces over the same deterministic operations.
 
-### Transform
-
-Transform applies ordered, reviewable rules to records in flight. Typical operations include filtering, field mapping, normalization, enrichment, and routing.
-
-A transform should not silently change ownership of source truth. Its inputs, keys, delete behavior, and output schema must remain inspectable.
-
-### Materialize
-
-Materialization maintains a current representation for a destination or consumer. It translates change events into append, update, delete, or table-evolution behavior according to the target contract and pipeline policy.
-
-Stable keys are central to updates and deletes. Without them, a destination can accumulate duplicates or fail to remove old state.
-
-### Deliver
-
-Delivery exposes the result through a connector-defined destination or a future serving interface. The consumer boundary owns access patterns, authorization, data minimization, and service-level expectations.
-
-## Control plane
-
-The control plane is responsible for:
-
-- resource authoring and canonicalization;
-- schema and connector-aware validation;
-- applying versioned intent to a deployment;
-- lifecycle operations and authorization;
-- status, diagnostics, metrics, and audit information;
-- human- and agent-facing interfaces over the same operations.
-
-An AI assistant is a client of deterministic controls, not the source of product truth. Schema, Catalog, runtime state, and authorization decisions remain authoritative.
-
-## Durable state
-
-A running data path needs durable ownership of:
-
-- canonical resource definitions;
-- source positions and checkpoints;
-- recovery and retry state;
-- schema and mapping state;
-- materialized output state;
-- operational history needed for diagnosis.
-
-Store this state durably so restarts and failovers do not depend on process memory.
+An AI assistant is a client of those controls, not the source of product truth.
+Schema, catalog metadata, runtime state, and authorization decisions remain
+authoritative within their own boundaries.
 
 ## External-system boundary
 
-Source log retention, network paths, credentials, target constraints, API rate limits, and broker retention remain part of the deployment. Prepare and monitor them alongside the tapstate data path.
+Source log retention, network paths, credentials, target constraints, API rate
+limits, and broker retention remain part of the deployment. Prepare and monitor
+them alongside the tapstate data path.
 
-Use connector pages for system-specific preparation and [Troubleshooting](/docs/guides/troubleshooting) to isolate authoring, deployment, and data-movement failures.
+Use [connector guides](/docs/connectors) for external-system preparation and
+[Troubleshooting](/docs/guides/troubleshooting) to isolate authoring,
+deployment, and data-movement failures.

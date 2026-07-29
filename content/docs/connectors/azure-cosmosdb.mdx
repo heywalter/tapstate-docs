@@ -1,6 +1,6 @@
 ---
 title: Azure Cosmos DB
-description: Configure Azure Cosmos DB as a tapstate snapshot source
+description: Connect Azure Cosmos DB to tapstate to snapshot existing records from a NoSQL account and database.
 sidebar:
   order: 8
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use Azure Cosmos DB to copy the records that exist now from a NoSQL account and database.
 
 <ConnectorProfile
   category="Databases"
@@ -41,7 +39,7 @@ Keep the account key in a secret manager. This connection uses the Azure Cosmos 
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/catalog_cosmos.tapstate.yml"
+```yaml title="tapstate-work/source/catalog_cosmos.tap.yml"
 version: tapstate/v1
 kind: source
 id: catalog_cosmos

@@ -1,6 +1,6 @@
 ---
 title: StarRocks
-description: Configure StarRocks as a tapstate snapshot source or data-writing target
+description: Connect StarRocks SQL and HTTP endpoints to tapstate for snapshot reads or analytical target writes with DDL application.
 sidebar:
   order: 28
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use StarRocks for supported Snapshot reads or as a destination for analytical data.
 
 <ConnectorProfile
   category="Warehouses & analytics"
@@ -46,7 +44,7 @@ Replace broad `ALL` grants with the narrower privileges supported by your StarRo
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/analytics_starrocks.tapstate.yml"
+```yaml title="tapstate-work/source/analytics_starrocks.tap.yml"
 version: tapstate/v1
 kind: source
 id: analytics_starrocks

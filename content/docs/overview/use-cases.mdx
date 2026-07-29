@@ -29,7 +29,9 @@ Tapstate is designed for operational data that loses value when it becomes stale
 
 **Customer need:** Customer, order, inventory, and entitlement data is fragmented across systems, while an application needs one current view.
 
-**tapstate model:** Capture relevant changes, reshape or join records, and maintain a consumer-oriented representation.
+**tapstate model:** Capture relevant changes and reshape records into a
+consumer-oriented representation. Stateful Join belongs to the target model and
+is refused by the current preview runtime.
 
 **Verify before production:** Join semantics, late and duplicate records, key changes, delete propagation, source-of-truth ownership, and reconciliation.
 

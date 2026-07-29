@@ -1,0 +1,136 @@
+---
+title: Register and test connectors
+description: Register connector JARs, apply connection resources, test connectivity, and discover source schemas
+ai:
+  kind: guide
+  id: register-and-test-connectors
+  maturity: preview
+  aliases: [tapstate register connector, tapstate connection test, tapstate discover schema]
+---
+
+Registration makes executable connector code available to the server. Validation, registration, and connection testing answer different questions:
+
+| Check | What it proves |
+|---|---|
+| `tapstate validate` | Resource grammar, references, declared modes, and recognized provided field types or enum values are acceptable offline. |
+| `register` and `connectors` | The server accepted a connector artifact and exposes it through the online catalog. |
+| `test` | The registered connector ran its own checks against the supplied endpoint and credentials. |
+| `discover-schema` | A source connection can enumerate objects and return a model. |
+
+Offline validation does not require every catalog-required field, rejects neither unknown connector fields nor unresolved environment-variable contents, and never opens a network connection.
+
+## Before you begin
+
+- [Bootstrap and authenticate](/docs/guides/bootstrap-and-auth).
+- Obtain the connector JAR from a trusted, versioned source.
+- Verify its published checksum or content hash.
+- Create and validate the connection resources locally.
+
+The `v0.1.0` Quickstart uses the separately published [MySQL and MongoDB connector preview assets](https://github.com/tapstate/tapstate/releases/tag/connectors-preview).
+
+## Register connector artifacts
+
+Place the connector JARs next to the workspace:
+
+```text
+tapstate-demo/
+├── mysql-connector.jar
+├── mongodb-connector.jar
+└── work/
+```
+
+Start an authenticated REPL:
+
+```bash
+tapstate -w work
+```
+
+```text
+connect http://127.0.0.1:8080
+login admin
+register ../mysql-connector.jar -o json
+register ../mongodb-connector.jar -o json
+connectors -o json
+```
+
+A registration result includes the connector ID, content hash, PDK API version when declared, source, and `newlyRegistered`. Registering the identical artifact again is an idempotent no-op with `newlyRegistered: false`.
+
+Passing a directory to `register` uploads every direct `*.jar` child. The batch fails if any artifact fails, so review every returned item.
+
+## Apply the connections
+
+At the same prompt:
+
+```text
+apply
+get orders_source
+get analytics_mongodb
+```
+
+`apply` reparses and validates the YAML on the server. It reports each artifact as `CREATED`, `UPDATED`, or `UNCHANGED`.
+
+Environment-variable interpolation happens in the CLI before upload. Confirm the variables are set in the CLI process and avoid printing resolved secrets.
+
+## Test a connection
+
+Run the connector's own test:
+
+```text
+test orders_source -o json
+```
+
+The report contains:
+
+- `connectionId` and `connectorId`;
+- overall `outcome`: `PASSED` or `FAILED`;
+- connector-supplied checks with `PASSED`, `WARNING`, or `FAILED`;
+- optional message, reason, solution, and connector error code;
+- `testedAt` as epoch milliseconds.
+
+A warning does not fail the overall outcome. A failed check produces `outcome: FAILED`. If the connector throws instead of returning checks, tapstate returns a coded connector test failure.
+
+Read the most recently stored report without testing again:
+
+```text
+test-result orders_source -o json
+```
+
+In the interactive `v0.1.0` REPL, a failed line does not end the session. Inspect the report's `outcome`; do not treat the session's eventual exit as the connection-test result.
+
+## What to expect with a placeholder address
+
+A resource using `mysql.invalid` or `mongo.invalid` can pass offline validation because the YAML, mode, and provided field types are valid. After the connector is registered and the resource is applied, `test` should either:
+
+- return a normal report with `outcome: FAILED`; or
+- return a coded connector test error if the connector cannot produce a report.
+
+It must not be documented as connected. The exact failed check and timeout are connector-controlled. Use placeholder addresses only to verify negative-path behavior, never as a substitute for a representative staging test.
+
+## Discover a source schema
+
+After a source connection passes:
+
+```text
+discover-schema orders_source -o json
+schema orders_source -o json
+schema orders_source orders -o json
+```
+
+`discover-schema` runs the connector and stores the latest model. `schema` reads that stored model without rediscovering it. A target-only connection is not a source-discovery witness.
+
+## Troubleshoot the sequence
+
+| Symptom | Check |
+|---|---|
+| Connector not found | Register the correct JAR, then confirm its ID with `connectors`. |
+| API-level incompatibility | Use an artifact built for a compatible PDK API level. |
+| `FAILED` connection report | Read every failed check; verify DNS, port, TLS, credentials, database, and permissions from the server host. |
+| No stored test result | Run `test` before `test-result`. |
+| No stored schema | Run a successful `discover-schema` before `schema`. |
+| Validation passed but test failed | Expected when required fields, endpoint reachability, authentication, or connector-specific rules are wrong. |
+
+## Next steps
+
+- [MySQL connector](/docs/connectors/mysql)
+- [MongoDB connector](/docs/connectors/mongodb)
+- [Apply and run a pipeline](/docs/guides/apply-and-run)

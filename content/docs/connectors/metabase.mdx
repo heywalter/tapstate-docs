@@ -1,6 +1,6 @@
 ---
 title: Metabase
-description: Configure Metabase as a tapstate API source
+description: Connect a Metabase deployment to tapstate with its base URL and account to read analytics content through the API.
 sidebar:
   order: 47
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use Metabase as a supported API source for analytics content.
 
 <ConnectorProfile
   category="SaaS, business & commerce APIs"
@@ -38,7 +36,7 @@ Grant the account access only to the Metabase collections and content the pipeli
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/finance_metabase.tapstate.yml"
+```yaml title="tapstate-work/source/finance_metabase.tap.yml"
 version: tapstate/v1
 kind: source
 id: finance_metabase

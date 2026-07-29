@@ -1,6 +1,6 @@
 ---
 title: Dummy
-description: Configure Dummy as a deterministic test-data source or target for tapstate development
+description: Generate deterministic test data or exercise target writes with tapstate without connecting an external system.
 sidebar:
   order: 61
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use Dummy to generate deterministic test data or exercise a target path without connecting to an external data system. It is a development and verification connector, not a production data source.
 
 <ConnectorProfile
   category="Custom & development"
@@ -50,7 +48,7 @@ Use the supported target path only for development. Set write intervals and logg
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/test_orders_dummy.tapstate.yml"
+```yaml title="tapstate-work/source/test_orders_dummy.tap.yml"
 version: tapstate/v1
 kind: source
 id: test_orders_dummy

@@ -1,6 +1,6 @@
 ---
 title: Apache Paimon
-description: Configure Apache Paimon as a tapstate source or target backed by local, HDFS, S3, or OSS storage
+description: Connect Apache Paimon to tapstate for snapshot reads, change streams, or warehouse writes across supported storage.
 sidebar:
   order: 27
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { PreparationStep, PreparationSteps, SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Read existing Apache Paimon tables, follow their change stream, or write pipeline results into a Paimon warehouse.
 
 <ConnectorProfile
   category="Warehouses & analytics"
@@ -161,7 +159,7 @@ Use `append` for insert-only data. Use `upsert` when the source can update or de
 
 Create a source connection with the warehouse storage fields and the required read mode:
 
-```yaml title="tapstate-work/source/lake_paimon.tapstate.yml"
+```yaml title="tapstate-work/source/lake_paimon.tap.yml"
 version: tapstate/v1
 kind: source
 id: lake_paimon
@@ -183,7 +181,7 @@ Use `mode: cdc` after completing and testing the full-load-to-CDC preparation pa
 
 A target connection uses the same Paimon storage contract without source mode or table selection:
 
-```yaml title="tapstate-work/source/analytics_paimon.tapstate.yml"
+```yaml title="tapstate-work/source/analytics_paimon.tap.yml"
 version: tapstate/v1
 kind: source
 id: analytics_paimon
@@ -200,7 +198,7 @@ config:
 
 Reference the target connection from a pipeline. Use `ddl: fail` because existing Paimon tables are not changed automatically:
 
-```yaml title="tapstate-work/pipeline/orders_to_paimon.tapstate.yml"
+```yaml title="tapstate-work/pipeline/orders_to_paimon.tap.yml" structure-only
 version: tapstate/v1
 kind: pipeline
 id: orders_to_paimon

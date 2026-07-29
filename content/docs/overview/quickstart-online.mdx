@@ -1,0 +1,169 @@
+---
+title: Run the online Quickstart
+description: Start the tapstate preview and verify a MySQL-to-MongoDB snapshot and CDC pipeline
+ai:
+  kind: guide
+  id: online-quickstart
+  maturity: preview
+  modes: [snapshot, cdc]
+  aliases: [tapstate demo, tapstate Docker quickstart, MySQL to MongoDB quickstart]
+---
+
+Run the published tapstate demo to load five MySQL rows into MongoDB, then follow inserts, updates, and deletes through change data capture (CDC).
+
+## Before you begin
+
+You need:
+
+- macOS or Linux;
+- Docker with the Compose plugin;
+- `curl`;
+- enough local resources to run MySQL 8.0, MongoDB 7.0, and the tapstate server.
+
+You do not need to install the tapstate CLI first. The script downloads the `v0.1.0` CLI and the two connector preview JARs into the demo directory. Docker Compose runs the pinned `ghcr.io/tapstate/tapstate:0.1.0` server image.
+
+## 1. Start the demo
+
+Use a new directory and the versioned Quickstart script:
+
+```bash
+mkdir tapstate-demo
+cd tapstate-demo
+
+curl -fLO \
+  https://raw.githubusercontent.com/tapstate/tapstate/v0.1.0/deploy/quickstart/quickstart.sh
+sh quickstart.sh
+```
+
+The script creates the Docker Compose stack, generates a random tapstate administrator password, registers the MySQL and MongoDB connectors, applies the resources, starts the pipeline, and waits for the initial rows to reach MongoDB.
+
+The successful result includes:
+
+```text
+quickstart: the target now holds 5 rows (MySQL orders -> MongoDB warehouse.orders)
+```
+
+The generated `.env` file contains the local demo password and is created with owner-only permissions. The script also prints the password once. Keep it local and do not commit the file.
+
+## 2. Observe the running pipeline
+
+Start an interactive CLI session from the demo directory:
+
+```bash
+./tapstate -w work
+```
+
+At the `tapstate>` prompt, connect to the local server and sign in:
+
+```text
+connect http://127.0.0.1:8080
+login admin
+```
+
+Enter the password from `.env` when prompted. Then inspect the pipeline:
+
+```text
+status sync_orders --watch
+```
+
+Press <kbd>Ctrl</kbd>+<kbd>C</kbd> to stop watching without stopping the pipeline. You can also inspect metrics and recent node-local logs:
+
+```text
+metrics sync_orders
+logs sync_orders
+```
+
+## 3. Verify CDC
+
+In a second terminal, insert, update, and delete rows in MySQL:
+
+```bash
+docker compose exec mysql mysql -uroot -psecret appdb \
+  -e "INSERT INTO orders VALUES (6, 'frank', 60.00);"
+
+until docker compose exec -T mongo mongosh --quiet \
+  'mongodb://mongo:27017/warehouse?directConnection=true' \
+  --eval 'quit(db.orders.countDocuments({id:6})?0:1)'; do sleep 1; done
+
+docker compose exec mysql mysql -uroot -psecret appdb \
+  -e "UPDATE orders SET customer='franky' WHERE id=6;"
+
+until docker compose exec -T mongo mongosh --quiet \
+  'mongodb://mongo:27017/warehouse?directConnection=true' \
+  --eval 'quit((db.orders.findOne({id:6})||{}).customer_name=="franky"?0:1)'; do sleep 1; done
+```
+
+Inspect the mapped document:
+
+```bash
+docker compose exec mongo mongosh --quiet \
+  'mongodb://mongo:27017/warehouse?directConnection=true' \
+  --eval 'db.orders.find({id:6}).pretty()'
+```
+
+Then delete it and wait until the target document is gone:
+
+```bash
+docker compose exec mysql mysql -uroot -psecret appdb \
+  -e "DELETE FROM orders WHERE id=6;"
+
+until docker compose exec -T mongo mongosh --quiet \
+  'mongodb://mongo:27017/warehouse?directConnection=true' \
+  --eval 'quit(db.orders.countDocuments({id:6})?1:0)'; do sleep 1; done
+```
+
+The insert creates the document, the update changes the mapped `customer_name` to `franky`, and the delete removes it.
+
+## What the script creates
+
+The demo keeps all generated files in its directory:
+
+```text
+tapstate-demo/
+├── .env
+├── docker-compose.yml
+├── mongodb-connector.jar
+├── mysql-connector.jar
+├── tapstate
+└── work/
+    ├── pipeline/
+    └── source/
+```
+
+The workspace declares:
+
+- a MySQL source using `snapshot_and_cdc`;
+- a MongoDB target connection;
+- a pipeline that maps `appdb.orders` to `warehouse.orders`.
+
+The connector JARs come from the separate [connector preview assets](https://github.com/tapstate/tapstate/releases/tag/connectors-preview). That asset bundle is not a tapstate product release.
+
+## Stop or reset the demo
+
+Stop the containers while keeping their data:
+
+```bash
+docker compose stop
+```
+
+Remove the containers and their volumes when you are finished:
+
+```bash
+docker compose down -v
+```
+
+The second command removes the demo's MySQL and MongoDB data. It does not remove downloaded container images or the files in `tapstate-demo`.
+
+The script preserves existing `.env`, connector, workspace, and Compose files when rerun. If a partial or completed run leaves the pipeline in a state that cannot be started again, inspect `status` and `logs`, or reset the local demo with `docker compose down -v` before rerunning the script.
+
+In `v0.1.0`, the script prints the observed target count but does not return a failure solely because that count is below five. Treat only `the target now holds 5 rows` as the successful snapshot result. Later releases can strengthen this check; follow the behavior of the versioned script you run.
+
+## Next steps
+
+- Read the [CLI reference](/docs/reference/cli) for interactive and offline commands.
+- Follow the reusable [bootstrap and authentication](/docs/guides/bootstrap-and-auth),
+  [connector registration and testing](/docs/guides/register-connectors), and
+  [pipeline operation](/docs/guides/apply-and-run) procedures.
+- Prepare production-like systems with the [MySQL](/docs/connectors/mysql) and [MongoDB](/docs/connectors/mongodb) guides.
+- Review the [v0.1.0 release limitations](/docs/releases/v0.1.0#known-limitations).
+- Use [Troubleshooting](/docs/guides/troubleshooting) if the script does not produce the five-row result.

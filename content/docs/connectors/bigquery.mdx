@@ -1,6 +1,6 @@
 ---
 title: BigQuery
-description: Configure BigQuery as a tapstate data-writing target
+description: Connect BigQuery to tapstate to write pipeline data into an existing Google Cloud dataset.
 sidebar:
   order: 23
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use BigQuery as a destination for pipeline data with a Google Cloud service account and an existing dataset/table set.
 
 <ConnectorProfile
   category="Warehouses & analytics"
@@ -69,7 +67,7 @@ Remove administrative permissions if your pipeline writes only to pre-created ta
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/warehouse_bigquery.tapstate.yml"
+```yaml title="tapstate-work/source/warehouse_bigquery.tap.yml"
 version: tapstate/v1
 kind: source
 id: warehouse_bigquery

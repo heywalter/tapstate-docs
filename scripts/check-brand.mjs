@@ -1,3 +1,4 @@
+// Scans files for legacy brand terms to enforce the current naming contract.
 import { readdir, readFile } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
 
@@ -8,6 +9,7 @@ const mixedCaseBrand = ['Tap', 'State'].join('');
 const legacyBrand = ['cyn', 'tex'].join('');
 const upstreamBrand = ['tap', 'data'].join('');
 const legacyStem = ['c', 'y', 'n'].join('');
+const oldResourceStem = ['tap', 'state'].join('');
 const forbidden = [
   { label: 'non-canonical brand casing', pattern: new RegExp(`\\b${mixedCaseBrand}\\b`, 'g') },
   { label: 'legacy product name', pattern: new RegExp(legacyBrand, 'gi') },
@@ -16,6 +18,7 @@ const forbidden = [
   { label: 'legacy overview slug', pattern: new RegExp(`what-is-${legacyBrand}`, 'gi') },
   { label: 'legacy package name', pattern: new RegExp(`${legacyBrand}-docs`, 'gi') },
   { label: 'legacy resource extension', pattern: new RegExp(`\\.${legacyStem}\\.yml`, 'gi') },
+  { label: 'obsolete resource extension', pattern: new RegExp(`\\.${oldResourceStem}\\.ya?ml`, 'gi') },
   { label: 'legacy resource version', pattern: new RegExp(`${legacyBrand}/v1`, 'gi') },
   { label: 'legacy workspace variable', pattern: new RegExp(`${legacyBrand.toUpperCase()}_WORKDIR`, 'g') },
 ];
@@ -54,5 +57,5 @@ if (failures.length > 0) {
   console.error(failures.join('\n'));
   process.exitCode = 1;
 } else {
-  console.log('Brand check passed: no legacy or upstream product names, domains, slugs, or package names.');
+  console.log('Brand check passed: naming, domains, resource extensions, slugs, and package names use the current contract.');
 }

@@ -1,0 +1,113 @@
+---
+title: Bootstrap and authenticate
+description: Create the first tapstate administrator, sign in, and use the preview control plane safely
+ai:
+  kind: guide
+  id: bootstrap-and-auth
+  maturity: preview
+  aliases: [tapstate login, tapstate bootstrap, tapstate authentication, tapstate bearer token]
+---
+
+The tapstate control plane requires authentication for connector, artifact, connection, pipeline, and observation operations. A new server has one bootstrap window for creating its first administrator.
+
+The [online Quickstart](/docs/overview/quickstart-online) performs these steps automatically. Follow this page when operating the server directly.
+
+## Before you begin
+
+- Start a `v0.1.0` server with its control port bound to loopback or another protected interface.
+- Confirm `GET /healthz` returns `ok`.
+- Install `curl` and `jq` for the HTTP examples.
+- Choose a strong first-administrator password and keep it out of shell history.
+
+The preview bootstrap endpoint accepts only a loopback caller. Do not expose an unbootstrapped server port to another host.
+
+## Create the first administrator
+
+Set credentials in the current shell, then call the loopback endpoint:
+
+```bash
+export TAPSTATE_ADMIN_USER=admin
+read -s TAPSTATE_ADMIN_PASSWORD
+export TAPSTATE_ADMIN_PASSWORD
+
+curl --fail-with-body --silent --show-error \
+  -X POST http://127.0.0.1:8080/auth/bootstrap \
+  -H 'Content-Type: application/json' \
+  --data "$(jq -n \
+    --arg username "$TAPSTATE_ADMIN_USER" \
+    --arg password "$TAPSTATE_ADMIN_PASSWORD" \
+    '{username: $username, password: $password}')"
+```
+
+A successful first bootstrap returns HTTP `204` with no body. Once any user exists, another bootstrap request returns HTTP `409` with code `control.bootstrap-closed`.
+
+The Quickstart treats both results as an established administrator: `204` means it created the user; `409` means the bootstrap window was already closed.
+
+## Sign in with the CLI
+
+Start an interactive session:
+
+```bash
+tapstate -w work
+```
+
+Then connect and sign in:
+
+```text
+connect http://127.0.0.1:8080
+login admin
+```
+
+The CLI asks for the password with masked input. A successful login keeps the session token in memory for that CLI process. Use `logout` or `exit` when finished.
+
+In `v0.1.0`, connected verbs run inside this interactive session.
+
+## Sign in over HTTP
+
+```bash
+TOKEN="$(
+  curl --fail-with-body --silent --show-error \
+    -X POST http://127.0.0.1:8080/auth/login \
+    -H 'Content-Type: application/json' \
+    --data "$(jq -n \
+      --arg username "$TAPSTATE_ADMIN_USER" \
+      --arg password "$TAPSTATE_ADMIN_PASSWORD" \
+      '{username: $username, password: $password}')" \
+  | jq -r '.token'
+)"
+```
+
+Present the token on `/api/**` requests:
+
+```bash
+curl --fail-with-body --silent --show-error \
+  http://127.0.0.1:8080/api/connectors \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+The current session token lifetime is 15 minutes. When the signing secret is not configured, the single-node server creates a new secret at startup, so existing session tokens stop working after a restart.
+
+## Authentication results
+
+| Result | Meaning |
+|---|---|
+| HTTP `400` | The JSON body is malformed or a required username/password field is blank. |
+| HTTP `401` | Login failed, or an API credential is absent, invalid, expired, or revoked. |
+| HTTP `403` | The authenticated caller lacks the operation's required scope, or bootstrap was not called from loopback. |
+| HTTP `409` | The first-administrator bootstrap window is already closed. |
+
+API errors use the [structured error envelope](/docs/reference/rest-api#error-responses). Do not distinguish “unknown user” from “wrong password” in automation; both intentionally return the same authentication failure.
+
+## Security boundaries
+
+- Keep the preview server on a trusted network path.
+- Do not pass passwords as CLI arguments or commit `.env` files.
+- Unset the shell variables when finished: `unset TAPSTATE_ADMIN_PASSWORD TOKEN`.
+- Treat server restart as a new session boundary.
+- The preview does not provide a complete production identity lifecycle or high-availability token-signing contract.
+
+## Next steps
+
+- [Register and test connectors](/docs/guides/register-connectors)
+- [Apply and run a pipeline](/docs/guides/apply-and-run)
+- [REST API preview](/docs/reference/rest-api)

@@ -1,0 +1,209 @@
+---
+title: Install tapstate
+description: Install the tapstate CLI on macOS or Linux, add it to your shell, and verify the downloaded binary.
+ai:
+  kind: guide
+  id: install-tapstate
+  maturity: preview
+  aliases: [install tapstate, tapstate CLI download, tapstate v0.1.0]
+---
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+The `v0.1.0` preview provides native tapstate CLI archives for macOS and Linux. Pin the version when you install this prerelease so the command does not depend on a floating release pointer.
+
+This page installs the CLI only. It does not install or start a tapstate server,
+open a local port, or install connector JARs.
+
+## Understand the CLI and server
+
+The CLI is useful on its own for authoring and validating local workspaces:
+
+```text
+new · validate · explain · ls · desc
+```
+
+A tapstate server is a separate, headless service. It has no built-in web UI in
+`v0.1.0`; it exposes an authenticated control plane and runs pipelines. The
+following operations require the CLI to connect to a running server:
+
+```text
+apply · register · test · discover-schema · start · status · metrics · logs
+```
+
+The published [online Quickstart](/docs/overview/quickstart-online) starts the
+server and its demo dependencies with Docker Compose. Installing the CLI alone
+is enough for the offline authoring walkthrough, but it cannot test a database
+connection or move data without a server.
+
+## Supported platforms
+
+| Operating system | Architecture | Recommended minimum |
+|---|---|---|
+| macOS | Apple silicon (`arm64`) | macOS 15.0 |
+| macOS | Intel (`x64`) | macOS 15.0 |
+| Linux with glibc | `arm64` | glibc 2.34 |
+| Linux with glibc | `x64` | glibc 2.34 |
+
+On macOS, the installer warns but does not stop when the version is older than the recommended minimum. On Linux, verify that your system uses glibc 2.34 or later. Alpine Linux and other musl-based distributions are not supported by the published binaries. On Windows, use WSL 2 or build from source.
+
+## Install the CLI
+
+Choose your platform, download the versioned installer, optionally inspect it,
+then run it with the release version pinned.
+
+<Tabs items={["macOS", "Linux"]} label="Platform">
+<Tab value="macOS">
+
+Use this path on Apple silicon or Intel Macs. The installer selects the matching archive automatically.
+
+Download the installer:
+
+```bash
+curl -fsSL \
+  https://raw.githubusercontent.com/tapstate/tapstate/v0.1.0/install/install.sh \
+  -o install-tapstate.sh
+```
+
+Optional: inspect the downloaded script. `less` displays the file and does not
+install anything; press <kbd>q</kbd> to return to your shell.
+
+```bash
+less install-tapstate.sh
+```
+
+Run the installer:
+
+```bash
+TAPSTATE_VERSION=0.1.0 sh install-tapstate.sh
+```
+
+</Tab>
+<Tab value="Linux">
+
+Use this path on a glibc-based Linux system. The installer selects the matching `arm64` or `x64` archive automatically.
+
+Download the installer:
+
+```bash
+curl -fsSL \
+  https://raw.githubusercontent.com/tapstate/tapstate/v0.1.0/install/install.sh \
+  -o install-tapstate.sh
+```
+
+Optional: inspect the downloaded script. `less` displays the file and does not
+install anything; press <kbd>q</kbd> to return to your shell.
+
+```bash
+less install-tapstate.sh
+```
+
+Run the installer:
+
+```bash
+TAPSTATE_VERSION=0.1.0 sh install-tapstate.sh
+```
+
+</Tab>
+</Tabs>
+
+The installer:
+
+- selects the archive for your operating system and architecture;
+- downloads it from the `v0.1.0` GitHub release;
+- verifies its SHA-256 checksum;
+- installs `tapstate` in `$HOME/.tapstate/bin` by default;
+- does not use `sudo` or edit your shell profile.
+
+It should finish with a message similar to:
+
+```text
+tapstate 0.1.0 installed to <home>/.tapstate/bin/tapstate
+```
+
+Add the installation directory to `PATH` if it is not already available:
+
+```bash
+export PATH="$HOME/.tapstate/bin:$PATH"
+```
+
+To keep the setting for future Zsh sessions:
+
+```bash
+printf '%s\n' 'export PATH="$HOME/.tapstate/bin:$PATH"' >> "$HOME/.zshrc"
+```
+
+Verify the result:
+
+```bash
+tapstate --version
+```
+
+The command should report `tapstate 0.1.0`.
+
+If Zsh reports `command not found: tapstate`, either the installer did not
+finish or its default directory is not on the current shell's `PATH`. Check the
+installed file first:
+
+```bash
+test -x "$HOME/.tapstate/bin/tapstate" && "$HOME/.tapstate/bin/tapstate" --version
+```
+
+If that succeeds, run the `export PATH=...` command above for the current
+shell. After adding it to `.zshrc`, open a new terminal or run `source
+"$HOME/.zshrc"`, then repeat `tapstate --version`.
+
+## Other installation methods
+
+### Use a different installation directory
+
+Set `TAPSTATE_INSTALL_DIR` before running the installer:
+
+```bash
+TAPSTATE_VERSION=0.1.0 \
+TAPSTATE_INSTALL_DIR="$HOME/bin" \
+sh install-tapstate.sh
+```
+
+The selected directory must be on your `PATH` before you can invoke `tapstate` by name.
+
+### Install manually
+
+The [v0.1.0 release](https://github.com/tapstate/tapstate/releases/tag/v0.1.0) includes four platform archives, individual `.sha256` files, and a combined `checksums.txt`. Download the archive that matches your system and verify its checksum before extracting it.
+
+For example, on Apple silicon:
+
+```bash
+curl -fLO \
+  https://github.com/tapstate/tapstate/releases/download/v0.1.0/tapstate-0.1.0-darwin-arm64.tar.gz
+curl -fLO \
+  https://github.com/tapstate/tapstate/releases/download/v0.1.0/tapstate-0.1.0-darwin-arm64.tar.gz.sha256
+
+shasum -a 256 -c tapstate-0.1.0-darwin-arm64.tar.gz.sha256
+tar -xzf tapstate-0.1.0-darwin-arm64.tar.gz
+```
+
+If macOS blocks a manually downloaded binary after the checksum passes, remove the quarantine attribute and try again:
+
+```bash
+xattr -d com.apple.quarantine ./tapstate
+./tapstate --version
+```
+
+### Update or remove the CLI
+
+The preview has no automatic updater. To install a later release, rerun its versioned installer and verify the reported version.
+
+To remove the default installation:
+
+```bash
+rm "$HOME/.tapstate/bin/tapstate"
+```
+
+This removes only the CLI binary. Workspaces, containers, and external-system data are separate.
+
+## Next steps
+
+- [Author and validate a workspace](/docs/overview/quickstart) using only the installed CLI.
+- If Docker is available, run the [online Quickstart](/docs/overview/quickstart-online) to start a server and exercise the published MySQL-to-MongoDB path.
+- Review the [v0.1.0 release limitations](/docs/releases/v0.1.0#known-limitations) before evaluating tapstate.

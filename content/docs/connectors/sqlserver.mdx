@@ -1,6 +1,6 @@
 ---
 title: SQL Server
-description: Configure SQL Server source and target prerequisites for snapshots and change data capture
+description: Connect SQL Server to tapstate for an initial full load, Change Data Capture (CDC), or target writes.
 sidebar:
   order: 5
 ai:
@@ -13,23 +13,25 @@ ai:
   aliases: [sql server snapshot, sql server cdc, mssql cdc, sql server source, sql server target]
 ---
 
-import { ConnectorProfile } from '@/components/mdx';
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use SQL Server with tapstate for an initial full load, table CDC, DDL capture, and destination writes.
 
 <ConnectorProfile
   category="Databases"
   maturity="GA"
   maturityLabel="Generally available"
   worksAs="Source, Target"
-  capabilities="Snapshot, CDC, DDL capture, Data write"
+  capabilities="Snapshot, CDC, DDL capture, Data write, Target DDL apply"
   compatibility="SQL Server 2008–2022"
 />
 
+Connect SQL Server as a source for an initial full load and CDC, or as a target
+for pipeline writes. Complete the database preparation that matches the role
+and read mode you plan to use.
+
 ## Before you begin
 
-### Source
+### Prepare a source database
 
 Choose the outcome you need. Each tab is a complete preparation path; you do not need to combine steps from both tabs.
 
@@ -63,7 +65,8 @@ Use object-level `SELECT` grants instead of a schema grant when the account shou
 </SourceModeTab>
 <SourceModeTab value="snapshot-cdc" label="Full load + CDC" description="Copy existing rows, then follow table CDC changes">
 
-Use **Full load + CDC** to copy existing rows and then follow SQL Server CDC changes.
+Use this preparation path when the destination must begin with existing rows,
+then follow SQL Server CDC changes.
 
 **1. Create a dedicated CDC reader**
 
@@ -149,7 +152,7 @@ SQL Server CDC polling cost grows with the number of capture instances. Split ve
 </SourceModeTab>
 </SourceModeTabs>
 
-### Target
+### Prepare a target database
 
 **1. Create a dedicated writer**
 
@@ -183,11 +186,88 @@ Remove `CREATE TABLE` or `ALTER` when tapstate must write only to pre-created ta
 
 ## Create a connection
 
-Use the SQL Server connection workflow available in your tapstate environment. Enter the prepared server, database, credentials, and source or target role using the fields provided there.
+Tapstate stores each SQL Server connection as a `.tap.yml` file in the
+workspace. Create a source connection when tapstate reads SQL Server; create a
+target connection when a pipeline writes to SQL Server.
+
+### Source connection
+
+Create `tapstate-work/source/orders_sqlserver.tap.yml`. The connection's `mode`
+controls its read capability. For a full-load-only source, use `mode: snapshot`
+instead of `mode: cdc`.
+
+```yaml title="tapstate-work/source/orders_sqlserver.tap.yml"
+version: tapstate/v1
+kind: source
+id: orders_sqlserver
+connector: sqlserver
+config:
+  host: sqlserver.internal
+  port: "1433"
+  database: orders
+  username: ${SQLSERVER_READER_USER}
+  password: ${SQLSERVER_READER_PASSWORD}
+mode: cdc
+tables:
+  - orders
+  - /customers_.*/
+```
+
+For a CDC-capable source, use `mode: cdc` after enabling database and table CDC
+and confirming that the cleanup window covers the recovery objective.
+
+### Target connection
+
+A SQL Server target is represented by the same `kind: source` connection
+resource, but it has no reader `mode` or `tables`.
+
+```yaml title="tapstate-work/source/analytics_sqlserver.tap.yml"
+version: tapstate/v1
+kind: source
+id: analytics_sqlserver
+connector: sqlserver
+config:
+  host: analytics-sqlserver.internal
+  port: "1433"
+  database: analytics
+  username: ${SQLSERVER_WRITER_USER}
+  password: ${SQLSERVER_WRITER_PASSWORD}
+```
+
+Create the pipeline after both connections exist:
+
+```yaml title="tapstate-work/pipeline/orders_to_analytics.tap.yml"
+version: tapstate/v1
+kind: pipeline
+id: orders_to_analytics
+source: orders_sqlserver
+serve:
+  from: /.*/
+  sync:
+    - id: write_to_analytics
+      source: analytics_sqlserver
+      write_mode: upsert
+      ddl: fail
+```
+
+`upsert` writes new rows and updates existing rows by key; `append` only
+inserts. Change `ddl` to `apply` only after a staging pipeline proves the
+source DDL event and target schema behavior required by your workload.
 
 ## Validate the configuration
 
-Before production, verify in a staging table that:
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+Validation does not resolve the host, credentials, or a SQL Server instance. A
+syntactically valid resource that uses `sqlserver.invalid` can therefore pass
+validation. Register the SQL Server connector JAR, apply the workspace, and
+run a server-side connection test for both source and target before production.
+
+Then verify in a staging table that:
 
 1. the account can discover and snapshot the table;
 2. the capture instance produces insert, update, and delete rows;
@@ -234,19 +314,22 @@ Recreating a capture instance changes the available change-table history. Verify
 
 ## Reference
 
-### Compatibility
+### Database-side reference
 
-| Signal | Supported baseline |
+This table summarizes SQL Server data behavior for the connector. Test uncommon
+types with representative data before migration.
+
+| Signal | Database-side baseline |
 |---|---|
 | Versions | SQL Server 2008, 2008 R2, 2012, 2014, 2016, 2017, 2019, 2022 |
 | Architecture | Single node |
-| Source modes | Snapshot and CDC |
-| Target | Insert, update, delete, and optional table creation |
+| Source preparation | Snapshot and CDC prerequisites |
+| Target preparation | Insert, update, delete, and optional table-creation prerequisites |
 | DDL | Add, rename, alter, and drop columns, subject to CDC limitations |
 
 ### Data compatibility
 
-| Family | Supported baseline |
+| Family | Database-side baseline |
 |---|---|
 | Text | `char`, `varchar`, `nchar`, `nvarchar`, `text`, `ntext`, `varchar(max)`, `nvarchar(max)` |
 | Integer | `tinyint`, `smallint`, `int`, `bigint` |

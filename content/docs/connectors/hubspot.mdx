@@ -1,6 +1,6 @@
 ---
 title: HubSpot
-description: Configure HubSpot as a tapstate API source
+description: Connect HubSpot to tapstate with an authorization code to read CRM records through its API into downstream pipelines.
 sidebar:
   order: 43
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use HubSpot as a supported API source for CRM data.
 
 <ConnectorProfile
   category="SaaS, business & commerce APIs"
@@ -34,7 +32,7 @@ Choose the HubSpot account and objects to expose, then arrange administrator-app
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/marketing_hubspot.tapstate.yml"
+```yaml title="tapstate-work/source/marketing_hubspot.tap.yml"
 version: tapstate/v1
 kind: source
 id: marketing_hubspot

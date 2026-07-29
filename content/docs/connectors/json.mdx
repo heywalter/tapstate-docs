@@ -1,6 +1,6 @@
 ---
 title: JSON
-description: Configure JSON files as a tapstate source
+description: Read structured JSON files with tapstate from local or supported remote storage.
 sidebar:
   order: 51
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use JSON files from local or supported remote storage as a source for structured pipeline data.
 
 <ConnectorProfile
   category="Files"
@@ -46,7 +44,7 @@ Use **Snapshot + CDC** when new or changed JSON files should be picked up after 
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/events_json.tapstate.yml"
+```yaml title="tapstate-work/source/events_json.tap.yml"
 version: tapstate/v1
 kind: source
 id: events_json

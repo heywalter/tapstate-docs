@@ -1,6 +1,6 @@
 ---
 title: OceanBase
-description: Configure MySQL-compatible OceanBase as a tapstate snapshot or CDC source and data-writing target
+description: Connect MySQL-compatible OceanBase to tapstate for snapshots, log-based CDC, or target writes.
 sidebar:
   order: 10
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use OceanBase for MySQL-compatible deployments. Copy current rows once, or continue with CDC after preparing the required log service. Oracle-compatible deployments need a separate connector and are not covered by this guide.
 
 <ConnectorProfile
   category="Databases"
@@ -79,7 +77,7 @@ Scope that grant more narrowly where the tenant's authorization model allows it.
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/orders_oceanbase.tapstate.yml"
+```yaml title="tapstate-work/source/orders_oceanbase.tap.yml"
 version: tapstate/v1
 kind: source
 id: orders_oceanbase

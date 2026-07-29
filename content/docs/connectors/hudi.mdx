@@ -1,6 +1,6 @@
 ---
 title: Apache Hudi
-description: Configure Apache Hudi as a tapstate data-writing target
+description: Connect Apache Hudi to tapstate to write pipeline data through a configured Hadoop and Hive environment.
 sidebar:
   order: 26
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use Apache Hudi as a destination backed by the configured Hadoop and Hive environment.
 
 <ConnectorProfile
   category="Warehouses & analytics"
@@ -40,7 +38,7 @@ Obtain the cluster address, destination database, Hadoop and Hive site configura
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/lake_hudi.tapstate.yml"
+```yaml title="tapstate-work/source/lake_hudi.tap.yml"
 version: tapstate/v1
 kind: source
 id: lake_hudi

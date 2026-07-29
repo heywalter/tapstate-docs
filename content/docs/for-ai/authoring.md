@@ -9,14 +9,16 @@ ai:
   aliases: [tapstate ai authoring, generate tapstate yaml, repair validation errors]
 ---
 
-An assistant can discover the tapstate docs, draft `.tapstate.yml` resources, explain connector preparation, and repair validation errors. Keep the workflow human-reviewable and run commands in your own environment.
+An assistant can discover the tapstate docs, draft `.tap.yml` resources,
+explain connector preparation, and repair validation errors. Keep the workflow
+human-reviewable and run commands in your own environment.
 
 ## Recommended workflow
 
 ```text
 1. Give the assistant llms.txt or the relevant page Markdown
 2. Describe one source, target, and desired data outcome
-3. Generate or scaffold .tapstate.yml resources
+3. Generate or scaffold .tap.yml resources
 4. Run the validation command supplied with your tapstate environment
 5. Feed coded diagnostics back to the assistant
 6. Review the final diff before keeping it
@@ -54,26 +56,31 @@ Use `--dry-run` when the assistant should preview canonical YAML without writing
 ## Validate and repair
 
 ```bash
-tapstate validate --workdir tapstate-work --output json
+tapstate validate --workdir tapstate-work -o json
 ```
 
 On failure, give the assistant the diagnostic `code`, location, message, and solution. Ask it to change only the reported resource, then validate again. Require runtime evidence before the assistant reports successful connectivity or execution.
 
 ## Use the schema and explain command
 
-Associate `*.tapstate.yml` with the bundled JSON Schema for editor completion. For a focused question, use:
+Associate `*.tap.yml` with the bundled JSON Schema for editor completion. For a focused question, use:
 
 ```bash
 tapstate explain source.mode
-tapstate explain pipeline.sync
+tapstate explain pipeline.settings.read_mode
 ```
 
-`explain` describes grammar fields; connector pages describe database preparation and documented connection fields.
+`explain` describes grammar fields; connector pages document maturity, roles,
+modes, external-system preparation, and limitations.
 
 ## Safety boundaries
 
 - Keep credentials in environment variables.
 - Do not infer fields from upstream UI screenshots or unrelated connector versions.
+- Do not treat a catalog entry, Schema-accepted resource, or successful offline
+  validation as proof that a runtime artifact is installed or executable.
+- Unknown connector config keys can pass the current offline validator. Require
+  a real connector test before accepting a configuration.
 - Require runtime evidence before an assistant claims a successful connection, data run, or latency result.
 - Review generated permissions and database commands before execution.
 - Do not give an assistant live control unless your tapstate environment exposes an authenticated, authorized interface for it.

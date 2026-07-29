@@ -1,6 +1,6 @@
 ---
 title: TiDB
-description: Configure TiDB as a tapstate snapshot or CDC source and data-writing target
+description: Connect TiDB to tapstate for an initial full load, TiCDC-based change capture, or target writes.
 sidebar:
   order: 10
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use TiDB for an initial full load, TiCDC-based change capture, or destination writes.
 
 <ConnectorProfile
   category="Databases"
@@ -97,7 +95,7 @@ Remove `ALTER`, `CREATE`, and `DROP` when pipeline-managed tables are not approv
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/orders_tidb.tapstate.yml"
+```yaml title="tapstate-work/source/orders_tidb.tap.yml"
 version: tapstate/v1
 kind: source
 id: orders_tidb
@@ -119,7 +117,7 @@ tables:
 
 Use `mode: snapshot` for a one-time read. For target-only use, omit `mode` and `tables`.
 
-```yaml title="tapstate-work/source/analytics_tidb.tapstate.yml"
+```yaml title="tapstate-work/source/analytics_tidb.tap.yml"
 version: tapstate/v1
 kind: source
 id: analytics_tidb
@@ -132,7 +130,7 @@ config:
   password: ${TIDB_WRITER_PASSWORD}
 ```
 
-```yaml title="tapstate-work/pipeline/orders_to_analytics.tapstate.yml"
+```yaml title="tapstate-work/pipeline/orders_to_analytics.tap.yml"
 version: tapstate/v1
 kind: pipeline
 id: orders_to_analytics
@@ -167,7 +165,7 @@ tapstate validate --workdir tapstate-work
 | Field | Required | Default | Use |
 |---|---|---|---|
 | `host` | Yes | — | TiDB SQL host. |
-| `port` | Yes | `4000` | TiDB SQL port; use a quoted string in `.tapstate.yml`. |
+| `port` | Yes | `4000` | TiDB SQL port; use a quoted string in `.tap.yml`. |
 | `database` | Yes | — | Database name. |
 | `user`, `password` | No | — | Connection account and secret. |
 | `pdServer` | No | — | PD endpoint used for CDC. |

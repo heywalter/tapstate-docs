@@ -2,11 +2,13 @@
   "title": "Tapstate docs",
   "pages": [
     "[What is tapstate?](/docs/overview/what-is-tapstate)",
-    "[Quickstart](/docs/overview/quickstart)",
+    "[Install](/docs/overview/install)",
+    "[Quickstart](/docs/overview/quickstart-online)",
     "concepts",
     "connectors",
+    "guides",
     "reference",
-    "[Troubleshooting](/docs/guides/troubleshooting)",
+    "releases",
     "for-ai"
   ]
 }

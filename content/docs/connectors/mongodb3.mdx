@@ -1,6 +1,6 @@
 ---
 title: MongoDB 3.4 and earlier
-description: Configure MongoDB 3.2 or 3.4 as a tapstate snapshot or CDC source and data-writing target
+description: Connect MongoDB 3.2 or 3.4 to tapstate for snapshots, Oplog-based CDC, or target writes.
 sidebar:
   order: 66
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use this connector for MongoDB 3.2 and 3.4. Use the standard MongoDB guide for newer deployments.
 
 <ConnectorProfile category="Databases" maturity="Preview" maturityLabel="Available for evaluation" worksAs="Source, Target" capabilities="Snapshot, CDC through the Oplog, Data write" compatibility="MongoDB 3.2 and 3.4 · Replica sets and sharded clusters" />
 
@@ -100,7 +98,7 @@ MongoDB 3.2 targets may also require read access to `local` for deployment-speci
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/legacy_mongo.tapstate.yml"
+```yaml title="tapstate-work/source/legacy_mongo.tap.yml"
 version: tapstate/v1
 kind: source
 id: legacy_mongo
