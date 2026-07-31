@@ -265,19 +265,44 @@ ${metadata ? `${metadata}\n\n` : ''}${processed}`;
 
 export function getLLMIndex() {
   const index = makeDocumentLinksAbsolute(llms(source).index());
-  const [title, ...content] = index.split('\n');
+  const [, ...content] = index.split('\n');
+  const documentationMap = content.join('\n').trim();
 
   return [
-    title,
+    '# Tapstate documentation',
     '',
-    '> Tapstate product documentation. Prefer page-level Markdown for implementation decisions.',
+    '> tapstate is a unified operational data engine that builds and maintains an Operational State Layer.',
+    '>',
+    '> Its product model captures changes, transforms records in flight, and delivers current operational state to applications, APIs, automation, and AI agents through one governed Capture–Transform–Serve data path. It is intended for teams that would otherwise assemble separate CDC, broker, stream-processing, and serving products for the same path. This describes the product model; it does not mean every surface is available in the current preview.',
+    '>',
+    '> The current preview is a prerelease, single-node, in-memory runtime. The documented end-to-end path is a local MySQL-to-MongoDB snapshot followed by CDC. Use the linked page-level documentation for current maturity, roles, modes, limitations, and setup requirements.',
+    '',
+    '## When to use tapstate',
+    '',
+    '- Keep operational state current for applications, APIs, automation, or AI agents.',
+    '- Reduce the coordination cost of operating separate CDC, broker, stream-processing, and serving systems.',
+    '- Maintain a reviewable Capture–Transform–Serve path across source and target systems.',
+    '- Offload reads, migrate while a source remains active, or publish governed operational feeds.',
+    '',
+    `See [Use cases](${absoluteDocsUrl('/docs/overview/use-cases')}) and [tapstate vs. a streaming stack](${absoluteDocsUrl('/docs/overview/vs-streaming-stack')}) for tradeoffs and verification questions.`,
+    '',
+    '## Start here',
+    '',
+    `- [What is tapstate?](${absoluteDocsUrl('/docs/overview/what-is-tapstate')})`,
+    `- [Architecture](${absoluteDocsUrl('/docs/overview/architecture')})`,
+    `- [Install the CLI](${absoluteDocsUrl('/docs/overview/install')})`,
+    `- [Local demo](${absoluteDocsUrl('/docs/overview/quickstart-online')})`,
     '',
     '## Agent guidance',
-    '- Connector frontmatter is a compact discovery index; the page body is the canonical reader and agent context.',
-    '- Use connector maturity, roles, modes, limitations, and setup guidance together.',
+    '',
+    '- Prefer page-level Markdown for implementation decisions; this file is a discovery index.',
+    '- Treat connector frontmatter as compact metadata and use the page body for the canonical explanation.',
+    '- Check maturity, roles, modes, limitations, and setup guidance together.',
     '- Do not infer unavailable UI or runtime behavior from upstream connector documentation.',
     '',
-    ...content,
+    '## Documentation map',
+    '',
+    documentationMap,
   ].join('\n');
 }
 
