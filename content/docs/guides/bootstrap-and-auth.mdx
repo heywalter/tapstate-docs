@@ -10,7 +10,7 @@ ai:
 
 The tapstate control plane requires authentication for connector, artifact, connection, pipeline, and observation operations. A new server has one bootstrap window for creating its first administrator.
 
-The [online Quickstart](/docs/overview/quickstart-online) performs these steps automatically. Follow this page when operating the server directly.
+The [local demo](/docs/overview/quickstart-online) performs these steps automatically. Follow this page when operating the server directly.
 
 ## Before you begin
 
@@ -41,7 +41,7 @@ curl --fail-with-body --silent --show-error \
 
 A successful first bootstrap returns HTTP `204` with no body. Once any user exists, another bootstrap request returns HTTP `409` with code `control.bootstrap-closed`.
 
-The Quickstart treats both results as an established administrator: `204` means it created the user; `409` means the bootstrap window was already closed.
+The demo treats both results as an established administrator: `204` means it created the user; `409` means the bootstrap window was already closed.
 
 ## Sign in with the CLI
 

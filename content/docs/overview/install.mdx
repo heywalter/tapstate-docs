@@ -1,5 +1,5 @@
 ---
-title: Install tapstate
+title: Install the CLI
 description: Install the tapstate CLI on macOS or Linux, add it to your shell, and verify the downloaded binary.
 ai:
   kind: guide
@@ -31,10 +31,12 @@ following operations require the CLI to connect to a running server:
 apply · register · test · discover-schema · start · status · metrics · logs
 ```
 
-The published [online Quickstart](/docs/overview/quickstart-online) starts the
-server and its demo dependencies with Docker Compose. Installing the CLI alone
-is enough for the offline authoring walkthrough, but it cannot test a database
-connection or move data without a server.
+[Try tapstate locally](/docs/overview/quickstart-online) in a separate,
+disposable environment. The demo downloads its own CLI and starts a server and
+sample databases with Docker Compose. You do not need to install the CLI first.
+
+Installing the CLI is enough for the offline authoring walkthrough, but it
+cannot test a database connection or move data without a server.
 
 ## Supported platforms
 
@@ -205,5 +207,5 @@ This removes only the CLI binary. Workspaces, containers, and external-system da
 ## Next steps
 
 - [Author and validate a workspace](/docs/overview/quickstart) using only the installed CLI.
-- If Docker is available, run the [online Quickstart](/docs/overview/quickstart-online) to start a server and exercise the published MySQL-to-MongoDB path.
+- If Docker is available, [try tapstate locally](/docs/overview/quickstart-online) with the disposable MySQL-to-MongoDB demo.
 - Review the [v0.1.0 release limitations](/docs/releases/v0.1.0#known-limitations) before evaluating tapstate.

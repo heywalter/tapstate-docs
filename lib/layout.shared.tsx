@@ -45,7 +45,7 @@ export function baseOptions(): BaseLayoutProps {
         active: 'url',
       },
       {
-        text: 'Quickstart',
+        text: 'Local demo',
         url: '/docs/overview/quickstart-online',
         active: 'url',
       },

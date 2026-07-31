@@ -101,6 +101,6 @@ validation still needs runtime and connector verification.
 
 ## Runtime boundary
 
-The current preview golden path verifies an inline `serve.sync` pipeline from
+The current preview's local demo declares an inline `serve.sync` pipeline from
 MySQL to MongoDB. Schema acceptance of reusable views, `query`, `push`, Nest, or
 Join does not by itself prove that the current runtime executes that surface.

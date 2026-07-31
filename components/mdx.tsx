@@ -84,11 +84,11 @@ export function ProductOverviewHero() {
             Build and maintain live operational state.
           </h1>
           <p className="mb-0 mt-5 max-w-3xl text-pretty text-base leading-8 text-fd-muted-foreground md:text-lg">
-            Tapstate is an open-source operational data engine in preview. The v0.1.0 golden path captures MySQL changes, transforms them in flight, and synchronizes current state to MongoDB.
+            Tapstate is an open-source operational data engine in preview. The v0.1.0 local demo explores a MySQL-to-MongoDB snapshot and CDC workflow.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link href="/docs/overview/quickstart-online" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-fd-primary px-4 text-sm font-semibold text-fd-primary-foreground no-underline transition-colors hover:bg-fd-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
-              Start the quickstart
+              Try tapstate locally
               <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
             <Link href="/docs/connectors" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-fd-border bg-fd-background px-4 text-sm font-semibold text-fd-foreground no-underline transition-colors hover:border-fd-primary/30 hover:bg-fd-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">

@@ -102,9 +102,9 @@ executes a smaller subset.
 
 | Surface | Schema/validator | Current preview runtime |
 |---|---|---|
-| Resource kinds | `source`, `pipeline`, `transform`, `view`, `serve` | The MySQL-to-MongoDB golden path runs `source` + `pipeline` with inline `serve.sync`. |
+| Resource kinds | `source`, `pipeline`, `transform`, `view`, `serve` | The local demo declares `source` + `pipeline` with inline `serve.sync`. |
 | Transforms | `filter`, `map`, `js`, `union`, `nest`, `join` | `filter`, `map`, `js`, and `union` are wired. The runtime refuses `nest` and `join`. |
-| Serve declarations | `sync`, `query`, `push` | The released golden path verifies `sync`. Do not infer a verified runtime surface from Schema acceptance alone. |
+| Serve declarations | `sync`, `query`, `push` | The local demo exercises `sync`. Do not infer an executable runtime surface from Schema acceptance alone. |
 | Connector fields | Connector-specific keys are allowed structurally; known catalog fields can receive additional checks. | A catalog entry does not prove that a connector artifact is installed, registered, or release-verified. |
 
 ## Validation model
@@ -129,6 +129,6 @@ before relying on a configuration.
 - `experimental` fields do not carry the v1 compatibility guarantee.
 - Use the Schema and catalog from the same release as the runtime you deploy.
 
-For a running preview example, follow the [online Quickstart](/docs/overview/quickstart-online).
+To explore a running example, [try tapstate locally](/docs/overview/quickstart-online).
 For connector metadata and external-system preparation, use the
 [connector directory](/docs/connectors).

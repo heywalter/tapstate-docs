@@ -96,7 +96,7 @@ Each element requires a target connection ID in `source` and can include `id`,
 
 ## Runtime boundary
 
-These shapes come from the v1 Schema. The released preview golden path verifies
+These shapes come from the v1 Schema. The released preview's local demo declares
 inline `serve.sync` for MySQL to MongoDB. Schema acceptance alone does not prove
 that reusable views, query endpoints, or push delivery are executable in your
 runtime version.

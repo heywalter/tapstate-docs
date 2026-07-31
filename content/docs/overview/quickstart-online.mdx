@@ -1,15 +1,32 @@
 ---
-title: Run the online Quickstart
-description: Start the tapstate preview and verify a MySQL-to-MongoDB snapshot and CDC pipeline
+title: Try tapstate locally
+description: Explore a MySQL-to-MongoDB snapshot and CDC workflow in a disposable Docker environment
 ai:
   kind: guide
-  id: online-quickstart
+  id: local-demo
   maturity: preview
   modes: [snapshot, cdc]
-  aliases: [tapstate demo, tapstate Docker quickstart, MySQL to MongoDB quickstart]
+  aliases: [try tapstate locally, tapstate demo, tapstate local demo, tapstate Docker quickstart, MySQL to MongoDB quickstart]
 ---
 
-Run the published tapstate demo to load five MySQL rows into MongoDB, then follow inserts, updates, and deletes through change data capture (CDC).
+Try tapstate with sample data in a disposable local environment. The demo
+starts MySQL, MongoDB, and a tapstate server, then guides you through an initial
+snapshot and later changes captured with CDC.
+
+This environment is for exploration. It is not a tapstate server installation
+or deployment method, and it does not establish a production topology,
+durability guarantee, or support contract for other connector combinations.
+
+## What you'll explore
+
+The guided flow lets you:
+
+1. Start tapstate and two sample databases.
+2. Use the CLI to connect, sign in, and register connectors.
+3. Apply a MySQL source, a MongoDB target, and a pipeline.
+4. Load the initial MySQL rows into MongoDB.
+5. Watch inserts, updates, and deletes move through CDC.
+6. Inspect pipeline status, metrics, logs, and target data.
 
 ## Before you begin
 
@@ -20,11 +37,15 @@ You need:
 - `curl`;
 - enough local resources to run MySQL 8.0, MongoDB 7.0, and the tapstate server.
 
-You do not need to install the tapstate CLI first. The script downloads the `v0.1.0` CLI and the two connector preview JARs into the demo directory. Docker Compose runs the pinned `ghcr.io/tapstate/tapstate:0.1.0` server image.
+You do not need to [install the tapstate CLI](/docs/overview/install) first.
+The script downloads a local `v0.1.0` CLI and the two connector preview JARs
+into the demo directory. Docker Compose runs the pinned
+`ghcr.io/tapstate/tapstate:0.1.0` server image. The CLI stays in the demo
+directory and is not added to your `PATH`.
 
-## 1. Start the demo
+## 1. Start the local environment
 
-Use a new directory and the versioned Quickstart script:
+Use a new, empty directory and download the versioned demo script:
 
 ```bash
 mkdir tapstate-demo
@@ -35,7 +56,23 @@ curl -fLO \
 sh quickstart.sh
 ```
 
-The script creates the Docker Compose stack, generates a random tapstate administrator password, registers the MySQL and MongoDB connectors, applies the resources, starts the pipeline, and waits for the initial rows to reach MongoDB.
+The script prepares the workspace, starts the Docker Compose stack, creates a
+local administrator, and drives the CLI through connector registration,
+resource application, schema discovery, and pipeline start.
+
+## 2. Confirm the initial snapshot
+
+Before changing the sample data, confirm that the initial five rows reached
+MongoDB. A healthy server or a `sync_orders running` line by itself does not
+establish that data moved. The lifecycle command records the requested state
+before the runtime reports the observed result.
+
+A successful run must meet all of these conditions:
+
+- both connector registrations complete without a refusal;
+- schema discovery completes without a refusal;
+- the script reports exactly five rows in the MongoDB target;
+- `status`, `metrics`, and the target data do not show a pipeline failure.
 
 The successful result includes:
 
@@ -43,9 +80,18 @@ The successful result includes:
 quickstart: the target now holds 5 rows (MySQL orders -> MongoDB warehouse.orders)
 ```
 
-The generated `.env` file contains the local demo password and is created with owner-only permissions. The script also prints the password once. Keep it local and do not commit the file.
+The generated `.env` file contains the local demo password and is created with
+owner-only permissions. The script also prints the password once. Keep it
+local and do not commit the file.
 
-## 2. Observe the running pipeline
+In `v0.1.0`, the script can continue after a server-side command is refused and
+can finish with a target count below five. Output such as `The server refused the
+connector registration`, `The server refused the schema discovery`, or a count
+below five means the demo failed, even if a later line says `running` or the
+script prints more instructions. Do not continue to the CDC experiment until
+the initial target count is five.
+
+## 3. Explore the running data path
 
 Start an interactive CLI session from the demo directory:
 
@@ -73,9 +119,10 @@ metrics sync_orders
 logs sync_orders
 ```
 
-## 3. Verify CDC
+## 4. Experiment with CDC
 
-In a second terminal, insert, update, and delete rows in MySQL:
+With the five initial rows in MongoDB, open a second terminal and change the
+sample data in MySQL:
 
 ```bash
 docker compose exec mysql mysql -uroot -psecret appdb \
@@ -114,7 +161,7 @@ until docker compose exec -T mongo mongosh --quiet \
 
 The insert creates the document, the update changes the mapped `customer_name` to `franky`, and the delete removes it.
 
-## What the script creates
+## What gets created
 
 The demo keeps all generated files in its directory:
 
@@ -136,27 +183,31 @@ The workspace declares:
 - a MongoDB target connection;
 - a pipeline that maps `appdb.orders` to `warehouse.orders`.
 
-The connector JARs come from the separate [connector preview assets](https://github.com/tapstate/tapstate/releases/tag/connectors-preview). That asset bundle is not a tapstate product release.
+The connector JARs come from the separate [connector preview assets](https://github.com/tapstate/tapstate/releases/tag/connectors-preview).
+They are provided for this local demo; the asset bundle is not a general
+connector distribution or support matrix.
 
-## Stop or reset the demo
+## Reset the environment
 
-Stop the containers while keeping their data:
+Pause the environment while keeping its data:
 
 ```bash
 docker compose stop
 ```
 
-Remove the containers and their volumes when you are finished:
+Reset the environment before trying the flow again from clean databases:
 
 ```bash
 docker compose down -v
 ```
 
-The second command removes the demo's MySQL and MongoDB data. It does not remove downloaded container images or the files in `tapstate-demo`.
+The reset removes the demo's MySQL and MongoDB data. It does not remove
+downloaded container images or files in `tapstate-demo`.
 
-The script preserves existing `.env`, connector, workspace, and Compose files when rerun. If a partial or completed run leaves the pipeline in a state that cannot be started again, inspect `status` and `logs`, or reset the local demo with `docker compose down -v` before rerunning the script.
-
-In `v0.1.0`, the script prints the observed target count but does not return a failure solely because that count is below five. Treat only `the target now holds 5 rows` as the successful snapshot result. Later releases can strengthen this check; follow the behavior of the versioned script you run.
+The script preserves existing `.env`, connector, workspace, and Compose files
+when rerun. If a partial or completed run leaves the pipeline in a state that
+cannot be started again, inspect `status` and `logs`, or reset the local demo
+with `docker compose down -v` before rerunning the script.
 
 ## Next steps
 
@@ -164,6 +215,6 @@ In `v0.1.0`, the script prints the observed target count but does not return a f
 - Follow the reusable [bootstrap and authentication](/docs/guides/bootstrap-and-auth),
   [connector registration and testing](/docs/guides/register-connectors), and
   [pipeline operation](/docs/guides/apply-and-run) procedures.
-- Prepare production-like systems with the [MySQL](/docs/connectors/mysql) and [MongoDB](/docs/connectors/mongodb) guides.
+- Prepare external systems with the [MySQL](/docs/connectors/mysql) and [MongoDB](/docs/connectors/mongodb) guides.
 - Review the [v0.1.0 release limitations](/docs/releases/v0.1.0#known-limitations).
 - Use [Troubleshooting](/docs/guides/troubleshooting) if the script does not produce the five-row result.

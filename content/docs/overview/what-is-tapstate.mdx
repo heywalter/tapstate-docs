@@ -42,17 +42,17 @@ model, but the current runtime refuses them.
 
 ### Serve — deliver current state
 
-The current release verifies synchronized writes to a target connector.
-Queryable and push surfaces exist in the v1 declaration model but are not
-proven by the current release golden path.
+The current release includes synchronized writes to a target connector.
+Queryable and push surfaces exist in the v1 declaration model but are not part
+of the current local demo.
 
 ## Current preview boundary
 
-`v0.1.0` is a prerelease, single-node, in-memory runtime. The published
-end-to-end path is MySQL to MongoDB with an initial snapshot followed by CDC. A
-server restart replays from the source instead of resuming a persisted offset.
-See [Architecture](/docs/overview/architecture) for the current and target
-boundaries.
+`v0.1.0` is a prerelease, single-node, in-memory runtime. Its local demo is
+designed to explore MySQL to MongoDB with an initial snapshot followed by CDC.
+A server restart replays from the source instead of resuming a persisted
+offset. See [Architecture](/docs/overview/architecture) for the current and
+target boundaries.
 
 ## When to use tapstate
 
@@ -63,7 +63,7 @@ Use tapstate when applications, APIs, automation, or AI agents depend on operati
 The documentation follows the same path you use to build a data pipeline:
 
 - **Prepare a system.** Use a [connector guide](/docs/connectors) to check roles, capture modes, permissions, limitations, and connection fields.
-- **Run a data path.** Follow the [online Quickstart](/docs/overview/quickstart-online) to exercise the published MySQL-to-MongoDB path.
+- **Explore a data path.** [Try tapstate locally](/docs/overview/quickstart-online) with sample MySQL and MongoDB data in Docker.
 - **Author a workspace.** Use the [offline walkthrough](/docs/overview/quickstart) to create and validate `.tap.yml` resources.
 - **Look up exact syntax.** Use the [reference](/docs/reference/dsl-grammar) for resource fields and examples.
 - **Work with an AI assistant.** Use [`llms.txt`](/llms.txt) or the page-level Markdown view to provide the same canonical content to an assistant.
@@ -72,8 +72,8 @@ The documentation follows the same path you use to build a data pipeline:
 
 <CardGrid>
   <LinkCard
-    title="Quickstart"
-    description="Run the published MySQL-to-MongoDB snapshot and CDC demo."
+    title="Local demo"
+    description="Explore the MySQL-to-MongoDB snapshot and CDC workflow in Docker."
     href="/docs/overview/quickstart-online"
   />
   <LinkCard

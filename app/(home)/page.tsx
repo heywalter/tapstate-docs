@@ -11,7 +11,6 @@ import {
   FileText,
   Layers3,
   RadioTower,
-  Rocket,
   TerminalSquare,
 } from 'lucide-react';
 
@@ -39,12 +38,12 @@ const tasks = [
     icon: Cable,
   },
   {
-    eyebrow: 'Ready to build',
-    title: 'Run your first data path',
-    description: 'Start the published MySQL-to-MongoDB demo, then verify snapshot and CDC results.',
-    href: '/docs/overview/quickstart-online',
-    linkLabel: 'Start the quickstart',
-    icon: Rocket,
+    eyebrow: 'Install the tool',
+    title: 'Install the CLI',
+    description: 'Install and verify tapstate on macOS or Linux, then author your first workspace.',
+    href: '/docs/overview/install',
+    linkLabel: 'Install the CLI',
+    icon: TerminalSquare,
   },
 ];
 

@@ -174,13 +174,13 @@ Next, run the connection in a non-production environment and confirm credentials
 |---|---|---|
 | The assembled stack | Source systems → Capture → Broker → Processing → Serving store → Apps, automation & agents | Separate tools and operating boundaries. |
 | The tapstate target path | Source systems → tapstate (Capture · Transform · Serve) → Apps, automation & agents | Target Capture–Transform–Serve operating model. |`)
-    .replace(/<ProductOverviewHero\s*\/>/g, `Tapstate is an open-source operational data engine in preview. The v0.1.0 golden path captures MySQL changes, transforms them in flight, and synchronizes current state to MongoDB.
+    .replace(/<ProductOverviewHero\s*\/>/g, `Tapstate is an open-source operational data engine in preview. The v0.1.0 local demo explores a MySQL-to-MongoDB snapshot and CDC workflow.
 
 - **Capture:** Load existing data, then follow committed changes.
 - **Transform:** Filter, map, script, and merge data as it moves.
 - **Serve:** Write current state to a downstream system.
 
-[Start the quickstart](/docs/overview/quickstart-online) or [browse connectors](/docs/connectors).`)
+[Try tapstate locally](/docs/overview/quickstart-online) or [browse connectors](/docs/connectors).`)
     .replace(/<TapStateArchitecture\s*\/>/g, `## Target logical architecture
 
 This diagram describes design direction, not the current preview implementation boundary.

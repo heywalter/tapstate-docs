@@ -63,9 +63,17 @@ Review the filename, location, diagnostic code, message, and suggested fix. Corr
 - Keep every referenced resource in the selected work directory.
 - Check for renamed files whose internal `id` did not change with the filename.
 
-## Troubleshoot the online Quickstart
+## Troubleshoot the local demo
 
-The [online Quickstart](/docs/overview/quickstart-online) prints the MongoDB row count after it starts the pipeline. Treat only `the target now holds 5 rows` as a successful `v0.1.0` snapshot result. This version can return success even when the printed count is lower, so inspect the observable result instead of relying on the exit code alone.
+The [local demo](/docs/overview/quickstart-online) prints the MongoDB row count
+after it requests that the pipeline start. A healthy server or a
+`sync_orders running` line does not establish that data moved. Treat the demo
+as successful only when connector registration and schema discovery complete
+without a refusal and the script prints `the target now holds 5 rows`.
+
+The `v0.1.0` script can continue after a refused command or a lower target
+count, so inspect the complete output and target data instead of relying on its
+exit code alone.
 
 ### Docker is unavailable
 

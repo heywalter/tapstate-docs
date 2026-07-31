@@ -3,7 +3,7 @@
   "pages": [
     "[What is tapstate?](/docs/overview/what-is-tapstate)",
     "[Install](/docs/overview/install)",
-    "[Quickstart](/docs/overview/quickstart-online)",
+    "[Local demo](/docs/overview/quickstart-online)",
     "concepts",
     "connectors",
     "guides",
