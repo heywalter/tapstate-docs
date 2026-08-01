@@ -1,4 +1,5 @@
-// Checks that release docs pin versioned URLs to the correct release tag.
+// Checks that release docs use the supported installer/playground entry points and
+// keep versioned release assets aligned with the product release.
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -16,14 +17,14 @@ const failures = [];
 
 const expectedDocs = [
   [
-    'versioned installer',
+    'CLI installer endpoint',
     install,
-    `https://raw.githubusercontent.com/tapstate/tapstate/${releaseTag}/install/install.sh`,
+    'https://install.tapstate.dev/cli',
   ],
   [
-    'versioned Quickstart',
+    'Playground endpoint',
     quickstart,
-    `https://raw.githubusercontent.com/tapstate/tapstate/${releaseTag}/deploy/quickstart/quickstart.sh`,
+    'https://install.tapstate.dev',
   ],
   [
     'release archive',
@@ -84,6 +85,9 @@ if (productDir) {
   if (!script.includes('/download/connectors-preview')) {
     failures.push('product Quickstart no longer uses the documented connector preview asset path');
   }
+  if (!script.includes(`CLI_VERSION="${releaseVersion}"`)) {
+    failures.push(`product Quickstart CLI pin is not ${releaseVersion}`);
+  }
 }
 
 if (failures.length > 0) {
@@ -94,8 +98,8 @@ if (failures.length > 0) {
 
 if (process.env.TAPSTATE_VERIFY_REMOTE_LINKS === '1') {
   const urls = [
-    `https://raw.githubusercontent.com/tapstate/tapstate/${releaseTag}/install/install.sh`,
-    `https://raw.githubusercontent.com/tapstate/tapstate/${releaseTag}/deploy/quickstart/quickstart.sh`,
+    'https://install.tapstate.dev/cli',
+    'https://install.tapstate.dev',
     `https://github.com/tapstate/tapstate/releases/tag/${releaseTag}`,
     'https://github.com/tapstate/tapstate/releases/tag/connectors-preview',
   ];

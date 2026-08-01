@@ -45,14 +45,22 @@ directory and is not added to your `PATH`.
 
 ## 1. Start the local environment
 
-Use a new, empty directory and download the versioned demo script:
+Use a new, empty directory and run the published playground script:
+
+```bash
+curl -fsSL https://install.tapstate.dev | sh
+```
+
+The root `install.tapstate.dev` URL is the playground entry point. It creates
+and works inside a disposable `tapstate-demo` directory, installs the CLI in
+that directory, and starts the Docker Compose stack. It does not install the
+CLI globally. To inspect the script first, use:
 
 ```bash
 mkdir tapstate-demo
 cd tapstate-demo
-
-curl -fLO \
-  https://raw.githubusercontent.com/tapstate/tapstate/v0.1.0/deploy/quickstart/quickstart.sh
+curl -fsSL https://install.tapstate.dev -o quickstart.sh
+less quickstart.sh
 sh quickstart.sh
 ```
 

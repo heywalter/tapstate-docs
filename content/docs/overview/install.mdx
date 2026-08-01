@@ -10,10 +10,15 @@ ai:
 
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 
-The `v0.1.0` preview provides native tapstate CLI archives for macOS and Linux. Pin the version when you install this prerelease so the command does not depend on a floating release pointer.
+The current preview provides native tapstate CLI archives for macOS and Linux. The CLI installer is separate from the local Docker playground, so choose the path that matches what you want to do.
 
 This page installs the CLI only. It does not install or start a tapstate server,
 open a local port, or install connector JARs.
+
+If you want to explore the complete MySQL-to-MongoDB flow instead, use [Try
+tapstate locally](/docs/overview/quickstart-online). Its convenience command is
+`curl -fsSL https://install.tapstate.dev | sh`; that root URL runs the disposable
+Docker playground and does not add `tapstate` to your shell `PATH`.
 
 ## Understand the CLI and server
 
@@ -51,68 +56,37 @@ On macOS, the installer warns but does not stop when the version is older than t
 
 ## Install the CLI
 
-Choose your platform, download the versioned installer, optionally inspect it,
-then run it with the release version pinned.
+Choose your platform, then run the CLI installer. The `/cli` endpoint serves the
+current pinned preview installer; the installer selects the matching archive and
+verifies its checksum before placing the binary.
 
 <Tabs items={["macOS", "Linux"]} label="Platform">
 <Tab value="macOS">
 
-Use this path on Apple silicon or Intel Macs. The installer selects the matching archive automatically.
-
-Download the installer:
+Use this path on Apple silicon or Intel Macs. The installer selects the matching archive automatically:
 
 ```bash
-curl -fsSL \
-  https://raw.githubusercontent.com/tapstate/tapstate/v0.1.0/install/install.sh \
-  -o install-tapstate.sh
-```
-
-Optional: inspect the downloaded script. `less` displays the file and does not
-install anything; press <kbd>q</kbd> to return to your shell.
-
-```bash
-less install-tapstate.sh
-```
-
-Run the installer:
-
-```bash
-TAPSTATE_VERSION=0.1.0 sh install-tapstate.sh
+curl -fsSL https://install.tapstate.dev/cli | sh
 ```
 
 </Tab>
 <Tab value="Linux">
 
-Use this path on a glibc-based Linux system. The installer selects the matching `arm64` or `x64` archive automatically.
-
-Download the installer:
+Use this path on a glibc-based Linux system. The installer selects the matching `arm64` or `x64` archive automatically:
 
 ```bash
-curl -fsSL \
-  https://raw.githubusercontent.com/tapstate/tapstate/v0.1.0/install/install.sh \
-  -o install-tapstate.sh
-```
-
-Optional: inspect the downloaded script. `less` displays the file and does not
-install anything; press <kbd>q</kbd> to return to your shell.
-
-```bash
-less install-tapstate.sh
-```
-
-Run the installer:
-
-```bash
-TAPSTATE_VERSION=0.1.0 sh install-tapstate.sh
+curl -fsSL https://install.tapstate.dev/cli | sh
 ```
 
 </Tab>
 </Tabs>
 
-The installer:
+The CLI installation has two network requests: the `/cli` endpoint returns the
+installer script, then the script downloads the platform archive and its
+published SHA-256 checksum from the GitHub release. The installer:
 
 - selects the archive for your operating system and architecture;
-- downloads it from the `v0.1.0` GitHub release;
+- uses the pinned preview release unless `TAPSTATE_VERSION` overrides it;
 - verifies its SHA-256 checksum;
 - installs `tapstate` in `$HOME/.tapstate/bin` by default;
 - does not use `sudo` or edit your shell profile.
@@ -155,6 +129,37 @@ If that succeeds, run the `export PATH=...` command above for the current
 shell. After adding it to `.zshrc`, open a new terminal or run `source
 "$HOME/.zshrc"`, then repeat `tapstate --version`.
 
+## Audit, pin, or mirror the installer
+
+The one-line command is convenient, but it executes a remote script. To inspect
+the exact script before running it, download it first:
+
+```bash
+curl -fsSL https://install.tapstate.dev/cli -o install-tapstate.sh
+less install-tapstate.sh
+sh install-tapstate.sh
+```
+
+To pin the preview explicitly, set `TAPSTATE_VERSION` when running the saved
+script:
+
+```bash
+TAPSTATE_VERSION=0.1.0 sh install-tapstate.sh
+```
+
+If GitHub release downloads are restricted or slow in your network, use a
+mirror that preserves the release layout expected by the installer:
+
+```bash
+TAPSTATE_BASE_URL="https://mirror.example.com/tapstate/releases" \
+TAPSTATE_VERSION=0.1.0 \
+sh install-tapstate.sh
+```
+
+The mirror must provide
+`download/v<version>/tapstate-<version>-<os>-<arch>.tar.gz`, its `.sha256`
+file, and `platform-minimums.txt`.
+
 ## Other installation methods
 
 ### Use a different installation directory
@@ -194,7 +199,8 @@ xattr -d com.apple.quarantine ./tapstate
 
 ### Update or remove the CLI
 
-The preview has no automatic updater. To install a later release, rerun its versioned installer and verify the reported version.
+The preview has no automatic updater. To install a later release, rerun the
+installer with its version pinned and verify the reported version.
 
 To remove the default installation:
 
