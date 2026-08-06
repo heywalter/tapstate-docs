@@ -1,6 +1,6 @@
 ---
 title: ClickHouse
-description: Configure ClickHouse as a tapstate snapshot source or data-writing target
+description: Connect a ClickHouse database to tapstate for snapshot reads, schema discovery, or analytical target writes with DDL application.
 sidebar:
   order: 21
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use ClickHouse for point-in-time reads or as an analytical destination.
 
 <ConnectorProfile
   category="Warehouses & analytics"
@@ -52,7 +50,7 @@ Remove creation, alteration, drop, and truncate privileges when the pipeline wri
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/analytics_clickhouse.tapstate.yml"
+```yaml title="tapstate-work/source/analytics_clickhouse.tap.yml"
 version: tapstate/v1
 kind: source
 id: analytics_clickhouse
@@ -70,7 +68,7 @@ tables:
 
 For a target-only connection, omit `mode` and `tables`.
 
-```yaml title="tapstate-work/source/analytics_clickhouse_target.tapstate.yml"
+```yaml title="tapstate-work/source/analytics_clickhouse_target.tap.yml"
 version: tapstate/v1
 kind: source
 id: analytics_clickhouse_target
@@ -83,7 +81,7 @@ config:
   password: ${CLICKHOUSE_WRITER_PASSWORD}
 ```
 
-```yaml title="tapstate-work/pipeline/events_to_clickhouse.tapstate.yml"
+```yaml title="tapstate-work/pipeline/events_to_clickhouse.tap.yml"
 version: tapstate/v1
 kind: pipeline
 id: events_to_clickhouse

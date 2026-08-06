@@ -1,6 +1,6 @@
 ---
 title: RabbitMQ
-description: Configure RabbitMQ as a tapstate stream source or target
+description: Connect RabbitMQ queues and virtual hosts to tapstate for continuous message reads or writes over the streaming path.
 sidebar:
   order: 31
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use RabbitMQ to read or write streaming queue messages.
 
 <ConnectorProfile
   category="Streaming & messaging"
@@ -46,7 +44,7 @@ Grant the destination account permission to publish only to the intended exchang
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/events_rabbitmq.tapstate.yml"
+```yaml title="tapstate-work/source/events_rabbitmq.tap.yml"
 version: tapstate/v1
 kind: source
 id: events_rabbitmq
@@ -77,7 +75,7 @@ tapstate validate --workdir tapstate-work
 - RabbitMQ messages must contain JSON object bodies. Arrays and scalar JSON values are supported as field values inside that object, not as the top-level message body.
 - Queue delivery uses direct routing through the default exchange. Custom exchanges and routing keys are not configurable here.
 - Test acknowledgements, redelivery, and failure recovery before production; no transactional delivery guarantee is documented.
-- Do not put broker credentials in a committed `.tapstate.yml` file.
+- Do not put broker credentials in a committed `.tap.yml` file.
 
 ## Troubleshooting
 

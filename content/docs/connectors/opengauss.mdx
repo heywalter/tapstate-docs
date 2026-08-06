@@ -1,6 +1,6 @@
 ---
 title: openGauss
-description: Configure openGauss as a tapstate snapshot source or data-writing target
+description: Connect an openGauss schema to tapstate for snapshot reads, schema discovery, target writes, or target DDL application.
 sidebar:
   order: 10
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use openGauss to copy the rows that exist now, or as a destination for data written by a tapstate pipeline.
 
 <ConnectorProfile
   category="Databases"
@@ -71,7 +69,7 @@ tapstate new --non-interactive \
 
 The resulting source connection uses documented field names:
 
-```yaml title="tapstate-work/source/orders_opengauss.tapstate.yml"
+```yaml title="tapstate-work/source/orders_opengauss.tap.yml"
 version: tapstate/v1
 kind: source
 id: orders_opengauss
@@ -93,7 +91,7 @@ tables:
 
 Targets use the same connection-resource envelope, without a read mode or table selection.
 
-```yaml title="tapstate-work/source/analytics_opengauss.tapstate.yml"
+```yaml title="tapstate-work/source/analytics_opengauss.tap.yml"
 version: tapstate/v1
 kind: source
 id: analytics_opengauss

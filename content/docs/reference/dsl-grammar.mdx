@@ -1,6 +1,6 @@
 ---
 title: Resource grammar
-description: Reference for tapstate resource files, relationships, and validation rules
+description: Reference for tapstate resource files, relationships, and validation boundaries
 sidebar:
   order: 1
 ai:
@@ -9,189 +9,126 @@ ai:
   aliases: [tapstate yaml reference, tapstate dsl grammar, tapstate resource syntax]
 ---
 
-Tapstate resources use YAML files with the extension `.tapstate.yml` and `version: tapstate/v1`.
+Tapstate resources are YAML files named `*.tap.yml`. Each file contains one
+`version: tapstate/v1` resource.
 
-Use the resource schema and command reference supplied with your deployment to confirm accepted fields and defaults. This site does not yet publish a stable JSON Schema URL.
+Use the Schema and connector catalog bundled with the same tapstate version as
+your CLI. This site does not yet publish a stable, versioned Schema URL.
 
-## Resource types
+## Workspace layout
 
-Tapstate uses a **multi-resource declaration model**. Each `.tapstate.yml` file can contain one resource, distinguished by `kind`:
+The canonical workspace layout groups files by resource kind:
 
-| Kind | Responsibility |
+```text
+tap-work/
+├── source/
+├── pipeline/
+├── transform/
+├── view/
+└── serve/
+```
+
+`tapstate new` writes `<workspace>/<kind>/<id>.tap.yml`. `tapstate validate`
+accepts a workspace directory or one resource file.
+
+## Resource kinds
+
+| Kind | Declares |
 |---|---|
-| `source` | Defines a data source connection (connector type + config + mining mode) |
-| `pipeline` | Defines a data pipeline (references source + transforms + output) |
+| `source` | A connector connection. A read source includes `mode`; a target connection omits it. |
+| `pipeline` | Source references, ordered transform steps, an optional view, a serve surface, and task settings. |
+| `transform` | Reusable transform logic without input wiring. |
+| `view` | Reusable materialization settings without input wiring. |
+| `serve` | Reusable `sync`, `query`, and `push` declarations without input wiring. |
 
----
+A string reference resolves by resource ID. Top-level IDs must be unique in the
+workspace and cannot contain `.`.
 
-## source
+## Minimal runnable shape
 
-Describes a data source: connection configuration + read mode.
+The released preview path uses two connection resources and one pipeline:
 
-```yaml title="mysql-prod.tapstate.yml"
+```yaml title="source/orders.tap.yml"
 version: tapstate/v1
 kind: source
-id: mysql-prod
-
+id: orders
 connector: mysql
-mode: cdc        # snapshot | cdc | stream | api | file
-
+mode: cdc
 config:
-  host: db.internal
+  host: mysql
   port: 3306
-  database: production
+  database: appdb
   username: ${MYSQL_USER}
-  password: ${MYSQL_PASS}
-
-options:
-  start_from: latest    # earliest | latest | <ISO timestamp>
-
-tables:
-  - name: users         # literal = fixed table name
-  - name: /orders_.*/   # regex = dynamic matching (requires discovery capability)
+  password: ${MYSQL_PASSWORD}
+tables: [orders]
 ```
 
-### mode — five values
+```yaml title="source/warehouse.tap.yml"
+version: tapstate/v1
+kind: source
+id: warehouse
+connector: mongodb
+config:
+  isUri: true
+  uri: ${MONGODB_URI}
+```
 
-| mode | Semantics | Typical connectors |
-|---|---|---|
-| `snapshot` | One-shot snapshot (bounded) | MySQL, MongoDB, and other databases with Snapshot read support |
-| `cdc` | Continuous change capture (unbounded) | MySQL binlog, PG WAL, MongoDB oplog |
-| `stream` | Unbounded message stream | Kafka and other message systems |
-| `api` | API / SaaS pull (polling or webhook) | Salesforce, HubSpot |
-| `file` | File scanning | S3, SFTP, local directory |
-
-Validation compares connector and mode combinations with the connector catalog used by your tapstate version.
-
-### `tables` omission semantics
-
-- `tables` omitted = all tables (equivalent to `/.*/`)
-- Literal string = fixed table name; does not track new tables
-- `/regex/` = dynamic: new tables matching the regex automatically join the pipeline (requires discovery capability)
-
----
-
-## pipeline
-
-Describes a data pipeline: reference source → optional transforms → output (sync / push).
-
-```yaml title="user-sync.tapstate.yml"
+```yaml title="pipeline/orders-sync.tap.yml"
 version: tapstate/v1
 kind: pipeline
-id: user-profile-sync
-
-source: mysql-prod    # references the id of a kind:source
-
-tables:
-  - name: users
-  - name: /orders_.*/
-
-transforms:
-  - name: filter-active
-    filter: "record.status == 'active'"   # CEL expression
-
-  - name: enrich-type
-    js: |
-      record.tier = record.spend > 1000 ? 'premium' : 'standard';
-      return record;
-
-sync:
-  - source: users
-    target:
-      collection: user_profiles
-    options:
-      write_mode: upsert    # upsert | append
-      ddl: apply            # apply | ignore | fail (default: fail)
-
+id: orders-sync
+source: orders
 settings:
-  error_policy: fail        # fail | skip | dlq
-  batch_size: 1000
-  parallelism: 1
+  read_mode: snapshot_and_cdc
+transforms:
+  - id: active-orders
+    from: [orders]
+    type: filter
+    expr: "after.status == 'active'"
+serve:
+  from: active-orders
+  sync:
+    - source: warehouse
 ```
 
-### `transforms`
+For the complete field shapes, see [source](/docs/reference/source),
+[pipeline](/docs/reference/pipeline), [transforms](/docs/reference/transforms),
+and [view and serve](/docs/reference/view-and-serve).
 
-Each transform is a processing step in the pipeline, executed in declaration order.
+## Declaration and execution are different checks
 
-| Node type | Field | Semantics |
+The v1 Schema describes what can be declared. The current preview runtime
+executes a smaller subset.
+
+| Surface | Schema/validator | Current preview runtime |
 |---|---|---|
-| Filter | `filter: <CEL>` | Discard rows that do not satisfy the condition |
-| JS transform | `js: <script>` | Row-by-row script processing |
-| rename | `rename: {old: new}` | Field renaming |
-| typeFilter | `type_filter: <type>` | Filter by data type |
-| unwind | `unwind: <array field>` | Array flattening |
-Use only transform types and fields listed by the resource schema supplied with your tapstate version.
-
-### `sync` output
-
-Full snapshot / CDC write to target storage:
-
-```yaml
-sync:
-  - source: <table name or regex>        # references the logical stream from tables
-    target:
-      collection: <target collection name>
-    options:
-      write_mode: upsert | append
-      ddl: apply | ignore | fail
-      auto_create_table: true   # default: true
-```
-
-### `push` output
-
-Publish data as an event stream (Kafka, etc.):
-
-```yaml
-push:
-  - source: orders
-    topic: order-events          # omitted = uses table name
-    format: tapstate               # default: tapstate envelope; custom = CEL projection
-    options:
-      start_from: latest
-```
-
----
-
-## Expressions
-
-Fields such as `filter` and `format` use CEL (Common Expression Language):
-
-```yaml
-filter: "record.amount > 100 && record.currency == 'USD'"
-format: "{'id': record.user_id, 'ts': record.created_at}"
-```
-
-- Compiled + type-checked at validate time (not evaluated)
-- Runtime evaluation depends on the tapstate version you deploy.
-- Script nodes can express logic beyond the documented expression fields when that capability is available.
-
----
-
-## ID rules
-
-- Top-level `id`: globally unique within the workspace; must not contain `.`
-- Inline private resources: `<pipeline_id>.<local_id>` (auto-naming for inline transforms/views)
-- Reference: a string value = reference to the resource with the corresponding `id`
-
----
-
-## Version evolution
-
-```yaml
-version: tapstate/v1
-```
-
-- **Strict rejection of unknown fields** (`additionalProperties: false`): any typo causes an immediate error
-- **Experimental zone**: experimental fields go under the `experimental:` block with no compatibility guarantee
-
----
+| Resource kinds | `source`, `pipeline`, `transform`, `view`, `serve` | The local demo declares `source` + `pipeline` with inline `serve.sync`. |
+| Transforms | `filter`, `map`, `js`, `union`, `nest`, `join` | `filter`, `map`, `js`, and `union` are wired. The runtime refuses `nest` and `join`. |
+| Serve declarations | `sync`, `query`, `push` | The local demo exercises `sync`. Do not infer an executable runtime surface from Schema acceptance alone. |
+| Connector fields | Connector-specific keys are allowed structurally; known catalog fields can receive additional checks. | A catalog entry does not prove that a connector artifact is installed, registered, or release-verified. |
 
 ## Validation model
 
-The documented validation model has three layers:
+Offline validation checks:
 
-1. **Structural layer**: JSON Schema validation (unknown fields, types, required fields)
-2. **Reference layer**: id reference closure within this batch of resources
-3. **Capability layer**: connector and mode validity plus the rules in the active connector catalog
+1. YAML and Schema structure;
+2. cross-file ID and reference closure;
+3. rules exposed by the bundled connector catalog.
 
-For an end-to-end example, follow the [Quickstart](/docs/overview/quickstart). For connector-specific fields and preparation, use the [connector directory](/docs/connectors).
+Validation does **not** connect to an external system, verify credentials or
+network access, install a connector artifact, or prove that a Schema-declared
+feature is executable by the current runtime. Unknown connector-specific config
+keys can pass the current offline validator, so test the real connector path
+before relying on a configuration.
+
+## Compatibility rules
+
+- Unknown top-level fields are rejected.
+- Connector-owned `config`, `options`, and `experimental` maps can accept
+  extension fields.
+- `experimental` fields do not carry the v1 compatibility guarantee.
+- Use the Schema and catalog from the same release as the runtime you deploy.
+
+To explore a running example, [try tapstate locally](/docs/overview/quickstart-online).
+For connector metadata and external-system preparation, use the
+[connector directory](/docs/connectors).

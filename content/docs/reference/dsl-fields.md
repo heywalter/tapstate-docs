@@ -1,6 +1,6 @@
 ---
-title: DSL Fields Reference
-description: Field lookup for the documented tapstate resource contract
+title: DSL fields reference
+description: Schema-generated field lookup for the tapstate/v1 resource contract
 sidebar:
   order: 2
 ai:
@@ -9,77 +9,159 @@ ai:
   aliases: [tapstate fields, tapstate schema, yaml field reference]
 ---
 
-This table is a documentation lookup. Confirm exact field acceptance with the resource schema supplied with your tapstate version.
+This lookup is generated from the product `tapstate-v1.schema.json`. Regenerate
+it with the Schema from the same product revision whenever the contract changes.
+Descriptions record declaration semantics, not runtime availability.
 
-| Field | Type | Required | Default | Enum |
-|---|---|---|---|---|
-| `PipelineResource.experimental` | object | no |  |  |
-| `PipelineResource.id` | string | yes |  |  |
-| `PipelineResource.kind` | const | yes |  | `pipeline` |
-| `PipelineResource.metadata` | object | no |  |  |
-| `PipelineResource.metadata.description` | string | no |  |  |
-| `PipelineResource.metadata.labels` | object | no |  |  |
-| `PipelineResource.serve` | object | no |  |  |
-| `PipelineResource.settings` | object | no |  |  |
-| `PipelineResource.settings.batch_size` | integer | no | 1000 |  |
-| `PipelineResource.settings.error_policy` | string | no | fail | `dead_letter`, `fail`, `skip` |
-| `PipelineResource.settings.parallelism` | integer | no | 1 |  |
-| `PipelineResource.settings.schedule` | string | no |  |  |
-| `PipelineResource.source` | array<string>\|string | yes |  |  |
-| `PipelineResource.transforms` | array<object> | no |  |  |
-| `PipelineResource.version` | const | yes |  | `tapstate/v1` |
-| `PipelineResource.view` | object | no |  |  |
-| `ServeResource.experimental` | object | no |  |  |
-| `ServeResource.id` | string | yes |  |  |
-| `ServeResource.kind` | const | yes |  | `serve` |
-| `ServeResource.metadata` | object | no |  |  |
-| `ServeResource.metadata.description` | string | no |  |  |
-| `ServeResource.metadata.labels` | object | no |  |  |
-| `ServeResource.push` | array<object> | no |  |  |
-| `ServeResource.query` | array<object> | no |  |  |
-| `ServeResource.sync` | array<object> | no |  |  |
-| `ServeResource.version` | const | yes |  | `tapstate/v1` |
-| `SourceResource.config` | object | no |  |  |
-| `SourceResource.connector` | string | yes |  |  |
-| `SourceResource.experimental` | object | no |  |  |
-| `SourceResource.id` | string | yes |  |  |
-| `SourceResource.kind` | const | yes |  | `source` |
-| `SourceResource.metadata` | object | no |  |  |
-| `SourceResource.metadata.description` | string | no |  |  |
-| `SourceResource.metadata.labels` | object | no |  |  |
-| `SourceResource.mode` | string | no |  | `api`, `cdc`, `file`, `snapshot`, `stream` |
-| `SourceResource.options` | object | no |  |  |
-| `SourceResource.srs` | object | no |  |  |
-| `SourceResource.srs.key` | string | no |  |  |
-| `SourceResource.srs.queryable` | boolean | no |  |  |
-| `SourceResource.srs.retention` | string | no |  |  |
-| `SourceResource.srs.schema_evolution` | string | no |  | `ignore`, `track` |
-| `SourceResource.tables` | array<object\|string> | no |  |  |
-| `SourceResource.version` | const | yes |  | `tapstate/v1` |
-| `TransformResource.experimental` | object | no |  |  |
-| `TransformResource.id` | string | yes |  |  |
-| `TransformResource.kind` | const | yes |  | `transform` |
-| `TransformResource.metadata` | object | no |  |  |
-| `TransformResource.metadata.description` | string | no |  |  |
-| `TransformResource.metadata.labels` | object | no |  |  |
-| `TransformResource.options` | object | no |  |  |
-| `TransformResource.version` | const | yes |  | `tapstate/v1` |
-| `ViewResource.experimental` | object | no |  |  |
-| `ViewResource.id` | string | yes |  |  |
-| `ViewResource.kind` | const | yes |  | `view` |
-| `ViewResource.metadata` | object | no |  |  |
-| `ViewResource.metadata.description` | string | no |  |  |
-| `ViewResource.metadata.labels` | object | no |  |  |
-| `ViewResource.primary_key` | string | no |  |  |
-| `ViewResource.schema` | object | no |  |  |
-| `ViewResource.schema.enforce` | boolean | no |  |  |
-| `ViewResource.schema.evolution` | string | no |  |  |
-| `ViewResource.storage` | object | no |  |  |
-| `ViewResource.storage.cold` | object | no |  |  |
-| `ViewResource.storage.cold.partition_by` | array<string> | no |  |  |
-| `ViewResource.storage.hot` | object | no |  |  |
-| `ViewResource.storage.hot.ttl` | string | yes |  |  |
-| `ViewResource.storage.warm` | object | no |  |  |
-| `ViewResource.storage.warm.collection` | string | yes |  |  |
-| `ViewResource.storage.warm.indexes` | array<string> | no |  |  |
-| `ViewResource.version` | const | yes |  | `tapstate/v1` |
+## Top-level resources
+
+| Field | Type | Required | Default | Accepted values | Description |
+|---|---|---|---|---|---|
+| `SourceResource.version` | constant | yes | — | `tapstate/v1` | The grammar version; always "tapstate/v1". |
+| `SourceResource.kind` | constant | yes | — | `source` | Resource kind discriminator. |
+| `SourceResource.id` | string | yes | — | — | Unique resource id across the workspace; must not contain a dot. |
+| `SourceResource.metadata` | `Metadata` | no | — | — | Optional labels and free-text description. |
+| `SourceResource.connector` | string | yes | — | — | Id of the connector this source reads through (e.g. mysql, kafka). |
+| `SourceResource.config` | object | no | — | — | Connector connection config; keys are connector-specific. |
+| `SourceResource.mode` | `SourceMode` | no | — | `cdc`, `snapshot`, `stream`, `file`, `api` | Read mode; may be omitted when the source is only a connection supplier. |
+| `SourceResource.tables` | array<`TableRef`> | no | — | — | Tables to read: bare names, /regex/ patterns, or per-table objects. |
+| `SourceResource.options` | object | no | — | — | Connector-specific source options; the read mode and start position live in pipeline settings. |
+| `SourceResource.srs` | `Srs` | no | — | — | Shared Record Store configuration; only valid on cdc sources. |
+| `SourceResource.experimental` | object | no | — | — | Experimental fields, exempt from the v1 compatibility freeze. |
+| `PipelineResource.version` | constant | yes | — | `tapstate/v1` | The grammar version; always "tapstate/v1". |
+| `PipelineResource.kind` | constant | yes | — | `pipeline` | Resource kind discriminator. |
+| `PipelineResource.id` | string | yes | — | — | Unique resource id across the workspace; must not contain a dot. |
+| `PipelineResource.metadata` | `Metadata` | no | — | — | Optional labels and free-text description. |
+| `PipelineResource.source` | string or array<string> | yes | — | — | Ids of pre-created sources this pipeline reads from; at least one is required. |
+| `PipelineResource.transforms` | array<`Step`> | no | — | — | Ordered transform steps applied to the source data. |
+| `PipelineResource.view` | `ViewBlock` | no | — | — | View configuration that shapes the pipeline output into a queryable result. |
+| `PipelineResource.serve` | `ServeBlock` | no | — | — | Serve configuration that exposes the pipeline output downstream. |
+| `PipelineResource.settings` | `Settings` | no | — | — | Task-level settings for this pipeline. |
+| `PipelineResource.experimental` | object | no | — | — | Experimental fields, exempt from the v1 compatibility freeze. |
+| `TransformResource.version` | constant | yes | — | `tapstate/v1` | The grammar version; always "tapstate/v1". |
+| `TransformResource.kind` | constant | yes | — | `transform` | Resource kind discriminator. |
+| `TransformResource.id` | string | yes | — | — | Unique resource id across the workspace; must not contain a dot. |
+| `TransformResource.metadata` | `Metadata` | no | — | — | Optional labels and free-text description. |
+| `TransformResource.options` | object | no | — | — | Transform-owned extension options. |
+| `TransformResource.experimental` | object | no | — | — | Experimental fields, exempt from the v1 compatibility freeze. |
+| `TransformResource.<body>` | one transform body | yes | — | `filter`, `map`, `js`, `union`, `nest`, `join` | Reusable transform logic selected by the `type` discriminator. |
+| `ViewResource.version` | constant | yes | — | `tapstate/v1` | The grammar version; always "tapstate/v1". |
+| `ViewResource.kind` | constant | yes | — | `view` | Resource kind discriminator. |
+| `ViewResource.id` | string | yes | — | — | Unique resource id across the workspace; must not contain a dot. |
+| `ViewResource.metadata` | `Metadata` | no | — | — | Optional labels and free-text description. |
+| `ViewResource.primary_key` | string | no | — | — | Name of the column used as the view's primary key. |
+| `ViewResource.storage` | `Storage` | no | — | — | Where and how the view's data is materialized. |
+| `ViewResource.schema` | `ViewSchema` | no | — | — | Column definitions of the view's output schema. |
+| `ViewResource.experimental` | object | no | — | — | Experimental fields, exempt from the v1 compatibility freeze. |
+| `ServeResource.version` | constant | yes | — | `tapstate/v1` | The grammar version; always "tapstate/v1". |
+| `ServeResource.kind` | constant | yes | — | `serve` | Resource kind discriminator. |
+| `ServeResource.id` | string | yes | — | — | Unique resource id across the workspace; must not contain a dot. |
+| `ServeResource.metadata` | `Metadata` | no | — | — | Optional labels and free-text description. |
+| `ServeResource.sync` | array<`SyncElement`> | no | — | — | Sync publish declarations exposed by this serve surface. |
+| `ServeResource.query` | array<`QueryElement`> | no | — | — | Query publish declarations exposed by this serve surface. |
+| `ServeResource.push` | array<`PushElement`> | no | — | — | Push publish declarations exposed by this serve surface. |
+| `ServeResource.experimental` | object | no | — | — | Experimental fields, exempt from the v1 compatibility freeze. |
+
+## Source and shared fields
+
+| Field | Type | Required | Default | Accepted values | Description |
+|---|---|---|---|---|---|
+| `Metadata.labels` | object | no | — | — | Arbitrary key/value labels attached to the resource for grouping and selection. |
+| `Metadata.description` | string | no | — | — | Free-text description of the resource; never identity. |
+| `TableRef.Spec.name` | string | yes | — | — | Literal name of the table to select from the source. |
+| `TableRef.Spec.filter` | string | no | — | — | CEL row expression that filters which rows of the table are included. |
+| `TableRef.Spec.pk` | array<string> | no | — | — | Primary key column names used to identify rows when the source does not declare one. |
+| `TableRef.Spec.options` | object | no | — | — | Connector-owned extension options. |
+| `Srs.key` | string | no | — | — | Shared mining-chain assertion key identifying the replay store. |
+| `Srs.retention` | string | no | — | — | How long captured change data is retained in the replay store. |
+| `Srs.schema_evolution` | `SrsSchemaEvolution` | no | — | `track`, `ignore` | Schema-evolution policy applied as upstream table structures change. |
+| `Srs.queryable` | boolean | no | — | — | Whether the replay store can be queried directly. |
+| `Srs.enabled` | boolean | no | true | — | Whether the replay store is provisioned; false streams cdc straight to the single consumer with no shared buffering. |
+
+## Pipeline wiring and settings
+
+| Field | Type | Required | Default | Accepted values | Description |
+|---|---|---|---|---|---|
+| `Settings.error_policy` | `ErrorPolicy` | no | fail | `dead_letter`, `skip`, `fail` | How the task reacts to record-level errors during processing. |
+| `Settings.batch_size` | integer | no | 1000 | — | Number of records processed per batch. |
+| `Settings.parallelism` | integer | no | 1 | — | Number of parallel workers used to process the task. |
+| `Settings.schedule` | string | no | — | — | Cron-style schedule for running the task; only valid for a bounded read. |
+| `Settings.read_mode` | `ReadMode` | no | snapshot_and_cdc | `snapshot_and_cdc`, `cdc_only`, `snapshot_only` | What the pipeline reads from a cdc source: full snapshot then changes, changes only, or a one-shot snapshot. |
+| `Settings.start_from` | string | no | latest | — | Where to start consuming an incremental tail: earliest, latest, or an ISO-8601 timestamp. |
+| `Step.Inline.id` | string | yes | — | — | Unique step id within the pipeline; auto-generated for anonymous inline steps. |
+| `Step.Inline.from` | `FromClause` | yes | — | — | The upstream steps or sources this transform reads from. |
+| `Step.Inline.options` | object | no | — | — | Transform-owned extension options. |
+| `Step.Inline.experimental` | object | no | — | — | Experimental fields, exempt from the v1 compatibility freeze. |
+| `Step.Use.id` | string | no | — | — | Unique step id within the pipeline; defaults to the referenced transform name. |
+| `Step.Use.use` | string | yes | — | — | Name of the transform definition to reuse. |
+| `Step.Use.from` | `FromClause` | yes | — | — | The upstream steps or sources this transform reads from. |
+| `Step.Use.options` | object | no | — | — | Transform-owned extension options. |
+| `ViewBlock.Inline.id` | string | yes | — | — | Unique resource id across the workspace; must not contain a dot. |
+| `ViewBlock.Inline.from` | `FromRef` | yes | — | — | The upstream source this view consumes records from. |
+| `ViewBlock.Inline.primary_key` | string | no | — | — | Field or fields that uniquely identify a record in this view. |
+| `ViewBlock.Inline.storage` | `Storage` | no | — | — | Storage backend used to persist this view. |
+| `ViewBlock.Inline.schema` | `ViewSchema` | no | — | — | Field layout of the records held by this view. |
+| `ViewBlock.Use.id` | string | no | — | — | Unique resource id across the workspace; must not contain a dot. Defaults to the referenced view name. |
+| `ViewBlock.Use.use` | string | yes | — | — | Name of the externally defined view to reuse. |
+| `ViewBlock.Use.from` | `FromRef` | yes | — | — | The upstream source this view consumes records from. |
+| `ServeBlock.Inline.id` | string | no | — | — | Optional id for this serve block. |
+| `ServeBlock.Inline.from` | `FromRef` | yes | — | — | The data source this serve block exposes. |
+| `ServeBlock.Inline.sync` | array<`SyncElement`> | no | — | — | Tables continuously synchronized to the serving layer. |
+| `ServeBlock.Inline.query` | array<`QueryElement`> | no | — | — | Read endpoints exposed for querying the served data. |
+| `ServeBlock.Inline.push` | array<`PushElement`> | no | — | — | Push endpoints that stream changes to downstream consumers. |
+| `ServeBlock.Use.id` | string | no | — | — | Optional id for this serve block; defaults to the referenced definition name. |
+| `ServeBlock.Use.use` | string | yes | — | — | Name of the reusable serve definition to use. |
+| `ServeBlock.Use.from` | `FromRef` | yes | — | — | The data source this serve block exposes. |
+
+## Transform bodies
+
+| Field | Type | Required | Default | Accepted values | Description |
+|---|---|---|---|---|---|
+| `TransformBody.Filter.type` | constant | yes | — | `filter` | Transform type discriminator. |
+| `TransformBody.Filter.expr` | string | yes | — | — | The CEL boolean expression evaluated against each row. |
+| `TransformBody.MapProjection.type` | constant | yes | — | `map` | Transform type discriminator. |
+| `TransformBody.MapProjection.fields` | object | yes | — | — | Output fields keyed by name, each mapped by a field rule; declared order is the output order. |
+| `TransformBody.Js.type` | constant | yes | — | `js` | Transform type discriminator. |
+| `TransformBody.Js.script` | string | yes | — | — | The JavaScript source executed for each event. |
+| `TransformBody.Union.type` | constant | yes | — | `union` | Transform type discriminator. |
+| `TransformBody.Nest.type` | constant | yes | — | `nest` | Transform type discriminator. |
+| `TransformBody.Nest.primary_key` | string | no | — | — | Primary key used to group child records under their parent document. |
+| `TransformBody.Nest.order` | `NestOrder` | no | — | `main_first`, `sub_first` | Ordering applied to nested child records. |
+| `TransformBody.Nest.root` | `NestRoot` | yes | — | — | The root stream whose documents receive the nested children. |
+| `TransformBody.Join.type` | constant | yes | — | `join` | Transform type discriminator. |
+| `TransformBody.Join.engine` | string | yes | — | — | The query engine that runs the join, such as duckdb. |
+| `TransformBody.Join.sql` | string | yes | — | — | The SQL query that produces the joined wide table. |
+
+## View and serve fields
+
+| Field | Type | Required | Default | Accepted values | Description |
+|---|---|---|---|---|---|
+| `Storage.hot` | `Storage.Hot` | no | — | — | Hot in-memory layer settings. |
+| `Storage.warm` | `Storage.Warm` | no | — | — | Warm database layer settings. |
+| `Storage.cold` | `Storage.Cold` | no | — | — | Cold data-lake layer settings. |
+| `Storage.Hot.ttl` | string | yes | — | — | Time-to-live for hot entries, as a duration string. |
+| `Storage.Warm.collection` | string | yes | — | — | Database collection that backs the warm layer. |
+| `Storage.Warm.indexes` | array<string> | no | — | — | Indexes to create on the warm collection. |
+| `Storage.Cold.partition_by` | array<string> | no | — | — | Fields to partition cold data by. |
+| `ViewSchema.enforce` | boolean | no | — | — | Whether the declared view schema is strictly enforced at runtime. |
+| `ViewSchema.evolution` | string | no | — | — | How the view schema is allowed to evolve over time, such as additive-only. |
+| `SyncElement.id` | string | no | — | — | Optional id for this sync element; required only when referenced by a query backend. |
+| `SyncElement.source` | string | yes | — | — | Reference to a kind: source connection supplier that provides the target connector and config. |
+| `SyncElement.write_mode` | `WriteMode` | no | upsert | `upsert`, `append` | How rows are written to the target — for example upsert or append. |
+| `SyncElement.rename` | `RenameSpec` | no | — | — | Rules for renaming the target table and columns relative to the pipeline output. |
+| `SyncElement.ddl` | `DdlPolicy` | no | fail | `apply`, `ignore`, `fail` | Policy controlling how schema changes are applied to the target store. |
+| `SyncElement.options` | object | no | — | — | Connector-owned extension options. |
+| `QueryElement.type` | `QueryType` | yes | — | `rest`, `graphql`, `mcp` | The kind of query this element exposes. |
+| `QueryElement.backend` | string | no | — | — | The sync id whose sink serves this query as an API; omit for parallel egress from the view store. |
+| `PushElement.id` | string | no | — | — | Optional id for this push element; defaults to a generated id when omitted. |
+| `PushElement.source` | string | yes | — | — | Id of the source resource this egress reads change events from. |
+| `PushElement.topic` | string | no | — | — | Target topic or channel the change events are pushed to. |
+| `PushElement.format` | `PushFormat` | no | — | — | Serialization format used to encode each pushed change event. |
+| `PushElement.options` | object | no | — | — | Connector-owned extension options. |
+
+## Runtime boundary
+
+Schema acceptance does not prove that a connector artifact is installed or that
+the current runtime executes every declared transform, view, or serve surface.
+See the [resource grammar](/docs/reference/dsl-grammar) for the current preview
+execution boundary.

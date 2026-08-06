@@ -1,6 +1,6 @@
 ---
 title: Kafka
-description: Connect Apache Kafka with the current Confluent-compatible tapstate connector
+description: Connect Apache Kafka to tapstate through kafka_enhanced for streaming reads or writes.
 sidebar:
   order: 8
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use the connector ID `kafka_enhanced` for new Kafka connections. The connector ID `kafka` is retained only for existing legacy resources.
 
 <ConnectorProfile
   category="Streaming & messaging"
@@ -81,7 +79,7 @@ tables:
 
 For a Kafka target, use the same broker, serializer, and Schema Registry settings without a source `mode` or topic selection:
 
-```yaml title="tapstate-work/source/events_kafka_target.tapstate.yml"
+```yaml title="tapstate-work/source/events_kafka_target.tap.yml"
 version: tapstate/v1
 kind: source
 id: events_kafka_target
@@ -96,7 +94,7 @@ config:
   krb5: false
 ```
 
-```yaml title="tapstate-work/pipeline/events_to_kafka.tapstate.yml"
+```yaml title="tapstate-work/pipeline/events_to_kafka.tap.yml"
 version: tapstate/v1
 kind: pipeline
 id: events_to_kafka

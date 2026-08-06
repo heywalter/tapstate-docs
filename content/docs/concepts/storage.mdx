@@ -7,7 +7,13 @@ ai:
   aliases: [tapstate storage, operational state, checkpoints, materialized state]
 ---
 
-Tapstate separates three kinds of state: working state used while records are processed, recovery state needed after an interruption, and materialized state read by downstream consumers.
+This page describes the state responsibilities of the target architecture. The
+current `v0.1.0` runtime is single-node and in-memory; a restart replays from the
+source instead of resuming a persisted source offset.
+
+The target design separates three kinds of state: working state used while
+records are processed, recovery state needed after an interruption, and
+materialized state read by downstream consumers.
 
 Choose concrete storage engines, retention, replication, and high-availability behavior for the deployment you operate.
 
@@ -30,7 +36,7 @@ The data plane needs short-lived state for active processing, buffering, routing
 
 ## Recovery state
 
-Durable recovery state includes:
+Target durable recovery state includes:
 
 - connector positions, offsets, or checkpoints;
 - pipeline identity and canonical configuration;
@@ -38,7 +44,10 @@ Durable recovery state includes:
 - schema and mapping state;
 - ownership information needed to prevent conflicting execution.
 
-Recovery semantics should answer whether a restart resumes, replays, skips, or redelivers records. Connector retention must be long enough for the saved position to remain usable.
+Recovery semantics should answer whether a restart resumes, replays, skips, or
+redelivers records. In the current preview the answer is replay; persisted
+offset resume remains a target capability. Connector retention must be long
+enough for the applicable recovery behavior.
 
 ## Materialized state
 

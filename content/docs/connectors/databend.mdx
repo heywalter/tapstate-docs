@@ -1,6 +1,6 @@
 ---
 title: Databend
-description: Configure Databend as a tapstate data-writing target
+description: Connect Databend to tapstate to write pipeline data into an analytical destination.
 sidebar:
   order: 24
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use Databend as a destination for analytical pipeline data.
 
 <ConnectorProfile
   category="Warehouses & analytics"
@@ -34,7 +32,7 @@ Create a dedicated Databend account with rights to write the destination databas
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/warehouse_databend.tapstate.yml"
+```yaml title="tapstate-work/source/warehouse_databend.tap.yml"
 version: tapstate/v1
 kind: source
 id: warehouse_databend

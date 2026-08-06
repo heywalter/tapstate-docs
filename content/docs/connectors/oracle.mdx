@@ -1,6 +1,6 @@
 ---
 title: Oracle
-description: Configure Oracle source and target prerequisites for snapshots and change data capture
+description: Connect Oracle to tapstate for an initial full load, redo-log change data capture (CDC), or target writes.
 sidebar:
   order: 4
 ai:
@@ -13,23 +13,25 @@ ai:
   aliases: [oracle snapshot, oracle cdc, oracle logminer, oracle source, oracle target]
 ---
 
-import { ConnectorProfile } from '@/components/mdx';
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use Oracle with tapstate for an initial full load, redo-log CDC, DDL capture, and destination writes.
 
 <ConnectorProfile
   category="Databases"
   maturity="GA"
   maturityLabel="Generally available"
   worksAs="Source, Target"
-  capabilities="Snapshot, CDC, DDL capture, Data write"
+  capabilities="Snapshot, CDC, DDL capture, Data write, Target DDL apply"
   compatibility="Oracle 9i, 10g, 11g, 12c, 18c, 19c+ · Single instance and RAC"
 />
 
+Connect Oracle as a source for an initial full load and redo-log CDC, or as a
+target for pipeline writes. Complete the database preparation that matches the
+role and read mode you plan to use.
+
 ## Before you begin
 
-### Source
+### Prepare a source database
 
 Choose the outcome you need. Each tab is a complete preparation path; you do not need to combine steps from both tabs.
 
@@ -62,7 +64,8 @@ GRANT SELECT ON app_schema.customers TO tapstate;
 </SourceModeTab>
 <SourceModeTab value="snapshot-cdc" label="Full load + CDC" description="Copy existing rows, then follow redo changes">
 
-Use **Full load + CDC** to copy existing rows and then capture redo-log changes.
+Use this preparation path when the destination must begin with existing rows,
+then capture redo-log changes.
 
 **1. Create a reader with snapshot and mining access**
 
@@ -146,7 +149,7 @@ DDL capture has additional dictionary and object requirements. If DDL collection
 </SourceModeTab>
 </SourceModeTabs>
 
-### Target
+### Prepare a target database
 
 **1. Create a dedicated target schema**
 
@@ -164,11 +167,90 @@ If tapstate writes into another owner's schema, grant object-level `SELECT`, `IN
 
 ## Create a connection
 
-Use the Oracle connection workflow available in your tapstate environment. Enter the prepared endpoint, service name or SID, credentials, and source or target role using the fields provided there.
+Tapstate stores each Oracle connection as a `.tap.yml` file in the workspace.
+Create a source connection when tapstate reads Oracle; create a target
+connection when a pipeline writes to Oracle.
+
+### Source connection
+
+Create `tapstate-work/source/orders_oracle.tap.yml`. The connection's `mode`
+controls its read capability. For a full-load-only source, use `mode: snapshot`
+instead of `mode: cdc`.
+
+```yaml title="tapstate-work/source/orders_oracle.tap.yml"
+version: tapstate/v1
+kind: source
+id: orders_oracle
+connector: oracle
+config:
+  host: oracle.internal
+  port: "1521"
+  service_name: ORCLPDB1
+  username: ${ORACLE_READER_USER}
+  password: ${ORACLE_READER_PASSWORD}
+mode: cdc
+tables:
+  - ORDERS
+  - /CUSTOMERS_.*/
+options:
+  include_ddl: true
+```
+
+For a CDC-capable source, use `mode: cdc` after completing the archive-log,
+supplemental-logging, and mining preparation.
+
+### Target connection
+
+An Oracle target is represented by the same `kind: source` connection resource,
+but it has no reader `mode` or `tables`.
+
+```yaml title="tapstate-work/source/analytics_oracle.tap.yml"
+version: tapstate/v1
+kind: source
+id: analytics_oracle
+connector: oracle
+config:
+  host: analytics-oracle.internal
+  port: "1521"
+  service_name: ANALYTICSPDB1
+  username: ${ORACLE_WRITER_USER}
+  password: ${ORACLE_WRITER_PASSWORD}
+```
+
+Create the pipeline after both connections exist:
+
+```yaml title="tapstate-work/pipeline/orders_to_analytics.tap.yml"
+version: tapstate/v1
+kind: pipeline
+id: orders_to_analytics
+source: orders_oracle
+serve:
+  from: /.*/
+  sync:
+    - id: write_to_analytics
+      source: analytics_oracle
+      write_mode: upsert
+      ddl: fail
+```
+
+`upsert` writes new rows and updates existing rows by key; `append` only
+inserts. Change `ddl` to `apply` only after a staging pipeline proves the
+source DDL event and target schema behavior required by your workload.
 
 ## Validate the configuration
 
-Before production, use a staging schema to verify:
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+Validation does not resolve the host, credentials, or an Oracle server. A
+syntactically valid resource that uses `oracle.invalid` can therefore pass
+validation. Register the Oracle connector JAR, apply the workspace, and run a
+server-side connection test for both source and target before production.
+
+Use a staging schema to verify:
 
 1. table discovery and a small snapshot;
 2. an insert, update, and delete through CDC;
@@ -210,19 +292,22 @@ WHERE PROFILE = (SELECT PROFILE FROM DBA_USERS WHERE USERNAME = 'TAPSTATE')
 
 ## Reference
 
-### Compatibility
+### Database-side reference
 
-| Signal | Supported baseline |
+This table summarizes Oracle behavior for the connector. Verify uncommon types
+and deployment-specific capture paths with representative data before migration.
+
+| Signal | Database-side baseline |
 |---|---|
 | Versions | Oracle 9i, 10g, 11g, 12c, 18c, 19c+ |
 | Architectures | Single instance and RAC. The LogMiner baseline reads primary nodes in Data Guard, Active Data Guard, and ASM deployments; standby-node capture requires the separately supplied raw-log contract. |
-| Source modes | Snapshot and CDC |
-| Target | Insert, update, and delete; object creation and DDL apply depend on granted privileges |
+| Source preparation | Snapshot and CDC prerequisites |
+| Target preparation | Insert, update, delete, object-creation, and DDL prerequisites |
 | DDL | Add, rename, alter, and drop columns |
 
 ### Data compatibility
 
-| Family | Supported baseline |
+| Family | Database-side baseline |
 |---|---|
 | Text | `VARCHAR2`, `CHAR`, `NVARCHAR2`, `NCHAR`, `CLOB`, `NCLOB` |
 | Numeric | `NUMBER`, `INTEGER`, `FLOAT`, `BINARY_FLOAT`, `BINARY_DOUBLE` |

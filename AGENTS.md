@@ -1,6 +1,6 @@
 # Documentation authoring guide
 
-This repository publishes tapstate documentation. Use **tapstate** in reader-facing copy and examples. Capitalize it as **Tapstate** only when it is the first word of a sentence or title. The current documentation contract uses `tapstate`, `.tapstate.yml`, and `version: tapstate/v1`; preserve connector IDs and inherited configuration keys until their individual product contracts change.
+This repository publishes tapstate documentation. Use **tapstate** in reader-facing copy and examples. Capitalize it as **Tapstate** only when it is the first word of a sentence or title. The current documentation contract uses `tapstate`, `.tap.yml`, and `version: tapstate/v1`; preserve connector IDs and inherited configuration keys until their individual product contracts change.
 
 ## Scope
 
@@ -47,14 +47,14 @@ This repository publishes tapstate documentation. Use **tapstate** in reader-fac
 
 ## Connector documentation
 
-- Use the current tapstate connector catalog for connector ID, role, modes, configuration fields, defaults, enums, sink capability, and maturity when the catalog exposes the fact.
+- Use the current tapstate connector catalog for connector ID, role, modes, configuration fields, defaults, enums, and sink capability when the catalog exposes the fact. Track runtime availability and release verification separately; catalog metadata is not a maturity or support contract.
 - Use `docs-en` and upstream connector documentation to preserve external-system preparation, permissions, CDC setup, authentication flows, limitations, and necessary screenshots.
 - Cross-check high-impact claims against implementation or metadata when feasible: CDC, write support, incremental behavior, data types, authentication, network and permission prerequisites, and limitations.
 - If implementation evidence is private, unavailable, or cannot be matched reliably, do not invent certainty. Record the verification gap outside reader-facing copy.
 
 ## AI-readable documentation contract
 
-- Use concise `ai` frontmatter for pages that need agent discovery. It identifies the content kind, maturity, supported uses or modes, and aliases.
+- Use concise `ai` frontmatter for pages that need agent discovery. It identifies the content kind, maturity, roles or modes, and aliases.
 - Keep the page body canonical for both readers and agents. Do not maintain a parallel facts document unless a stable external API consumer requires one.
 - Keep evidence and product-boundary notes close to the claims they qualify. Record detailed migration provenance in the pull request or migration playbook rather than reader-facing frontmatter.
 - Do not infer a tapstate UI, connection test, runtime execution, TLS field, or advanced connector option from upstream documentation or connector code alone. Mark it as pending unless the tapstate catalog or product surface exposes it.

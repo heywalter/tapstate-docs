@@ -1,6 +1,6 @@
 ---
 title: Vika
-description: Configure Vika as a tapstate data-writing target connection
+description: Connect a Vika space to tapstate with its API credential to write pipeline records into a datasheet.
 sidebar:
   order: 53
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use Vika as a data-writing target.
 
 <ConnectorProfile
   category="SaaS, business & commerce APIs"
@@ -38,7 +36,7 @@ Tapstate supports `upsert` and `append` writes. Define and test field mapping, c
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/operations_vika.tapstate.yml"
+```yaml title="tapstate-work/source/operations_vika.tap.yml"
 version: tapstate/v1
 kind: source
 id: operations_vika

@@ -1,6 +1,6 @@
 ---
 title: MySQL PXC
-description: Configure MySQL Percona XtraDB Cluster as a tapstate snapshot or CDC source and data-writing target
+description: Connect MySQL Percona XtraDB Cluster to tapstate for snapshots, Binlog-based CDC, or target writes.
 sidebar:
   order: 9
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use MySQL Percona XtraDB Cluster (PXC) to copy existing rows or start with a copy and continue from binary-log changes.
 
 <ConnectorProfile
   category="Databases"
@@ -89,7 +87,7 @@ FLUSH PRIVILEGES;
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/orders_pxc.tapstate.yml"
+```yaml title="tapstate-work/source/orders_pxc.tap.yml"
 version: tapstate/v1
 kind: source
 id: orders_pxc

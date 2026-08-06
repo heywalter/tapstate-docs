@@ -1,6 +1,6 @@
 ---
 title: MySQL
-description: Configure MySQL as a tapstate source or target connection
+description: Connect MySQL to tapstate for an initial full load, ongoing change data capture (CDC), or target writes.
 sidebar:
   order: 2
 ai:
@@ -16,12 +16,11 @@ ai:
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
 
-Connect MySQL to tapstate for an initial full load, ongoing change data capture (CDC), or writes to a MySQL target.
-
 <ConnectorProfile
   category="Databases"
   maturity="GA"
   maturityLabel="Generally available"
+  releaseTested="Source in the published MySQL → MongoDB Snapshot + CDC flow"
   worksAs="Source, Target"
   capabilities="Snapshot, CDC, DDL capture, Data write, Target DDL apply"
   compatibility="MySQL 5.0–9.x · Single node and primary-replica"
@@ -135,7 +134,7 @@ Do not grant `CREATE ROUTINE` or `CREATE TEMPORARY TABLES` unless the approved d
 
 ## Create a connection
 
-Tapstate stores each MySQL connection as a `.tapstate.yml` file in the workspace. Create a source connection when tapstate reads MySQL; create a target connection when a pipeline writes to MySQL.
+Tapstate stores each MySQL connection as a `.tap.yml` file in the workspace. Create a source connection when tapstate reads MySQL; create a target connection when a pipeline writes to MySQL.
 
 ### Source connection
 
@@ -157,9 +156,9 @@ tapstate new --non-interactive \
 
 For a full-load-only source, change `--mode cdc` to `--mode snapshot`. The generated connection uses the same MySQL fields; only the read mode differs.
 
-Edit `tapstate-work/source/orders_source.tapstate.yml` to select tables and the reading behavior:
+Edit `tapstate-work/source/orders_source.tap.yml` to select tables and the reading behavior:
 
-```yaml title="tapstate-work/source/orders_source.tapstate.yml"
+```yaml title="tapstate-work/source/orders_source.tap.yml"
 version: tapstate/v1
 kind: source
 id: orders_source
@@ -196,7 +195,7 @@ tapstate new --non-interactive \
 
 The generated pipeline connects the source to the target. The following is the supported sync shape, with the conservative DDL default made explicit:
 
-```yaml title="tapstate-work/pipeline/orders_to_analytics.tapstate.yml"
+```yaml title="tapstate-work/pipeline/orders_to_analytics.tap.yml"
 version: tapstate/v1
 kind: pipeline
 id: orders_to_analytics
@@ -250,9 +249,9 @@ tapstate new --non-interactive \
   --workdir tapstate-work
 ```
 
-The command creates `tapstate-work/source/analytics_mysql.tapstate.yml`:
+The command creates `tapstate-work/source/analytics_mysql.tap.yml`:
 
-```yaml title="tapstate-work/source/analytics_mysql.tapstate.yml"
+```yaml title="tapstate-work/source/analytics_mysql.tap.yml"
 version: tapstate/v1
 kind: source
 id: analytics_mysql
@@ -278,6 +277,30 @@ tapstate validate --workdir tapstate-work
 <ValidationStatusGuide />
 
 The validation result shown above illustrates the CLI resource contract. Filenames, locations, resource counts, and error codes vary with the workspace.
+
+Validation does not require all connection fields, reject unknown connector
+keys, resolve secrets, or contact MySQL. A syntactically valid resource that
+uses `mysql.invalid` can therefore pass validation.
+
+To check the connection, register the MySQL connector JAR, apply the workspace,
+and run the test from an authenticated `v0.1.0` REPL:
+
+```bash
+tapstate -w tapstate-work
+```
+
+```text
+connect http://127.0.0.1:8080
+login admin
+apply
+test orders_source -o json
+```
+
+Only `outcome: PASSED` establishes that the connector accepted the supplied
+endpoint and credentials. A placeholder or unreachable host should produce
+`outcome: FAILED` or a coded connector test error; the exact checks and timeout
+come from the registered connector. See [Register and test connectors](/docs/guides/register-connectors)
+for the full sequence.
 
 ## Limitations
 
@@ -315,7 +338,7 @@ The validation result shown above illustrates the CLI resource contract. Filenam
 |---|---|---|---|
 | `deploymentMode` | No | `standalone` | Select `standalone` for one server or `master-slave` for a primary-replica list. |
 | `host` | With `standalone` | — | MySQL hostname or IP address. |
-| `port` | With `standalone` | `3306` | MySQL service port. Use a quoted string in `.tapstate.yml`. |
+| `port` | With `standalone` | `3306` | MySQL service port. Use a quoted string in `.tap.yml`. |
 | `masterSlaveAddress` | With `master-slave` | — | Ordered array of `{ host, port }`; put the primary first. |
 | `database` | Yes | — | Database name. Create separate connections for separate databases. |
 | `username` | Yes | — | Database account name. |

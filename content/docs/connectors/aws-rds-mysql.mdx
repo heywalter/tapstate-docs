@@ -1,6 +1,6 @@
 ---
 title: Amazon RDS for MySQL
-description: Configure Amazon RDS for MySQL as a tapstate snapshot or CDC source and data-writing target
+description: Connect Amazon RDS for MySQL to tapstate for snapshots, Binlog-based CDC, or target writes.
 sidebar:
   order: 63
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use Amazon RDS for MySQL to copy existing rows, follow Binlog changes, or write pipeline data to an RDS database.
 
 <ConnectorProfile category="Databases" maturity="Preview" maturityLabel="Available for evaluation" worksAs="Source, Target" capabilities="Snapshot, CDC, Data write" compatibility="Amazon RDS for MySQL 5.7 and 8.0" />
 
@@ -89,7 +87,7 @@ FLUSH PRIVILEGES;
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/orders_rds.tapstate.yml"
+```yaml title="tapstate-work/source/orders_rds.tap.yml"
 version: tapstate/v1
 kind: source
 id: orders_rds

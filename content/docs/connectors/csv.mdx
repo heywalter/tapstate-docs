@@ -1,6 +1,6 @@
 ---
 title: CSV
-description: Configure CSV files as tapstate sources or data-writing targets
+description: Read or write CSV files with tapstate across local, FTP, SFTP, SMB, S3-compatible, or OSS storage.
 sidebar:
   order: 50
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use CSV files from local storage, FTP, SFTP, SMB, S3-compatible storage, or OSS as a pipeline source or target.
 
 <ConnectorProfile
   category="Files"
@@ -50,7 +48,7 @@ Choose an output path and storage account with write access limited to that loca
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/orders_csv.tapstate.yml"
+```yaml title="tapstate-work/source/orders_csv.tap.yml"
 version: tapstate/v1
 kind: source
 id: orders_csv

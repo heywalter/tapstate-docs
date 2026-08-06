@@ -1,6 +1,6 @@
 ---
 title: Redis
-description: Configure Redis as a tapstate source or data-writing target
+description: Connect standalone, Sentinel, or clustered Redis to tapstate for snapshot or CDC reads and key-value target writes.
 sidebar:
   order: 10
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use Redis for supported Snapshot or CDC reads, or as a destination for pipeline data. Validate the intended key model and source semantics in a staging environment before production use.
 
 <ConnectorProfile
   category="Databases"
@@ -50,7 +48,7 @@ Choose the deployment mode—`standalone`, `sentinel`, or `cluster`—and create
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/cache_redis.tapstate.yml"
+```yaml title="tapstate-work/source/cache_redis.tap.yml"
 version: tapstate/v1
 kind: source
 id: cache_redis

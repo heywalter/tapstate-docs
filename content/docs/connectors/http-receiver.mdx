@@ -1,6 +1,6 @@
 ---
 title: HTTP Receiver
-description: Configure HTTP Receiver as a tapstate source for incoming application events
+description: Receive application events in tapstate through an HTTP-backed source table with scoped sender credentials and optional event normalization.
 sidebar:
   order: 69
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use HTTP Receiver when another application pushes event data into a tapstate-managed source table.
 
 <ConnectorProfile category="SaaS, business & commerce APIs" maturity="Preview" maturityLabel="Available for evaluation" worksAs="Source" capabilities="Incoming HTTP events" compatibility="HTTP webhook senders" />
 
@@ -42,7 +40,7 @@ Use the URL and credential flow supplied by the tapstate runtime that hosts the 
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/incoming_events.tapstate.yml"
+```yaml title="tapstate-work/source/incoming_events.tap.yml"
 version: tapstate/v1
 kind: source
 id: incoming_events

@@ -1,0 +1,198 @@
+---
+title: REST API preview
+description: Call the authenticated tapstate v0.1.0 control-plane endpoints and interpret preview responses
+ai:
+  kind: reference
+  id: rest-api
+  maturity: preview
+  aliases: [tapstate REST API, tapstate control plane API, tapstate HTTP API]
+---
+
+The `v0.1.0` server exposes a preview HTTP control plane. This API exists only
+after a separate tapstate server is running; installing the CLI does not start
+the server or expose an HTTP port. The server is headless and has no built-in
+web UI in this release.
+
+The API has no stable OpenAPI publication or versioned URL namespace yet; pin
+the tapstate release and treat request and response compatibility as
+prerelease.
+
+Prefer the CLI for interactive use. Use the REST surface when building a controlled integration that can handle authentication, coded errors, synchronous connector operations, and contract changes.
+
+## Base URLs and authentication
+
+Unauthenticated endpoints:
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/healthz` | Process liveness only; returns `ok`. |
+| `POST` | `/auth/bootstrap` | Create the first administrator from loopback, once. |
+| `POST` | `/auth/login` | Exchange username/password for a session token. |
+
+Every `/api/**` endpoint requires:
+
+```http
+Authorization: Bearer <token>
+```
+
+See [Bootstrap and authenticate](/docs/guides/bootstrap-and-auth) for the request sequence.
+
+## Artifact endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/artifacts:apply` | Parse, validate, and apply a batch of raw YAML drafts. |
+| `GET` | `/api/artifacts` | List stored artifacts; optional `kind` query parameter. |
+| `GET` | `/api/artifacts/{id}` | Read one stored artifact. |
+
+Apply request:
+
+```json
+{
+  "drafts": [
+    {
+      "source": "source/orders_source.tap.yml",
+      "content": "version: tapstate/v1\nkind: source\nid: orders_source\nconnector: mysql\nconfig:\n  host: mysql.invalid\n  port: \"3306\"\n  database: appdb\n  username: tapstate\nmode: snapshot\n"
+    }
+  ]
+}
+```
+
+The server reparses the YAML and returns one `CREATED`, `UPDATED`, or `UNCHANGED` outcome per draft.
+
+## Connector and connection endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/connectors:register` | Register a base64-encoded connector JAR. |
+| `GET` | `/api/connectors` | List the bundled and registered online catalog. |
+| `GET` | `/api/connectors/{id}` | Read one connector's normalized fields and capabilities. |
+| `POST` | `/api/connections:test` | Run and store a connector connection test synchronously. |
+| `GET` | `/api/connections/{id}/test-result` | Read the latest stored test report. |
+| `POST` | `/api/connections:discover-schema` | Run and store source discovery synchronously. |
+| `GET` | `/api/connections/{id}/schema` | Read the latest stored discovered model. |
+
+Use `tapstate register` instead of manually base64-encoding large JARs when possible.
+
+Connection test request:
+
+```json
+{
+  "id": "orders_source",
+  "connectorId": "mysql",
+  "settings": {
+    "deploymentMode": "standalone",
+    "host": "mysql.invalid",
+    "port": "3306",
+    "database": "appdb",
+    "username": "tapstate"
+  }
+}
+```
+
+A connector that completes its checks normally returns HTTP `200` even when the report has `outcome: "FAILED"`. Inspect the outcome and checks. A connector that throws during testing returns a coded error response instead.
+
+Connection test and discovery execute synchronously and can take longer than ordinary reads. Configure the caller and any reverse proxy with an appropriate timeout, and do not retry a write blindly.
+
+## Source endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/sources` | Create one structured source. |
+| `GET` | `/api/sources` | List structured sources. |
+| `GET` | `/api/sources/{id}` | Read a secret-redacted source and its `ETag`. |
+| `PUT` | `/api/sources/{id}` | Replace a source using `If-Match`. |
+| `DELETE` | `/api/sources/{id}` | Delete a source using `If-Match`. |
+
+Update and delete require the quoted 64-character content hash returned in `ETag`. Missing or stale preconditions return HTTP `428` or `412`. Secret values are not returned; use the structured secret-clearing contract deliberately when replacing a source.
+
+For resource authoring and pipeline batches, prefer `/api/artifacts:apply`; do not mix the two write styles casually.
+
+## Pipeline lifecycle endpoints
+
+| Method | Path |
+|---|---|
+| `POST` | `/api/pipelines/{id}:start` |
+| `POST` | `/api/pipelines/{id}:stop` |
+| `POST` | `/api/pipelines/{id}:pause` |
+| `POST` | `/api/pipelines/{id}:resume` |
+
+Each response is desired state:
+
+```json
+{
+  "pipelineId": "orders_to_analytics",
+  "targetState": "RUNNING",
+  "revision": "<content-hash>"
+}
+```
+
+The response proves that the intent was accepted. Read observed status and destination data before reporting execution success.
+
+## Observation endpoints
+
+| Method | Path | Boundary |
+|---|---|---|
+| `GET` | `/api/pipelines/{id}/status` | Store-backed observed lifecycle state |
+| `GET` | `/api/pipelines/{id}/metrics` | Open metric map and optional `perTableOffset` |
+| `GET` | `/api/pipelines/{id}/snapshot` | Per-table initial-load progress when available |
+| `GET` | `/api/pipelines/{id}/logs` | Bounded node-local log tail |
+
+WebSocket endpoints:
+
+| Path | Behavior |
+|---|---|
+| `/api/pipelines/{id}/status/watch` | Emits status when the observed state changes. |
+| `/api/pipelines/{id}/logs/follow` | Emits newly observed node-local log lines. |
+
+The WebSocket handshake uses the same bearer header. It returns HTTP `401` or `403` instead of upgrading when authentication or authorization fails.
+
+Cluster endpoint:
+
+| Method | Path | Boundary |
+|---|---|---|
+| `GET` | `/api/cluster/members` | Present but returns HTTP `501` in `v0.1.0` |
+
+## Error responses
+
+Coded failures use:
+
+```json
+{
+  "code": "lifecycle.illegal-transition",
+  "params": {
+    "from": "RUNNING",
+    "verb": "start"
+  },
+  "message": "..."
+}
+```
+
+Treat `code` as the stable machine key. `message` is reader-facing and can change.
+
+Common status mappings:
+
+| HTTP status | Typical meaning |
+|---:|---|
+| `400` | Malformed JSON, DSL validation failure, or a request rejected as bad input |
+| `401` | Missing, invalid, expired, or rejected credential |
+| `403` | Authenticated but insufficient scope |
+| `404` | Artifact, source, connector, pipeline, test result, schema, or observation not found |
+| `409` | Closed bootstrap or illegal/incompatible lifecycle state |
+| `412` | Source `If-Match` content hash is stale |
+| `428` | Source update/delete omitted a valid `If-Match` |
+| `500` | Coded server or connector failure without a client-attributable mapping |
+| `501` | Endpoint is present but not implemented |
+
+Bare programmer errors can still return a framework-level HTTP `500` without the coded envelope. Preserve the status, response body, method, path, and tapstate version when diagnosing one.
+
+## Version boundary
+
+- `v0.1.0` connected CLI workflows use the interactive REPL.
+- No `v1` API prefix or compatibility guarantee exists yet.
+
+## Related pages
+
+- [CLI reference](/docs/reference/cli)
+- [Register and test connectors](/docs/guides/register-connectors)
+- [Observe a pipeline](/docs/guides/observe-a-pipeline)

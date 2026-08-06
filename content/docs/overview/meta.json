@@ -2,6 +2,8 @@
   "title": "Get started",
   "pages": [
     "what-is-tapstate",
+    "install",
+    "quickstart-online",
     "quickstart",
     "use-cases",
     "architecture",

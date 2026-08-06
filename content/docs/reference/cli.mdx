@@ -1,0 +1,218 @@
+---
+title: CLI reference
+description: Use tapstate v0.1.0 offline workspace commands and connected REPL commands
+ai:
+  kind: reference
+  id: cli
+  maturity: preview
+  aliases: [tapstate CLI, tapstate commands, tapstate REPL, tapstate exit codes]
+---
+
+The tapstate CLI has two operating contexts:
+
+- **Offline commands** read or create local workspace files. They do not require a running server.
+- **Connected commands** run inside an interactive REPL after you connect and log in to a tapstate server.
+
+Run this command to see the command set included with your installed version:
+
+```bash
+tapstate --help
+```
+
+In `v0.1.0`, subcommands do not implement their own `--help` option. A missing or invalid operand prints that command's usage.
+
+## Global options
+
+| Option | Purpose |
+|---|---|
+| `-w`, `--workdir <dir>` | Select the workspace directory. The default is `tap-work`, or `$TAPSTATE_WORKDIR` when set. |
+| `--version` | Print the CLI version and exit. |
+| `--help` | Print top-level help and exit. |
+
+Running `tapstate` without a subcommand starts the REPL. A global work directory can be supplied before the session starts:
+
+```bash
+tapstate -w work
+```
+
+## Offline workspace commands
+
+### `validate`
+
+Validate resource structure, field values, modes, and references:
+
+```bash
+tapstate validate [-w DIR] [-o text|json|yaml] [path]
+```
+
+When `path` is omitted, the command validates the selected workspace.
+
+### `new`
+
+Create a source or pipeline resource:
+
+```bash
+tapstate new --kind source \
+  --connector mysql \
+  --id orders_source \
+  --mode snapshot \
+  --set host=localhost \
+  --set port=3306 \
+  --workdir work
+```
+
+Frequently used options:
+
+| Option | Purpose |
+|---|---|
+| `--kind source\|pipeline` | Select the resource kind. |
+| `--id <id>` | Set the resource ID. |
+| `--connector <id>` | Set the connector for a source resource. |
+| `--mode <mode>` | Set a source read mode. |
+| `--set key=value` | Set a connector field; repeat for multiple fields. |
+| `--source <id>` | Set a pipeline's source reference. |
+| `--sync-to <id>` | Add a pipeline target; repeat for multiple targets. |
+| `--non-interactive`, `-y` | Refuse missing required answers instead of prompting. |
+| `--dry-run` | Print the generated resource without writing it. |
+| `--force` | Replace an existing generated target. |
+| `--out <path>` | Select the output path. |
+
+The command also accepts `-c` for `--connector`, `-m` for `--mode`, and `-w` for `--workdir`.
+
+### `ls`
+
+List resources in the selected workspace:
+
+```bash
+tapstate ls [-w DIR] [-o text|json|yaml] [source|pipeline]
+```
+
+### `desc`
+
+Render one resource by ID:
+
+```bash
+tapstate desc [-w DIR] [-o text|json|yaml] <id>
+```
+
+### `explain`
+
+Describe the resource grammar or a field path:
+
+```bash
+tapstate explain [-o text|json|yaml] [field.path]
+```
+
+For example:
+
+```bash
+tapstate explain source.mode
+```
+
+## Start a connected session
+
+Start the REPL, connect to a server, and log in:
+
+```bash
+tapstate -w work
+```
+
+```text
+tapstate> connect http://127.0.0.1:8080
+tapstate> login admin
+Password:
+```
+
+The password prompt masks its input. `connect` selects the server; `login` creates the authenticated session used by later commands.
+
+REPL session commands:
+
+| Command | Purpose |
+|---|---|
+| `help` | Show REPL help. |
+| `connect <host:port>` | Select a server. |
+| `disconnect` | Leave the current server. |
+| `login <username>` | Authenticate to the selected server. |
+| `logout` | End the authenticated session. |
+| `cd <dir>` | Change the REPL workspace directory. |
+| `pwd` | Print the current workspace directory. |
+| `exit`, `quit` | End the session. |
+
+Connected verbs entered directly as one-shot top-level commands do not preserve a connection or login. In `v0.1.0`, invoke them from the REPL; otherwise they exit with code `3`.
+
+## Apply and inspect resources
+
+| Command | Purpose |
+|---|---|
+| `apply [path]` | Interpolate local environment variables and create or update one resource or the whole workspace. |
+| `get <id>` | Read one stored resource. |
+| `ls [kind]` | List stored resources, optionally by kind. |
+| `connectors [-o text\|json\|yaml]` | List registered connectors. |
+| `register <path> [-o text\|json\|yaml]` | Upload one connector JAR, or all direct `*.jar` children of a directory. |
+
+`apply` reports each resource as created, updated, or unchanged. Connector registration is idempotent for the same artifact.
+
+## Test and discover connections
+
+| Command | Purpose |
+|---|---|
+| `test <connection-id> [-o text\|json\|yaml]` | Run a connection test and render its result. |
+| `test-result <connection-id> [-o text\|json\|yaml]` | Read the latest stored test result without rerunning the test. |
+| `discover-schema <connection-id> [-o text\|json\|yaml]` | Discover source objects using a stored connection. |
+| `schema <connection-id> [table] [-o text\|json\|yaml]` | Read the stored discovered schema, optionally for one table. |
+
+A successful resource validation does not establish network reachability, authentication, or data movement. Test the connection from the server environment before starting a pipeline.
+
+## Control and observe a pipeline
+
+| Command | Purpose |
+|---|---|
+| `start <pipeline-id>` | Start a pipeline. |
+| `stop <pipeline-id>` | Stop a pipeline. |
+| `pause <pipeline-id>` | Pause a running pipeline. |
+| `resume <pipeline-id>` | Resume a paused pipeline. |
+| `status <pipeline-id>` | Read current pipeline and node state. |
+| `status <pipeline-id> --watch` | Stream lifecycle changes until interrupted. |
+| `metrics <pipeline-id>` | Read current pipeline and per-table metrics or offsets. |
+| `logs <pipeline-id>` | Read recent node-local logs. |
+| `logs <pipeline-id> --follow` | Stream node-local logs until interrupted. |
+| `snapshot <pipeline-id>` | Read the current snapshot view when one is available. |
+
+Use <kbd>Ctrl</kbd>+<kbd>C</kbd> to end `status --watch` or `logs --follow`. This ends the local stream, not the pipeline.
+
+Status and metrics report observed state and can lag a lifecycle command briefly. In this preview, `snapshot` may report that no snapshot is available; do not use that response alone as proof that a data path succeeded or failed.
+
+## Structured output
+
+The offline commands `validate`, `ls`, `desc`, and `explain` support:
+
+```text
+-o text
+-o json
+-o yaml
+```
+
+In a connected session, structured output is available for `test`, `test-result`, `discover-schema`, `schema`, `register`, and `connectors`. Lifecycle, status, metrics, logs, and apply commands use their command-specific text output.
+
+Successful command output is written to standard output. Usage and diagnostic messages are written to standard error, which allows automation to keep data separate from failures.
+
+## Exit codes
+
+| Code | Meaning |
+|---:|---|
+| `0` | The command completed successfully. |
+| `1` | A coded domain diagnostic was returned or the operation was refused. |
+| `2` | The command line or operand usage is invalid. |
+| `3` | The operation is unavailable in the current context, not connected, or not implemented. |
+
+Automation should check the exit code instead of matching human-readable output.
+
+## Commands not implemented in v0.1.0
+
+The top-level help lists `run`, `export`, `diff`, and `edit` as planned verbs. They return exit code `3` in `v0.1.0`. Do not build a workflow that depends on them.
+
+## Related pages
+
+- [Author and validate a workspace](/docs/overview/quickstart)
+- [Try tapstate locally](/docs/overview/quickstart-online)
+- [Troubleshooting](/docs/guides/troubleshooting)

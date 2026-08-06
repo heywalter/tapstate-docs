@@ -1,6 +1,6 @@
 ---
 title: SelectDB
-description: Configure SelectDB as a tapstate snapshot source or data-writing target
+description: Connect SelectDB SQL and HTTP endpoints to tapstate for snapshot reads, schema discovery, or analytical target writes.
 sidebar:
   order: 20
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use SelectDB for point-in-time reads or as a destination for pipeline data. SelectDB Cloud is based on Apache Doris; validate the endpoint types and privileges against your deployment before production use.
 
 <ConnectorProfile
   category="Warehouses & analytics"
@@ -40,7 +38,7 @@ Create a database account that can write the selected destination table. Start w
 
 ### Snapshot source
 
-```yaml title="tapstate-work/source/orders_selectdb.tapstate.yml"
+```yaml title="tapstate-work/source/orders_selectdb.tap.yml"
 version: tapstate/v1
 kind: source
 id: orders_selectdb
@@ -59,7 +57,7 @@ tables:
 
 ### Target connection
 
-```yaml title="tapstate-work/source/warehouse_selectdb.tapstate.yml"
+```yaml title="tapstate-work/source/warehouse_selectdb.tap.yml"
 version: tapstate/v1
 kind: source
 id: warehouse_selectdb

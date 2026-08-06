@@ -1,0 +1,104 @@
+---
+title: Apply and run a pipeline
+description: Apply a validated workspace and control the tapstate preview pipeline lifecycle
+ai:
+  kind: guide
+  id: apply-and-run
+  maturity: preview
+  aliases: [tapstate apply, tapstate start pipeline, tapstate pause resume stop]
+---
+
+Apply turns local drafts into server-held resources. Lifecycle commands then write the desired state that the runtime converges toward.
+
+## Before you begin
+
+- Validate the workspace locally.
+- Register the required connector JARs.
+- Apply and test source and target connections from the server environment.
+- Use a non-production data set for the preview.
+
+See [Register and test connectors](/docs/guides/register-connectors) for the preceding sequence.
+
+## Apply the workspace
+
+Start an authenticated session in the workspace:
+
+```bash
+tapstate -w work
+```
+
+```text
+connect http://127.0.0.1:8080
+login admin
+apply
+```
+
+With no operand, `apply` sends the workspace as one batch. To apply one file or directory:
+
+```text
+apply source/orders_source.tap.yml
+```
+
+The server reparses and validates each draft. The result reports:
+
+- `CREATED` for a new artifact;
+- `UPDATED` when canonical content changed;
+- `UNCHANGED` when the stored content hash already matches.
+
+Confirm the server-held resources:
+
+```text
+ls
+get orders_source
+get orders_to_analytics
+```
+
+Local files remain authoring input; connected `get` and `ls` show the server's current truth.
+
+## Start the pipeline
+
+```text
+start orders_to_analytics
+status orders_to_analytics --watch
+```
+
+`start` writes a `RUNNING` intent at the latest applied pipeline revision. `status --watch` reports observed runtime state, which can lag the command briefly.
+
+Verify data at the destination. A lifecycle command succeeding proves that the intent was accepted, not that rows arrived.
+
+## Lifecycle transitions
+
+| Command | Legal starting state | Target state | Progress behavior |
+|---|---|---|---|
+| `start` | `NEW`, `STOPPED`, `COMPLETED` | `RUNNING` | Starts at the latest applied revision. |
+| `pause` | `RUNNING` | `PAUSED` | Retains the current revision and in-run progress. |
+| `resume` | `PAUSED` | `RUNNING` | Requires the paused revision to remain current. |
+| `stop` | `RUNNING`, `PAUSED`, `FAILED` | `STOPPED` | Clears the run so the next `start` begins a fresh run. |
+
+An illegal transition returns `lifecycle.illegal-transition`. If a paused pipeline was reapplied, `resume` can return `lifecycle.incompatible-revision`; stop it, review the change, then start a fresh run.
+
+Recover a failed pipeline deliberately:
+
+```text
+logs orders_to_analytics
+stop orders_to_analytics
+start orders_to_analytics
+```
+
+Do not start directly from `FAILED`.
+
+## Verify the outcome
+
+Use all three evidence types:
+
+1. `status` reaches the expected state;
+2. `metrics` and `logs` show active work without unresolved errors;
+3. source and destination queries show the expected snapshot and later insert, update, and delete behavior.
+
+The preview is single-node and does not persist a resumable runtime offset across a server restart. A process restart can replay from the source even when pause/resume worked within the running deployment.
+
+## Next steps
+
+- [Observe a pipeline](/docs/guides/observe-a-pipeline)
+- [Troubleshooting](/docs/guides/troubleshooting)
+- [v0.1.0 release limitations](/docs/releases/v0.1.0#known-limitations)

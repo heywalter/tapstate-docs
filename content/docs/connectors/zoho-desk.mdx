@@ -1,6 +1,6 @@
 ---
 title: Zoho Desk
-description: Configure Zoho Desk as a tapstate snapshot source
+description: Connect a Zoho Desk organization to tapstate to snapshot customer service records for downstream pipelines.
 sidebar:
   order: 46
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use Zoho Desk as a supported Snapshot source for service data.
 
 <ConnectorProfile
   category="SaaS, business & commerce APIs"
@@ -54,7 +52,7 @@ Available modules include `Tickets`, `Departments`, `Products`, `OrganizationFie
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/support_zoho_desk.tapstate.yml"
+```yaml title="tapstate-work/source/support_zoho_desk.tap.yml"
 version: tapstate/v1
 kind: source
 id: support_zoho_desk

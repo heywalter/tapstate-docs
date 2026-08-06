@@ -1,11 +1,13 @@
 import defaultMdxComponents from 'fumadocs-ui/mdx';
+import { Popover, PopoverContent, PopoverTrigger } from 'fumadocs-ui/components/ui/popover';
 import Link from 'next/link';
-import { ArrowRight, BadgeCheck, Bot, Braces, Cable, CircleAlert, CircleCheck, Database, FileText, GitBranch, Layers3, RadioTower, Store, TableProperties, Wrench } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Bot, Braces, Cable, CircleAlert, CircleCheck, Database, FileText, GitBranch, Info, Layers3, RadioTower, Store, TableProperties, Wrench } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { MDXComponents } from 'mdx/types';
 import {
   connectorCategories,
   connectorMaturityCounts,
+  connectorReleaseTestedCount,
   getConnectorsByCategory,
   type ConnectorCategoryId,
   type ConnectorMaturity,
@@ -66,8 +68,8 @@ export function CardGrid({ children }: { children: ReactNode }) {
 export function ProductOverviewHero() {
   const pillars = [
     { label: 'Capture', text: 'Load existing data, then follow committed changes.', icon: Database },
-    { label: 'Transform', text: 'Shape and route data incrementally as it moves.', icon: GitBranch },
-    { label: 'Serve', text: 'Maintain fresh, queryable state for downstream systems.', icon: Layers3 },
+    { label: 'Transform', text: 'Filter, map, script, and merge data as it moves.', icon: GitBranch },
+    { label: 'Serve', text: 'Write current state to a downstream system.', icon: Layers3 },
   ];
 
   return (
@@ -82,11 +84,11 @@ export function ProductOverviewHero() {
             Build and maintain live operational state.
           </h1>
           <p className="mb-0 mt-5 max-w-3xl text-pretty text-base leading-8 text-fd-muted-foreground md:text-lg">
-            Tapstate is an open-source unified operational data engine. It captures production database changes, transforms data incrementally as it moves, and serves fresh, queryable state to applications, APIs, automation, and AI agents.
+            Tapstate is an open-source operational data engine in preview. The v0.1.0 local demo explores a MySQL-to-MongoDB snapshot and CDC workflow.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <Link href="/docs/overview/quickstart" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-fd-primary px-4 text-sm font-semibold text-fd-primary-foreground no-underline transition-colors hover:bg-fd-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
-              Start the quickstart
+            <Link href="/docs/overview/quickstart-online" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-fd-primary px-4 text-sm font-semibold text-fd-primary-foreground no-underline transition-colors hover:bg-fd-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
+              Try tapstate locally
               <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
             <Link href="/docs/connectors" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-fd-border bg-fd-background px-4 text-sm font-semibold text-fd-foreground no-underline transition-colors hover:border-fd-primary/30 hover:bg-fd-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
@@ -149,13 +151,13 @@ function ArchitectureNode({
   );
 }
 
-/** Responsive, semantic representation of the logical tapstate architecture. */
+/** Responsive, semantic representation of the target tapstate architecture. */
 export function TapStateArchitecture() {
   return (
     <figure className="not-prose my-8 overflow-hidden rounded-2xl border border-fd-border bg-fd-card shadow-sm shadow-black/[0.03] dark:shadow-none">
       <figcaption className="border-b border-fd-border px-5 py-4">
-        <p className="m-0 text-sm font-semibold text-fd-foreground">Logical architecture</p>
-        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">One control plane governs the data path and its recovery state.</p>
+        <p className="m-0 text-sm font-semibold text-fd-foreground">Target logical architecture</p>
+        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">Design direction, not the current preview implementation boundary.</p>
       </figcaption>
 
       <div className="p-4 sm:p-5">
@@ -181,7 +183,7 @@ export function TapStateArchitecture() {
           <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
             <ArchitectureNode title="Sources" description="Databases, brokers, files, and APIs." icon={Database} />
             <ArchitectureNode title="Capture" description="Initial data and later changes." icon={RadioTower} accent />
-            <ArchitectureNode title="Transform" description="Filter, map, enrich, join, and route." icon={GitBranch} accent />
+            <ArchitectureNode title="Transform" description="Stateless transforms now; stateful composition is a target." icon={GitBranch} accent />
             <ArchitectureNode title="Materialize" description="Maintain destination-ready current state." icon={Layers3} accent />
             <ArchitectureNode title="Deliver" description="Write targets or publish streams." icon={Cable} accent />
             <ArchitectureNode title="Consumers" description="Applications, APIs, and agents." icon={Bot} />
@@ -233,7 +235,7 @@ function DataPathArrow({ tone = 'neutral' }: { tone?: 'neutral' | 'primary' }) {
   );
 }
 
-/** A reader-first comparison of an assembled streaming stack and the tapstate product model. */
+/** A reader-first comparison of an assembled streaming stack and the tapstate target model. */
 export function DataPathComparison() {
   return (
     <section aria-label="Operational data path comparison" className="not-prose my-8 overflow-hidden rounded-xl border border-fd-border bg-fd-card shadow-sm shadow-black/[0.025] dark:shadow-none">
@@ -261,8 +263,8 @@ export function DataPathComparison() {
         </section>
         <section className="bg-sky-50/65 p-4 dark:bg-sky-950/20 sm:p-5">
           <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-            <h3 className="m-0 text-sm font-semibold text-sky-950 dark:text-sky-100">The tapstate data path</h3>
-            <p className="m-0 text-xs text-sky-800/80 dark:text-sky-200/80">One deployable Capture–Transform–Serve path</p>
+            <h3 className="m-0 text-sm font-semibold text-sky-950 dark:text-sky-100">The tapstate target path</h3>
+            <p className="m-0 text-xs text-sky-800/80 dark:text-sky-200/80">Target Capture–Transform–Serve operating model</p>
           </div>
           <div className="overflow-x-auto pb-1">
             <div className="flex min-w-[36rem] items-center gap-2">
@@ -291,8 +293,9 @@ type ConnectorProfileProps = {
   category: string;
   maturity: string;
   maturityLabel: string;
-  worksAs: string;
-  capabilities: string;
+  releaseTested?: string;
+  worksAs?: string;
+  capabilities?: string;
   compatibility: string;
 };
 
@@ -391,6 +394,7 @@ export function ConnectorProfile({
   category,
   maturity,
   maturityLabel,
+  releaseTested,
   worksAs,
   capabilities,
   compatibility,
@@ -422,12 +426,27 @@ export function ConnectorProfile({
             <span className={maturityTone.label}>{maturityLabel}</span>
           </span>
         </ConnectorProfileRow>
-        <ConnectorProfileRow label="Works as">
-          <ConnectorProfileTags value={worksAs} />
-        </ConnectorProfileRow>
-        <ConnectorProfileRow label="Capabilities">
-          <ConnectorProfileTags value={capabilities} />
-        </ConnectorProfileRow>
+        {releaseTested ? (
+          <ConnectorProfileRow label="Release-tested">
+            <span className="flex flex-wrap items-center gap-2.5">
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs font-semibold leading-5 text-sky-800 dark:border-sky-800 dark:bg-sky-950/45 dark:text-sky-200">
+                <BadgeCheck aria-hidden="true" className="size-3.5" strokeWidth={2.25} />
+                E2E
+              </span>
+              <span className="text-fd-card-foreground">{releaseTested}</span>
+            </span>
+          </ConnectorProfileRow>
+        ) : null}
+        {worksAs ? (
+          <ConnectorProfileRow label="Works as">
+            <ConnectorProfileTags value={worksAs} />
+          </ConnectorProfileRow>
+        ) : null}
+        {capabilities ? (
+          <ConnectorProfileRow label="Capabilities">
+            <ConnectorProfileTags value={capabilities} />
+          </ConnectorProfileRow>
+        ) : null}
         <ConnectorProfileRow label="Compatibility">
           <span className="inline-flex items-center gap-1.5 text-fd-card-foreground">
             <Database aria-hidden="true" className="size-3.5 text-indigo-500" strokeWidth={2} />
@@ -453,7 +472,7 @@ export function ValidationStatusGuide() {
             valid: 3 resources in tapstate-work
           </code>
           <p className="mb-0 mt-2 text-xs leading-5 text-fd-muted-foreground">
-            The resource files, references, modes, and recognized field formats were accepted.
+            The resource shape, references, and applicable catalog rules were accepted. Runtime availability was not checked.
           </p>
         </section>
         <section className="bg-fd-card p-4">
@@ -462,7 +481,7 @@ export function ValidationStatusGuide() {
             Changes required
           </div>
           <code className="block whitespace-pre-wrap rounded-md bg-rose-50 px-2.5 py-2 text-xs leading-5 text-rose-950 dark:bg-rose-950/35 dark:text-rose-100">
-            {`invalid: orders_source.tapstate.yml:12:1  dsl.unknown-field
+            {`invalid: orders_source.tap.yml:12:1  dsl.unknown-field
 Unknown field 'unexpected' at unexpected.`}
           </code>
           <p className="mb-0 mt-2 text-xs leading-5 text-fd-muted-foreground">
@@ -530,23 +549,126 @@ function DirectoryMaturity({ maturity }: { maturity: ConnectorMaturity }) {
   );
 }
 
-/** A compact, filter-free connector index. The canonical data lives in connector-directory.ts. */
-export function SupportedConnectorMatrix() {
-  const maturityCounts = connectorMaturityCounts();
+const connectorDirectoryTermHelp: Record<string, string> = {
+  source: 'Reads data from the listed system.',
+  target: 'Writes pipeline data to the listed system.',
+  snapshot: 'Reads the selected data once.',
+  cdc: 'Reads an initial snapshot, then captures later committed changes.',
+  stream: 'Continuously reads or writes a message stream.',
+  api: 'Reads records through the system API.',
+  file: 'Reads a file-based source.',
+};
+
+const connectorDirectoryTermLabels: Record<string, string> = {
+  cdc: 'CDC',
+  api: 'API',
+};
+
+function ConnectorDirectoryTerm({
+  label,
+  help,
+  displayLabel = label,
+}: {
+  label: string;
+  help: string;
+  displayLabel?: string;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        aria-label={`${label}: ${help}`}
+        closeDelay={100}
+        delay={120}
+        openOnHover
+        className="group inline-flex items-center gap-1 rounded-md px-1 py-0.5 font-medium text-fd-foreground transition-colors hover:bg-fd-accent hover:text-fd-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring"
+      >
+        <span>{displayLabel}</span>
+        <Info aria-hidden="true" className="size-3.5 text-fd-muted-foreground transition-colors group-hover:text-fd-primary" strokeWidth={2.25} />
+      </PopoverTrigger>
+      <PopoverContent role="tooltip" sideOffset={8} className="w-64 border-fd-border bg-fd-popover p-3 shadow-xl">
+        <p className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-fd-muted-foreground">{label}</p>
+        <p className="mb-0 mt-1.5 text-sm leading-5 text-fd-popover-foreground">{help}</p>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function ReleaseTestedMarker() {
+  return (
+    <Popover>
+      <PopoverTrigger
+        aria-label="E2E tested: This connector participates in a published end-to-end release flow."
+        closeDelay={100}
+        delay={120}
+        openOnHover
+        className="group inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[0.65rem] font-semibold tracking-wide text-sky-800 transition-colors hover:border-sky-300 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring dark:border-sky-800 dark:bg-sky-950/45 dark:text-sky-200 dark:hover:bg-sky-900/55"
+      >
+        <BadgeCheck aria-hidden="true" className="size-3" strokeWidth={2.25} />
+        <span>E2E</span>
+      </PopoverTrigger>
+      <PopoverContent role="tooltip" sideOffset={8} className="w-64 border-fd-border bg-fd-popover p-3 shadow-xl">
+        <p className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-fd-muted-foreground">Release-tested</p>
+        <p className="mb-0 mt-1.5 text-sm leading-5 text-fd-popover-foreground">This connector participates in a published end-to-end release flow. A missing marker does not mean that the connector is unsupported.</p>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function ConnectorDirectoryTerms({
+  terms,
+  separator,
+  emptyHelp,
+}: {
+  terms: string[];
+  separator: string;
+  emptyHelp: string;
+}) {
+  if (terms.length === 0) {
+    return (
+      <ConnectorDirectoryTerm displayLabel="—" label="Not reported" help={emptyHelp} />
+    );
+  }
 
   return (
-    <section aria-label="Supported connectors" className="not-prose my-8">
+    <span className="inline-flex flex-wrap gap-x-1">
+      {terms.map((term, index) => {
+        const key = term.toLowerCase();
+        const label = connectorDirectoryTermLabels[key] ?? key[0].toUpperCase() + key.slice(1);
+        const help = connectorDirectoryTermHelp[key] ?? `Uses the ${label} mode.`;
+
+        return (
+          <span key={term} className="inline-flex items-center">
+            {index > 0 ? <span aria-hidden="true" className="mr-1">{separator}</span> : null}
+            <ConnectorDirectoryTerm label={label} help={help} />
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
+/** A compact connector maturity index. The canonical data lives in connector-directory.ts. */
+export function ConnectorDirectoryMatrix() {
+  const maturityCounts = connectorMaturityCounts();
+  const releaseTestedCount = connectorReleaseTestedCount();
+
+  return (
+    <section aria-label="Connector guide directory" className="not-prose my-8">
       <div className="mb-8 flex flex-wrap items-center gap-2 text-sm text-fd-muted-foreground">
-        <span className="font-medium text-fd-foreground">{maturityCounts.ga + maturityCounts.preview} active connectors</span>
+        <span className="font-medium text-fd-foreground">{maturityCounts.ga + maturityCounts.preview + maturityCounts.deprecated} connectors</span>
         <span aria-hidden="true">·</span>
         <span className="inline-flex items-center gap-1.5"><DirectoryMaturity maturity="ga" /> {maturityCounts.ga}</span>
         <span className="inline-flex items-center gap-1.5"><DirectoryMaturity maturity="preview" /> {maturityCounts.preview}</span>
+        <span className="inline-flex items-center gap-1.5 text-sky-800 dark:text-sky-200"><BadgeCheck aria-hidden="true" className="size-4" strokeWidth={2.25} /> {releaseTestedCount} E2E-tested</span>
+        {maturityCounts.deprecated > 0 ? (
+          <span className="inline-flex items-center gap-1.5"><DirectoryMaturity maturity="deprecated" /> {maturityCounts.deprecated}</span>
+        ) : null}
       </div>
 
       <div className="space-y-9">
         {connectorCategories.map((category) => {
           const Icon = categoryPresentation[category.id].icon;
-          const connectors = getConnectorsByCategory(category.id).filter((connector) => connector.maturity !== 'deprecated');
+          const connectors = getConnectorsByCategory(category.id);
 
           return (
             <section key={category.id} aria-labelledby={`connector-category-${category.id}`} className="border-t border-fd-border pt-5">
@@ -562,7 +684,7 @@ export function SupportedConnectorMatrix() {
                 </div>
               </header>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[38rem] border-collapse text-left text-sm">
+                <table className="w-full min-w-[42rem] border-collapse text-left text-sm">
                   <thead className="border-b border-fd-border text-xs font-medium uppercase tracking-[0.08em] text-fd-muted-foreground">
                     <tr>
                       <th className="px-0 py-2.5 font-medium">Connector</th>
@@ -579,21 +701,22 @@ export function SupportedConnectorMatrix() {
                             <span>{connector.title}</span>
                             <ArrowRight aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
                           </Link>
+                          {connector.releaseTestedE2E ? <span className="ml-2 inline-flex align-middle"><ReleaseTestedMarker /></span> : null}
                         </th>
                         <td className="px-3 py-2.5"><DirectoryMaturity maturity={connector.maturity} /></td>
                         <td className="px-3 py-2.5 text-fd-muted-foreground">
-                          {connector.useAs.length > 0
-                            ? connector.useAs.map((role) => role[0].toUpperCase() + role.slice(1)).join(' + ')
-                            : 'Not declared'}
+                          <ConnectorDirectoryTerms
+                            terms={connector.useAs}
+                            separator="+"
+                            emptyHelp="The current catalog does not report a role. The guide may still cover external-system preparation; verify the registered runtime before relying on a source or target path."
+                          />
                         </td>
                         <td className="px-3 py-2.5 text-fd-muted-foreground">
-                          {connector.modes.length > 0
-                            ? connector.modes.join(' · ')
-                            : connector.useAs.includes('source')
-                              ? 'Not declared'
-                              : connector.useAs.includes('target')
-                                ? '—'
-                                : 'Not declared'}
+                          <ConnectorDirectoryTerms
+                            terms={connector.modes}
+                            separator="·"
+                            emptyHelp="The current catalog does not report a source read mode. The guide may still cover external-system preparation; verify the registered runtime before relying on a read path."
+                          />
                         </td>
                       </tr>
                     ))}
@@ -604,27 +727,6 @@ export function SupportedConnectorMatrix() {
           );
         })}
 
-        {maturityCounts.deprecated > 0 ? (
-          <section aria-labelledby="connector-category-legacy" className="border-t border-fd-border pt-5">
-            <header className="mb-3">
-              <h2 id="connector-category-legacy" className="m-0 text-base font-semibold tracking-tight text-fd-foreground">Legacy connectors</h2>
-              <p className="mb-0 mt-1 text-sm leading-6 text-fd-muted-foreground">Kept for existing deployments. Choose the named replacement for new pipelines.</p>
-            </header>
-            <div className="grid gap-3 sm:grid-cols-2">
-              {connectorCategories.flatMap((category) => getConnectorsByCategory(category.id))
-                .filter((connector) => connector.maturity === 'deprecated')
-                .map((connector) => (
-                  <Link key={connector.slug} href={`/docs/connectors/${connector.slug}`} className="flex items-center justify-between gap-4 rounded-xl border border-fd-border bg-fd-card px-4 py-3 text-fd-foreground no-underline transition-colors hover:border-fd-primary/30 hover:bg-fd-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
-                    <span>
-                      <span className="block text-sm font-semibold">{connector.title}</span>
-                      <span className="mt-1 block text-xs text-fd-muted-foreground">Migration guidance and existing configuration reference</span>
-                    </span>
-                    <DirectoryMaturity maturity="deprecated" />
-                  </Link>
-                ))}
-            </div>
-          </section>
-        ) : null}
       </div>
     </section>
   );
@@ -642,7 +744,7 @@ export function getMDXComponents(components?: MDXComponents) {
     DataPathComparison,
     ConnectorProfile,
     ValidationStatusGuide,
-    SupportedConnectorMatrix,
+    ConnectorDirectoryMatrix,
     ...components,
   } satisfies MDXComponents;
 }

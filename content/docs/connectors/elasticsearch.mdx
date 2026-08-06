@@ -1,6 +1,6 @@
 ---
 title: Elasticsearch
-description: Configure Elasticsearch as a tapstate data-writing target
+description: Connect Elasticsearch to tapstate to write searchable pipeline data into an index.
 sidebar:
   order: 11
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use Elasticsearch as a destination for searchable pipeline data.
 
 <ConnectorProfile
   category="Databases"
@@ -34,7 +32,7 @@ Create or select destination indices and an account with only the index privileg
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/search_elasticsearch.tapstate.yml"
+```yaml title="tapstate-work/source/search_elasticsearch.tap.yml"
 version: tapstate/v1
 kind: source
 id: search_elasticsearch

@@ -1,6 +1,6 @@
 ---
 title: PostgreSQL
-description: Configure PostgreSQL source and target prerequisites for snapshots and change data capture
+description: Connect PostgreSQL to tapstate for an initial full load, WAL-based change data capture (CDC), or target writes.
 sidebar:
   order: 3
 ai:
@@ -16,20 +16,22 @@ ai:
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { PreparationStep, PreparationSteps, SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
 
-Use PostgreSQL with tapstate for an initial full load, WAL-based CDC, DDL capture, and destination writes.
-
 <ConnectorProfile
   category="Databases"
   maturity="GA"
   maturityLabel="Generally available"
   worksAs="Source, Target"
-  capabilities="Snapshot, CDC, DDL capture, Data write"
+  capabilities="Snapshot, CDC, DDL capture, Data write, Target DDL apply"
   compatibility="PostgreSQL 9.4–16 · standalone or replication architecture"
 />
 
+Connect PostgreSQL as a source for an initial full load and WAL-based CDC, or
+as a target for pipeline writes. Complete the database preparation that matches
+the role and read mode you plan to use.
+
 ## Before you begin
 
-### Source
+### Prepare a source database
 
 Choose the outcome you need. Each tab is a complete preparation path; you do not need to combine steps from both tabs. In tapstate, `snapshot` copies the rows that exist when the run starts, while `cdc` performs that initial copy and then follows PostgreSQL changes from WAL.
 
@@ -70,7 +72,9 @@ Run the default-privileges statement as the role that creates future tables, or 
 </SourceModeTab>
 <SourceModeTab value="snapshot-cdc" label="Full load + CDC" description="Copy existing rows, then follow WAL changes">
 
-Use **Full load + CDC** when the destination must begin with existing rows and then stay current as PostgreSQL receives inserts, updates, deletes, and supported DDL events. Create the source with `mode: cdc` after completing all applicable steps below.
+Use this preparation path when the destination must begin with existing rows,
+then stay current as PostgreSQL
+receives inserts, updates, deletes, and supported DDL events.
 
 <PreparationSteps>
 <PreparationStep title="Create a dedicated reader with table and replication access">
@@ -199,7 +203,7 @@ Do not leave this test slot behind. A slot retains WAL until it advances or is r
 </SourceModeTab>
 </SourceModeTabs>
 
-### Target
+### Prepare a target database
 
 Prepare a dedicated writer for the destination database and schema:
 
@@ -219,9 +223,34 @@ Grant `ALTER` or ownership only if tapstate is expected to evolve existing targe
 
 ## Create a connection
 
-Create the PostgreSQL connection through the connection flow supplied by your tapstate deployment. For a source, choose `snapshot` or `cdc`; for a target connection, omit the source mode and table selection.
+Tapstate stores each PostgreSQL connection as a `.tap.yml` file in the
+workspace. Create a source connection when tapstate reads PostgreSQL; create a
+target connection when a pipeline writes to PostgreSQL.
 
-```yaml title="tapstate-work/source/orders_postgres.tapstate.yml"
+### Source connection
+
+The example below creates a CDC-capable source connection. The connection's
+`mode` controls its read capability.
+
+```bash
+tapstate new --non-interactive \
+  --kind source \
+  --connector postgres \
+  --id orders_postgres \
+  --mode cdc \
+  --set host=postgres.internal \
+  --set port=5432 \
+  --set database=orders \
+  --set schema=public \
+  --set user='${POSTGRES_READER_USER}' \
+  --set password='${POSTGRES_READER_PASSWORD}' \
+  --workdir tapstate-work
+```
+
+For a full-load-only source, change `--mode cdc` to `--mode snapshot`. The
+generated connection uses the same PostgreSQL fields; only the read mode differs.
+
+```yaml title="tapstate-work/source/orders_postgres.tap.yml"
 version: tapstate/v1
 kind: source
 id: orders_postgres
@@ -240,11 +269,32 @@ tables:
   - orders
 ```
 
-Use `mode: cdc` for a CDC source after completing its preparation steps. The mode determines the source read path; it does not by itself prove that WAL, plugin, publication, or replication prerequisites are ready.
+For a CDC-capable source, use `mode: cdc` after completing the WAL, plugin,
+publication, and replication preparation. The mode does not by itself prove
+that those database prerequisites are ready.
 
-For a target connection, use the same connector fields without `mode` or `tables`:
+### Target connection
 
-```yaml title="tapstate-work/source/analytics_postgres.tapstate.yml"
+A PostgreSQL target is represented by the same `kind: source` connection
+resource, but it has no reader `mode` or `tables`.
+
+```bash
+tapstate new --non-interactive \
+  --kind source \
+  --connector postgres \
+  --id analytics_postgres \
+  --set host=analytics-postgres.internal \
+  --set port=5432 \
+  --set database=analytics \
+  --set schema=public \
+  --set user='${POSTGRES_WRITER_USER}' \
+  --set password='${POSTGRES_WRITER_PASSWORD}' \
+  --workdir tapstate-work
+```
+
+The command creates `tapstate-work/source/analytics_postgres.tap.yml`:
+
+```yaml title="tapstate-work/source/analytics_postgres.tap.yml"
 version: tapstate/v1
 kind: source
 id: analytics_postgres
@@ -259,9 +309,10 @@ config:
   password: ${POSTGRES_WRITER_PASSWORD}
 ```
 
-Create the pipeline after both connections exist. Keep DDL handling conservative until the source trigger path and the target schema behavior have passed staging:
+Create the pipeline after both connections exist. Keep DDL handling conservative
+until the source trigger path and target schema behavior have passed staging:
 
-```yaml title="tapstate-work/pipeline/orders_to_analytics.tapstate.yml"
+```yaml title="tapstate-work/pipeline/orders_to_analytics.tap.yml"
 version: tapstate/v1
 kind: pipeline
 id: orders_to_analytics
@@ -285,7 +336,12 @@ tapstate validate --workdir tapstate-work
 
 <ValidationStatusGuide />
 
-Before a production pipeline, run a staging check that:
+Validation does not resolve the host, credentials, or a PostgreSQL server. A
+syntactically valid resource that uses `postgres.invalid` can therefore pass
+validation. Register the PostgreSQL connector JAR, apply the workspace, and
+run a server-side connection test for both source and target before production.
+
+Then run a staging check that:
 
 1. discovers a selected table;
 2. completes a small snapshot;
@@ -340,9 +396,12 @@ Conditional fields should be supplied only for the selected deployment and log-p
 | `allowReplication` | No | `true` | Whether the connection may use PostgreSQL replication. |
 | `defaultWalLogSize` | No | `102400` | Default WAL-size threshold used by the connector monitor. |
 
-### Data compatibility
+### Database-side data reference
 
-| Family | Supported baseline |
+This table summarizes PostgreSQL data behavior for the connector. Test uncommon
+extension types with representative data before migration.
+
+| Family | Database-side baseline |
 |---|---|
 | Text | `character`, `character varying`, `text` |
 | Numeric | `smallint`, `integer`, `bigint`, `numeric`, `real`, `double precision` |
@@ -351,4 +410,7 @@ Conditional fields should be supplied only for the selected deployment and log-p
 | Spatial and network | `geometry`, `point`, `polygon`, `circle`, `path`, `box`, `line`, `lseg`, `inet`, `cidr`, `macaddr` |
 | Structured and other | `uuid`, `xml`, `json`, `jsonb`, arrays, OID and reg* identifier types, `tsvector`, `tsquery` |
 
-Target writes and the `wal2json` path do not support the `tsvector`, `tsquery`, `regproc`, `regprocedure`, `regoper`, `regoperator`, `regclass`, `regtype`, `regconfig`, or `regdictionary` baseline types. The `walminer` baseline also excludes arrays and `oid`. Verify uncommon extension types with representative data before migration.
+For target writes, the `wal2json` path does not support the `tsvector`, `tsquery`, `regproc`, `regprocedure`, `regoper`,
+`regoperator`, `regclass`, `regtype`, `regconfig`, or `regdictionary` baseline
+types. The `walminer` baseline also excludes arrays and `oid`. Verify uncommon
+extension types with representative data before migration.

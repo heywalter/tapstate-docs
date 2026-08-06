@@ -1,6 +1,6 @@
 ---
 title: Excel
-description: Configure Excel files as a tapstate source
+description: Read XLS or XLSX worksheets with tapstate as snapshot or change-capable sources from local or supported remote storage.
 sidebar:
   order: 52
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use XLS and XLSX files from local or supported remote storage as a pipeline source.
 
 <ConnectorProfile
   category="Files"
@@ -46,7 +44,7 @@ Use **Snapshot + CDC** when new or changed workbooks should be picked up after t
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/monthly_excel.tapstate.yml"
+```yaml title="tapstate-work/source/monthly_excel.tap.yml"
 version: tapstate/v1
 kind: source
 id: monthly_excel

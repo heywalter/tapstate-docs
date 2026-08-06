@@ -1,6 +1,6 @@
 ---
 title: PolarDB for PostgreSQL
-description: Configure Alibaba Cloud PolarDB for PostgreSQL as a tapstate snapshot or CDC source and data-writing target
+description: Connect PolarDB for PostgreSQL to tapstate for snapshots, WAL-based CDC, or target writes.
 sidebar:
   order: 65
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use PolarDB for PostgreSQL for snapshots, WAL-based change capture, and destination writes.
 
 <ConnectorProfile category="Databases" maturity="Preview" maturityLabel="Available for evaluation" worksAs="Source, Target" capabilities="Snapshot, CDC, Data write" compatibility="Alibaba Cloud PolarDB for PostgreSQL 11+" />
 
@@ -77,7 +75,7 @@ GRANT USAGE, SELECT, UPDATE
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/orders_polardb_pg.tapstate.yml"
+```yaml title="tapstate-work/source/orders_polardb_pg.tap.yml"
 version: tapstate/v1
 kind: source
 id: orders_polardb_pg

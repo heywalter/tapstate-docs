@@ -5,7 +5,7 @@ import { llms } from 'fumadocs-core/source';
 import {
   connectorCategories,
   connectorDirectory,
-  renderSupportedConnectorMatrixForLLM,
+  renderConnectorDirectoryForLLM,
 } from './connector-directory';
 import {
   docsBaseUrl,
@@ -88,17 +88,21 @@ function readAttribute(attrs: string, name: string) {
 }
 
 function renderConnectorProfileForLLM(attrs: string) {
-  const field = (name: string) => readAttribute(attrs, name) ?? 'Not specified';
+  const field = (name: string) => readAttribute(attrs, name);
+  const rows = [
+    `| Category | ${field('category') ?? 'Not specified'} |`,
+    `| Maturity | ${field('maturity') ?? 'Not specified'} — ${field('maturityLabel') ?? 'Not specified'} |`,
+    field('releaseTested') ? `| Release-tested | E2E — ${field('releaseTested')} |` : null,
+    field('worksAs') ? `| Works as | ${field('worksAs')} |` : null,
+    field('capabilities') ? `| Capabilities | ${field('capabilities')} |` : null,
+    `| Compatibility | ${field('compatibility') ?? 'Not specified'} |`,
+  ].filter(Boolean);
 
   return `## Connector profile
 
 | Signal | What it means |
 |---|---|
-| Category | ${field('category')} |
-| Maturity | ${field('maturity')} — ${field('maturityLabel')} |
-| Works as | ${field('worksAs')} |
-| Capabilities | ${field('capabilities')} |
-| Compatibility | ${field('compatibility')} |`;
+${rows.join('\n')}`;
 }
 
 function cleanMdxForLLM(markdown: string) {
@@ -160,8 +164,8 @@ function cleanMdxForLLM(markdown: string) {
     })
     .replace(/<ValidationStatusGuide\s*\/>/g, `### Interpret the result
 
-- **Configuration accepted:** \`valid: 3 resources in tapstate-work\`. The resource files, references, modes, and recognized field formats were accepted.
-- **Changes required:** \`invalid: orders_source.tapstate.yml:12:1 dsl.unknown-field\`. Use the filename, location, diagnostic code, and suggested fix to update the resource.
+- **Configuration accepted:** \`valid: 3 resources in tapstate-work\`. The resource shape, references, and applicable catalog rules were accepted. Runtime availability was not checked.
+- **Changes required:** \`invalid: orders_source.tap.yml:12:1 dsl.unknown-field\`. Use the filename, location, diagnostic code, and suggested fix to update the resource.
 
 Next, run the connection in a non-production environment and confirm credentials, network access, permissions, and a representative read or write.`)
     .replace(/<DataPathComparison\s*\/>/g, `### Operational data path comparison
@@ -169,15 +173,17 @@ Next, run the connection in a non-production environment and confirm credentials
 | Approach | Data path | Operating model |
 |---|---|---|
 | The assembled stack | Source systems → Capture → Broker → Processing → Serving store → Apps, automation & agents | Separate tools and operating boundaries. |
-| The tapstate data path | Source systems → tapstate (Capture · Transform · Serve) → Apps, automation & agents | One deployable Capture–Transform–Serve path. |`)
-    .replace(/<ProductOverviewHero\s*\/>/g, `Tapstate is an open-source unified operational data engine. It captures production database changes, transforms data incrementally as it moves, and serves fresh, queryable state to applications, APIs, automation, and AI agents.
+| The tapstate target path | Source systems → tapstate (Capture · Transform · Serve) → Apps, automation & agents | Target Capture–Transform–Serve operating model. |`)
+    .replace(/<ProductOverviewHero\s*\/>/g, `Tapstate is an open-source operational data engine in preview. The v0.1.0 local demo explores a MySQL-to-MongoDB snapshot and CDC workflow.
 
 - **Capture:** Load existing data, then follow committed changes.
-- **Transform:** Shape and route data incrementally as it moves.
-- **Serve:** Maintain fresh, queryable state for downstream systems.
+- **Transform:** Filter, map, script, and merge data as it moves.
+- **Serve:** Write current state to a downstream system.
 
-[Start the quickstart](/docs/overview/quickstart) or [browse connectors](/docs/connectors).`)
-    .replace(/<TapStateArchitecture\s*\/>/g, `## Logical architecture
+[Try tapstate locally](/docs/overview/quickstart-online) or [browse connectors](/docs/connectors).`)
+    .replace(/<TapStateArchitecture\s*\/>/g, `## Target logical architecture
+
+This diagram describes design direction, not the current preview implementation boundary.
 
 | Plane | Stage | Responsibility |
 |---|---|---|
@@ -186,13 +192,13 @@ Next, run the connection in a non-production environment and confirm credentials
 | Control | Operate | Apply, observe, and control lifecycle. |
 | Data | Sources | Databases, brokers, files, and APIs. |
 | Data | Capture | Read initial data and later changes. |
-| Data | Transform | Filter, map, enrich, join, and route. |
+| Data | Transform | Stateless transforms now; stateful composition is a target. |
 | Data | Materialize | Maintain destination-ready current state. |
 | Data | Deliver | Write targets or publish streams. |
 | Data | Consumers | Applications, APIs, and agents. |
 
 Durable recovery state includes resource versions, checkpoints, schema and mapping state, retries, and operational history.`)
-    .replace(/<SupportedConnectorMatrix\s*\/>/g, renderSupportedConnectorMatrixForLLM())
+    .replace(/<ConnectorDirectoryMatrix\s*\/>/g, renderConnectorDirectoryForLLM())
     .replace(/<ConnectorProfile\s+([\s\S]*?)\/>/g, (_match, attrs: string) => {
       return renderConnectorProfileForLLM(attrs);
     })
@@ -259,18 +265,44 @@ ${metadata ? `${metadata}\n\n` : ''}${processed}`;
 
 export function getLLMIndex() {
   const index = makeDocumentLinksAbsolute(llms(source).index());
-  const [title, ...content] = index.split('\n');
+  const [, ...content] = index.split('\n');
+  const documentationMap = content.join('\n').trim();
 
   return [
-    title,
+    '# Tapstate documentation',
     '',
-    '> Tapstate product documentation. Prefer page-level Markdown for implementation decisions.',
+    '> tapstate is a unified operational data engine that builds and maintains an Operational State Layer.',
+    '>',
+    '> Its product model captures changes, transforms records in flight, and delivers current operational state to applications, APIs, automation, and AI agents through one governed Capture–Transform–Serve data path. It is intended for teams that would otherwise assemble separate CDC, broker, stream-processing, and serving products for the same path. This describes the product model; it does not mean every surface is available in the current preview.',
+    '>',
+    '> The current preview is a prerelease, single-node, in-memory runtime. The documented end-to-end path is a local MySQL-to-MongoDB snapshot followed by CDC. Use the linked page-level documentation for current maturity, roles, modes, limitations, and setup requirements.',
+    '',
+    '## When to use tapstate',
+    '',
+    '- Keep operational state current for applications, APIs, automation, or AI agents.',
+    '- Reduce the coordination cost of operating separate CDC, broker, stream-processing, and serving systems.',
+    '- Maintain a reviewable Capture–Transform–Serve path across source and target systems.',
+    '- Offload reads, migrate while a source remains active, or publish governed operational feeds.',
+    '',
+    `See [Use cases](${absoluteDocsUrl('/docs/overview/use-cases')}) and [tapstate vs. a streaming stack](${absoluteDocsUrl('/docs/overview/vs-streaming-stack')}) for tradeoffs and verification questions.`,
+    '',
+    '## Start here',
+    '',
+    `- [What is tapstate?](${absoluteDocsUrl('/docs/overview/what-is-tapstate')})`,
+    `- [Architecture](${absoluteDocsUrl('/docs/overview/architecture')})`,
+    `- [Install the CLI](${absoluteDocsUrl('/docs/overview/install')})`,
+    `- [Local demo](${absoluteDocsUrl('/docs/overview/quickstart-online')})`,
     '',
     '## Agent guidance',
-    '- Connector frontmatter is a compact discovery index; the page body is the canonical reader and agent context.',
+    '',
+    '- Prefer page-level Markdown for implementation decisions; this file is a discovery index.',
+    '- Treat connector frontmatter as compact metadata and use the page body for the canonical explanation.',
+    '- Check maturity, roles, modes, limitations, and setup guidance together.',
     '- Do not infer unavailable UI or runtime behavior from upstream connector documentation.',
     '',
-    ...content,
+    '## Documentation map',
+    '',
+    documentationMap,
   ].join('\n');
 }
 

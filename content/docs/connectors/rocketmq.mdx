@@ -1,6 +1,6 @@
 ---
 title: Apache RocketMQ
-description: Configure Apache RocketMQ as a tapstate stream source or target
+description: Connect an Apache RocketMQ topic to tapstate for continuous message reads or writes with optional TLS.
 sidebar:
   order: 33
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use Apache RocketMQ to read or write topic messages through the supported stream connector.
 
 <ConnectorProfile
   category="Streaming & messaging"
@@ -38,7 +36,7 @@ Grant a dedicated writer permission only for the destination topics. Pre-create 
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/events_rocketmq.tapstate.yml"
+```yaml title="tapstate-work/source/events_rocketmq.tap.yml"
 version: tapstate/v1
 kind: source
 id: events_rocketmq

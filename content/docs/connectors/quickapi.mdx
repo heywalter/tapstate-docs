@@ -1,6 +1,6 @@
 ---
 title: QuickAPI
-description: Configure QuickAPI as a tapstate snapshot source from a Postman collection contract
+description: Connect a Postman collection to tapstate through QuickAPI for a one-time API snapshot.
 sidebar:
   order: 48
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use QuickAPI for a one-time source read from a prepared Postman collection. The connection accepts the collection text and optional token-expiry fields, and supports Snapshot only.
 
 <ConnectorProfile
   category="SaaS, business & commerce APIs"
@@ -59,7 +57,7 @@ TAP_TABLE[Tickets](PAGE_LIMIT:data) Get tickets
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/support_quickapi.tapstate.yml"
+```yaml title="tapstate-work/source/support_quickapi.tap.yml"
 version: tapstate/v1
 kind: source
 id: support_quickapi

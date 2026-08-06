@@ -17,8 +17,9 @@ const sectionInfo: Record<string, { label: string; href: string }> = {
   overview: { label: 'Get started', href: '/docs/overview/what-is-tapstate' },
   concepts: { label: 'Concepts', href: '/docs/concepts/dsl' },
   connectors: { label: 'Connectors', href: '/docs/connectors' },
-  guides: { label: 'Guides', href: '/docs/guides/troubleshooting' },
+  guides: { label: 'Guides', href: '/docs/guides/bootstrap-and-auth' },
   reference: { label: 'Reference', href: '/docs/reference/dsl-grammar' },
+  releases: { label: 'Release notes', href: '/docs/releases/v0.1.0' },
   'for-ai': { label: 'AI-ready docs', href: '/docs/for-ai/llms' },
 };
 
@@ -36,6 +37,7 @@ export default async function Page(props: DocsPageProps) {
   const MDX = page.data.body;
   const markdownUrl = getPageMarkdownUrl(page).url;
   const isProductOverview = page.url === '/docs/overview/what-is-tapstate';
+  const pageDescription = page.data.description;
   const canonicalUrl = new URL(page.url, docsBaseUrl).toString();
   const section = sectionInfo[page.slugs[0]];
   const breadcrumbs = [
@@ -52,7 +54,7 @@ export default async function Page(props: DocsPageProps) {
       {
         '@type': 'TechArticle',
         headline: page.data.title,
-        description: page.data.description,
+        description: pageDescription,
         url: canonicalUrl,
         mainEntityOfPage: canonicalUrl,
         inLanguage: 'en',
@@ -84,7 +86,7 @@ export default async function Page(props: DocsPageProps) {
         {!isProductOverview ? (
           <>
             <DocsTitle>{page.data.title}</DocsTitle>
-            <DocsDescription className="mb-0">{page.data.description}</DocsDescription>
+            <DocsDescription className="mb-0">{pageDescription}</DocsDescription>
             <div className="flex flex-row gap-2 items-center border-b pb-6">
               <MarkdownCopyButton markdownUrl={markdownUrl} />
               <ViewOptionsPopover markdownUrl={markdownUrl} />
@@ -113,10 +115,11 @@ export async function generateMetadata(props: DocsPageProps): Promise<Metadata> 
   if (!page) notFound();
 
   const canonicalUrl = new URL(page.url, docsBaseUrl).toString();
+  const pageDescription = page.data.description;
 
   return {
     title: page.data.title,
-    description: page.data.description,
+    description: pageDescription,
     alternates: {
       canonical: canonicalUrl,
     },

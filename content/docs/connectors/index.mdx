@@ -1,30 +1,46 @@
 ---
-title: Supported connectors
-description: Find the tapstate connector that can read from or write to your system
+title: Connector guides
+description: Find the tapstate guide for preparing a source or target system and authoring its connection resource.
 sidebar:
   order: 1
 ai:
   kind: guide
-  id: supported-connectors
-  maturity: ga
-  aliases: [connector directory, supported connectors, connector matrix, connector compatibility, supported databases, supported data sources]
+  id: connector-directory
+  aliases: [connector directory, connector catalog, connector matrix, connector compatibility, data source preparation]
 ---
 
-import { SupportedConnectorMatrix } from '@/components/mdx';
+import { ConnectorDirectoryMatrix } from '@/components/mdx';
 
-Choose the system you want tapstate to read from or write to. Select a connector name to open its setup guide, including prerequisites, connection fields, supported read modes, and limitations.
+Choose the system you want tapstate to read from or write to. Select a connector
+to open its prerequisites, connection fields, documented roles and modes, and
+limitations. Use a [server-side connection test](/docs/guides/register-connectors#test-a-connection)
+before using a production endpoint.
 
-<SupportedConnectorMatrix />
+<ConnectorDirectoryMatrix />
 
 ## Maturity labels
 
-- **GA** means the connector has a stable, generally available contract intended for production use.
-- **Preview** means the connector is ready to evaluate, but its configuration or behavior may still change before GA. Test representative production workloads before adopting it broadly.
+- **GA** means the connector guide and configuration contract are mature.
+- **Preview** means the guide or configuration contract can still change.
 
-Tapstate uses **GA** and **Preview** for published connectors.
+Maturity does not mean that a connector JAR is bundled with every tapstate
+release or that every listed role and mode has passed an end-to-end release
+test.
+
+## Release-tested marker
+
+The **E2E** marker identifies a connector that participates in a published
+end-to-end release flow. It currently marks MySQL and MongoDB, which are the
+source and target used by the local demo. A missing marker does not
+mean that a connector is unsupported; it means that connector is not part of
+that release-tested flow.
 
 ## How to read roles and modes
 
-- **Source** reads from the listed system. The read mode tells you whether that happens as a one-time Snapshot, Snapshot + CDC, stream, or API read.
-- **Target** means the connector can write data. Check its guide before relying on table creation, schema evolution, or a particular write behavior.
-- A dash under **Read mode** means the connector is target-only.
+Hover a label or its information icon to see its exact meaning.
+
+- **Source** reads from the listed system in the shown mode.
+- **Target** writes data to the listed system.
+- **Snapshot** reads the selected data once. **CDC** starts with existing data,
+  then captures later committed changes.
+- A dash means the current catalog does not report that role or read mode.

@@ -1,6 +1,6 @@
 ---
 title: Apache Doris
-description: Configure Apache Doris as a tapstate snapshot source or data-writing target
+description: Connect Apache Doris to tapstate for snapshot reads or analytical target writes.
 sidebar:
   order: 21
 ai:
@@ -14,8 +14,6 @@ ai:
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-
-Use Apache Doris for point-in-time reads or as an analytical destination.
 
 <ConnectorProfile
   category="Warehouses & analytics"
@@ -53,7 +51,7 @@ Remove `ALTER_PRIV`, `CREATE_PRIV`, and `DROP_PRIV` when the pipeline writes onl
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/analytics_doris.tapstate.yml"
+```yaml title="tapstate-work/source/analytics_doris.tap.yml"
 version: tapstate/v1
 kind: source
 id: analytics_doris
@@ -73,7 +71,7 @@ tables:
 
 For target-only use, omit `mode` and `tables`.
 
-```yaml title="tapstate-work/source/analytics_doris_target.tapstate.yml"
+```yaml title="tapstate-work/source/analytics_doris_target.tap.yml"
 version: tapstate/v1
 kind: source
 id: analytics_doris_target
@@ -88,7 +86,7 @@ config:
   useHTTPS: false
 ```
 
-```yaml title="tapstate-work/pipeline/events_to_doris.tapstate.yml"
+```yaml title="tapstate-work/pipeline/events_to_doris.tap.yml"
 version: tapstate/v1
 kind: pipeline
 id: events_to_doris

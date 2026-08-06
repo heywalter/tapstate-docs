@@ -1,6 +1,6 @@
 ---
 title: MariaDB
-description: Configure MariaDB as a tapstate snapshot or CDC source and data-writing target
+description: Connect a MariaDB database to tapstate for table snapshots, binary-log CDC, or relational target writes.
 sidebar:
   order: 9
 ai:
@@ -15,8 +15,6 @@ ai:
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
-
-Use MariaDB to copy existing tables once or to keep a downstream system current from binary-log changes.
 
 <ConnectorProfile
   category="Databases"
@@ -131,7 +129,7 @@ Remove `ALTER`, `CREATE`, routine, temporary-table, and `DROP` privileges when t
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/orders_mariadb.tapstate.yml"
+```yaml title="tapstate-work/source/orders_mariadb.tap.yml"
 version: tapstate/v1
 kind: source
 id: orders_mariadb

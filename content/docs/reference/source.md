@@ -1,6 +1,6 @@
 ---
 title: source
-description: Reference for kind:source connection resources
+description: Define a reusable tapstate source connection, including its connector ID, endpoint settings, and source read mode.
 sidebar:
   order: 2
 ai:
@@ -9,67 +9,102 @@ ai:
   aliases: [tapstate source reference, source connection yaml, target connection yaml]
 ---
 
-`source` defines a reusable source or target connection. Confirm accepted fields and defaults with the resource schema supplied with your tapstate version.
+`source` defines a reusable connector connection. A read connection includes
+`mode`; a connection used only as a target omits it.
 
-```yaml
+```yaml title="source/orders.tap.yml"
 version: tapstate/v1
 kind: source
-id: <string>           # globally unique; must not contain `.`
-
-connector: <string>    # connector id (from catalog)
-mode: snapshot | cdc | stream | api | file
-
-config:                # connector-specific configuration (fields defined by connector spec)
-  <key>: <value>
-  # supports ${ENV_VAR} externalization
-
-options:
-  start_from: latest | earliest | <ISO8601>  # default: latest
-
-tables:                # omitted = all tables
-  - name: <string>     # literal = fixed table name
-  - name: /<regex>/    # regex = dynamic matching (requires discovery capability)
-
+id: orders
+connector: mysql
+mode: cdc
+config:
+  host: db.internal
+  port: 3306
+  database: production
+  username: ${MYSQL_USER}
+  password: ${MYSQL_PASSWORD}
+tables:
+  - users
+  - /orders_.*/
+  - name: audit_log
+    filter: "tenant_id == 'north'"
+    pk: [id]
+    options: {}
+srs:
+  enabled: true
+  key: id
+  queryable: false
+  retention: 24h
+  schema_evolution: track
 metadata:
-  labels:              # string→string; short values (≤63 characters)
-    <key>: <value>
-
-experimental: {}       # experimental field zone; no compatibility guarantee
+  description: Production order data
+  labels:
+    environment: production
+experimental: {}
 ```
 
-## Field reference
+## Fields
 
 ### `id`
-Globally unique identifier. Rules: letters, digits, and hyphens only; no `.`; unique within the workspace.
+
+Unique in the workspace. A resource or inline ID cannot contain `.` because the
+dot is reserved for stream addressing.
 
 ### `connector`
-Connector ID from the connector catalog used by your tapstate version.
+
+Connector ID from the catalog bundled with the tapstate version you are using.
+A catalog ID and accepted config do not prove that a runtime artifact is
+installed or registered.
 
 ### `mode`
 
-| Value | Semantics |
-|---|---|
-| `snapshot` | One-shot snapshot (bounded); task stops when complete |
-| `cdc` | Continuous change capture (unbounded); runs continuously |
-| `stream` | Unbounded push stream from a message system |
-| `api` | API / SaaS pull (polling or webhook) |
-| `file` | File scanning |
+Describes the connector's source-side read capability:
 
-Validation compares the selected connector and mode with the connector catalog used by your tapstate version.
+| Value | Connector read shape |
+|---|---|
+| `cdc` | Unbounded inserts, updates, and deletes |
+| `snapshot` | Bounded one-shot read |
+| `stream` | Unbounded message stream |
+| `file` | Bounded file read |
+| `api` | API or SaaS pull |
+
+For a `cdc` source, the pipeline's `settings.read_mode` chooses whether a run
+performs an initial snapshot, tails changes, or does both. Do not put
+`start_from` under `source.options`.
 
 ### `config`
-Connector-specific fields. See the connector page for the documented field names, requirements, and examples.
 
-Keep sensitive values out of committed files. Use `${ENV_VAR}` placeholders or the secret mechanism supported by your environment.
+Connector-specific connection fields. Keep secrets out of committed files and
+use the secret or environment-variable mechanism supported by your deployment.
 
-### `options.start_from`
-Data read starting point:
-- `latest` (default): start from the current position; no historical data is read
-- `earliest`: start from the earliest available data (CDC starts from the earliest binlog position)
-- ISO8601 timestamp: start from the specified point in time
+The v1 Schema intentionally allows connector-owned keys. The current offline
+validator can apply catalog rules to known keys, but unknown config keys can
+still pass. Test network access, authentication, permissions, and representative
+reads or writes against the real connector.
 
 ### `tables`
-Specifies the set of tables to sync:
-- Omitted → equivalent to `/.*/`; all tables
-- Literal string → fixed; does not track new tables
-- `/regex/` → dynamic; new tables matching the regex automatically join the pipeline (requires connector support for discovery)
+
+Each item can be:
+
+- a literal table or collection name;
+- a `/regex/` selector;
+- an object with `name` plus optional `filter`, `pk`, and connector-owned
+  `options`.
+
+Regex discovery and table-level options depend on the connector. Do not infer
+runtime support from Schema acceptance.
+
+### `options`
+
+Connector-owned source options. Task-level read behavior belongs under
+`pipeline.settings`.
+
+### `srs`
+
+SRS settings. They are valid only for a `cdc` source. Accepted fields are
+`enabled`, `key`, `queryable`, `retention`, and `schema_evolution` (`ignore` or
+`track`).
+
+See the [connector directory](/docs/connectors) for catalog metadata and
+external-system preparation.

@@ -18,7 +18,9 @@ A capture mode defines where a source starts and whether it keeps reading after 
 | Messages from a broker or queue | **Stream** | Messages from the configured starting position | Yes | Topic or queue permissions, consumer identity, and retention |
 | Records exposed by a SaaS or business API | **API** | Objects returned by the service API | Connector-specific | Application credentials, scopes, rate limits, and pagination |
 
-Use only the modes shown in the connector guide. Database log support alone does not mean a connector supports CDC.
+Use only catalog read modes shown in the connector directory, then verify the
+matching runtime artifact and release path. Database log support or a
+preparation guide alone does not mean a current tapstate runtime supports CDC.
 
 ## Which mode should I choose?
 
@@ -64,4 +66,6 @@ API sources follow the remote service's authorization, pagination, and rate-limi
 
 Use a staging dataset with representative data types, nulls, large values, and—when applicable—inserts, updates, and deletes. For a continuous source, stop and resume the pipeline, then compare the destination with a trusted source query.
 
-The [connector directory](/docs/connectors) lists the exact modes and preparation steps for each system. Continue with [Resources and pipelines](/docs/concepts/dsl) to see how a selected mode appears in `.tapstate.yml`.
+The [connector directory](/docs/connectors) lists connector maturity, roles, and
+read modes. Continue with [Resources and pipelines](/docs/concepts/dsl) to see
+how a selected mode appears in `.tap.yml`.

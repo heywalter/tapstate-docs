@@ -1,0 +1,60 @@
+---
+title: v0.1.0
+description: Understand what you can explore in the tapstate v0.1.0 preview and its local MySQL-to-MongoDB demo
+ai:
+  kind: reference
+  id: release-v0_1_0
+  maturity: preview
+  aliases: [tapstate v0.1.0, tapstate release notes, tapstate preview release]
+---
+
+Released July 28, 2026 · Preview
+
+`v0.1.0` is the first tapstate preview. It is for local use and evaluation,
+not production use. See the [GitHub release](https://github.com/tapstate/tapstate/releases/tag/v0.1.0)
+for downloadable CLI archives and checksums.
+
+## Highlights
+
+- Install a native CLI on macOS or glibc-based Linux.
+- Author and validate `.tap.yml` workspaces.
+- Explore a local MySQL-to-MongoDB demo with an initial snapshot and CDC.
+- Use the interactive CLI to register connectors, apply resources, discover
+  source schemas, start pipelines, and inspect pipeline status.
+
+## Release components
+
+The local demo uses the pinned `ghcr.io/tapstate/tapstate:0.1.0` server image
+and the separate
+[MySQL and MongoDB connector preview assets](https://github.com/tapstate/tapstate/releases/tag/connectors-preview).
+The server image and connector bundle are provided for this local demo. They do
+not define a production deployment method or imply production support for every
+connector guide.
+
+## Known limitations
+
+- The local demo covers one end-to-end path: a local MySQL source, MongoDB
+  target, initial snapshot, and CDC. Other connectors and combinations require
+  separate verification.
+- The server is single-node and keeps runtime state in memory.
+- A server restart replays from the source instead of resuming from a durable offset.
+- Nest and Join are not available in the `v0.1.0` runtime.
+- Queryable and push-based serving are not part of the local demo.
+- Delivery guarantees, ordering, schema evolution, and type conversion outside
+  the local demo need environment-specific verification.
+- The `run`, `export`, `diff`, and `edit` commands are not available in
+  `v0.1.0`.
+- The demo script may print next steps after connector registration or schema
+  discovery is refused. Treat any refusal or a result other than exactly five
+  target rows as a failed demo.
+
+Use non-production systems and data for evaluation. See
+[Install the CLI](/docs/overview/install) for supported platforms and system
+requirements.
+
+## Get started
+
+- [Install the CLI](/docs/overview/install) from the `/cli` installer endpoint, with `v0.1.0` pinned.
+- [Try tapstate locally](/docs/overview/quickstart-online) from the root playground endpoint.
+- Use the [CLI reference](/docs/reference/cli) and
+  [Troubleshooting](/docs/guides/troubleshooting) as needed.

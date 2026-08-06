@@ -1,10 +1,13 @@
 {
   "title": "Reference",
   "pages": [
+    "cli",
+    "rest-api",
     "dsl-grammar",
     "dsl-fields",
     "source",
     "pipeline",
-    "transforms"
+    "transforms",
+    "view-and-serve"
   ]
 }
