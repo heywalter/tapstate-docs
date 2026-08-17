@@ -1,6 +1,6 @@
 ---
 title: REST API preview
-description: Call the authenticated tapstate v0.1.0 control-plane endpoints and interpret preview responses
+description: Call the authenticated tapstate v0.2.0 control-plane endpoints and interpret preview responses
 ai:
   kind: reference
   id: rest-api
@@ -8,7 +8,7 @@ ai:
   aliases: [tapstate REST API, tapstate control plane API, tapstate HTTP API]
 ---
 
-The `v0.1.0` server exposes a preview HTTP control plane. This API exists only
+The `v0.2.0` server exposes a preview HTTP control plane. This API exists only
 after a separate tapstate server is running; installing the CLI does not start
 the server or expose an HTTP port. The server is headless and has no built-in
 web UI in this release.
@@ -42,6 +42,7 @@ See [Bootstrap and authenticate](/docs/guides/bootstrap-and-auth) for the reques
 | Method | Path | Purpose |
 |---|---|---|
 | `POST` | `/api/artifacts:apply` | Parse, validate, and apply a batch of raw YAML drafts. |
+| `POST` | `/api/artifacts:validate` | Parse and validate a batch of raw YAML drafts without storing them. |
 | `GET` | `/api/artifacts` | List stored artifacts; optional `kind` query parameter. |
 | `GET` | `/api/artifacts/{id}` | Read one stored artifact. |
 | `DELETE` | `/api/artifacts/{id}` | Permanently remove one stored artifact; requires `If-Match` with the current content hash. |
@@ -121,15 +122,36 @@ Connection test and discovery execute synchronously and can take longer than ord
 
 | Method | Path | Purpose |
 |---|---|---|
+| `POST` | `/api/sources:draft` | Validate a structured Source draft and render canonical YAML without storing it. |
 | `POST` | `/api/sources` | Create one structured source. |
 | `GET` | `/api/sources` | List structured sources. |
 | `GET` | `/api/sources/{id}` | Read a secret-redacted source and its `ETag`. |
 | `PUT` | `/api/sources/{id}` | Replace a source using `If-Match`. |
 | `DELETE` | `/api/sources/{id}` | Delete a source using `If-Match`. |
 
+`POST /api/sources:draft` is an authoring check, not a create operation. It
+returns a redacted Source view and canonical YAML only when the live connector
+catalog can supply the complete connector contract; it creates no artifact or
+audit record.
+
 Update and delete require the quoted 64-character content hash returned in `ETag`. Missing or stale preconditions return HTTP `428` or `412`. Secret values are not returned; use the structured secret-clearing contract deliberately when replacing a source.
 
 For resource authoring and pipeline batches, prefer `/api/artifacts:apply`; do not mix the two write styles casually.
+
+## Machine-token endpoints
+
+These endpoints require an administrator credential:
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/tokens` | Create a machine token with `read`, `write`, or `admin` scope. |
+| `GET` | `/api/tokens` | List secret-free token descriptors. |
+| `POST` | `/api/tokens/{id}:revoke` | Revoke a machine token immediately. |
+
+The create response returns the bearer value exactly once. Store it in a secret
+manager or process environment; later list responses do not return it. Scope is
+ordered `read` < `write` < `admin`, and a token can call operations at or below
+its own grade.
 
 ## Pipeline lifecycle endpoints
 
@@ -179,7 +201,7 @@ Cluster endpoint:
 
 | Method | Path | Boundary |
 |---|---|---|
-| `GET` | `/api/cluster/members` | Present but returns HTTP `501` in `v0.1.0` |
+| `GET` | `/api/cluster/members` | Present but returns HTTP `501` in `v0.2.0` |
 
 ## Error responses
 
@@ -234,7 +256,8 @@ Bare programmer errors can still return a framework-level HTTP `500` without the
 
 ## Version boundary
 
-- `v0.1.0` connected CLI workflows use the interactive REPL.
+- `v0.2.0` supports both interactive connected sessions and one-shot connected
+  commands seeded with `-c` and `-u`.
 - No `v1` API prefix or compatibility guarantee exists yet.
 
 ## Related pages
