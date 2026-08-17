@@ -36,6 +36,20 @@ Tapstate connects operational systems through one governed Captureâ€“Transformâ€
   />
 </CardGrid>
 
+## Current preview
+
+The public preview demonstrates one concrete operational data path:
+
+- MySQL initial load plus continuous change data capture (CDC)
+- an in-flight `map` transform
+- continuous materialization to MongoDB
+
+The local MongoDB instance is the preview's reference backing store; it does not
+make MongoDB the only future deployment option. A stable State Data API and
+push/subscription delivery are roadmap capabilities, not current guarantees.
+Start with the [online quickstart](/docs/overview/quickstart-online) to run this
+path locally.
+
 ## Complete a task
 
 <CardGrid>
