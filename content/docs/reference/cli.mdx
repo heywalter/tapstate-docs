@@ -144,13 +144,16 @@ Connected verbs entered directly as one-shot top-level commands do not preserve 
 
 | Command | Purpose |
 |---|---|
-| `apply [path]` | Interpolate local environment variables and create or update one resource or the whole workspace. |
+| `apply [path] [--if-match <hash>]` | Interpolate local environment variables and create or update one resource or the whole workspace. For a single existing resource, `--if-match` declares the content hash of the version being edited; it is not a batch-workspace precondition. |
+| `delete <id> [--if-match <hash>] [-o text\|json\|yaml]` | Permanently remove one stored artifact. `--if-match` must match the artifact's current content hash. |
 | `get <id>` | Read one stored resource. |
 | `ls [kind]` | List stored resources, optionally by kind. |
 | `connectors [-o text\|json\|yaml]` | List registered connectors. |
 | `register <path> [-o text\|json\|yaml]` | Upload one connector JAR, or all direct `*.jar` children of a directory. |
 
 `apply` reports each resource as created, updated, or unchanged. Connector registration is idempotent for the same artifact.
+
+For `delete`, omitting `--if-match` makes the CLI read the current artifact and use that version for the removal. Supplying a hash pins a version already held by the caller; a stale hash is refused instead of overwriting a newer version. Deletion is irreversible.
 
 ## Test and discover connections
 

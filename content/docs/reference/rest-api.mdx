@@ -44,6 +44,15 @@ See [Bootstrap and authenticate](/docs/guides/bootstrap-and-auth) for the reques
 | `POST` | `/api/artifacts:apply` | Parse, validate, and apply a batch of raw YAML drafts. |
 | `GET` | `/api/artifacts` | List stored artifacts; optional `kind` query parameter. |
 | `GET` | `/api/artifacts/{id}` | Read one stored artifact. |
+| `DELETE` | `/api/artifacts/{id}` | Permanently remove one stored artifact; requires `If-Match` with the current content hash. |
+
+Artifact deletion requires a quoted 64-character content hash from the artifact's current representation:
+
+```http
+If-Match: "<64-hex-content-hash>"
+```
+
+The server returns `428` when the header is missing or malformed, `412` when the hash is stale, and `204` after the artifact is removed.
 
 Apply request:
 
@@ -178,11 +187,24 @@ Common status mappings:
 | `401` | Missing, invalid, expired, or rejected credential |
 | `403` | Authenticated but insufficient scope |
 | `404` | Artifact, source, connector, pipeline, test result, schema, or observation not found |
-| `409` | Closed bootstrap or illegal/incompatible lifecycle state |
-| `412` | Source `If-Match` content hash is stale |
-| `428` | Source update/delete omitted a valid `If-Match` |
+| `409` | Closed bootstrap, an illegal/incompatible lifecycle state, or an artifact refusal such as `artifact.in-use` |
+| `412` | Source or artifact `If-Match` content hash is stale |
+| `428` | Source or artifact update/delete omitted a valid precondition |
 | `500` | Coded server or connector failure without a client-attributable mapping |
 | `501` | Endpoint is present but not implemented |
+
+### Artifact errors
+
+Artifact edits and deletions use a shared `artifact.*` error domain:
+
+| Code | Meaning |
+|---|---|
+| `artifact.not-found` | The requested artifact does not exist. A delete that already succeeded returns this code if it is attempted again. |
+| `artifact.precondition-required` | The request did not provide a valid version precondition (`428`). |
+| `artifact.version-conflict` | The supplied content hash is stale (`412`). |
+| `artifact.in-use` | Another resource still refers to the artifact (`409`). |
+| `artifact.pipeline-not-stopped` | The artifact's pipeline is not stopped, so removal is refused (`409`). |
+| `artifact.reclaim-incomplete` | The deletion already took effect, but dependent bookkeeping left residue. Do not retry the deletion; inspect the `reason` and `residue` parameters and reconcile the remaining bookkeeping. A retry returns `artifact.not-found`. |
 
 Bare programmer errors can still return a framework-level HTTP `500` without the coded envelope. Preserve the status, response body, method, path, and tapstate version when diagnosing one.
 
