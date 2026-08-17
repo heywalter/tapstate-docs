@@ -51,7 +51,7 @@ transforms:
 | `map` | Accepted | Wired |
 | `js` | Accepted | Wired |
 | `union` | Accepted | Wired |
-| `nest` | Accepted | Refused by the current pipeline DAG builder |
+| `nest` | Accepted | Wired |
 | `join` | Accepted | Refused by the current pipeline DAG builder |
 
 ## `filter`
@@ -63,8 +63,11 @@ transforms:
   expr: "after.status == 'active' && op != 'd'"
 ```
 
-`expr` is a CEL boolean expression. Offline validation compiles and type-checks
-supported expressions but does not evaluate them against connector records.
+`expr` is a CEL boolean expression. Expressions that read `after.<field>` or
+`before.<field>` require a discovered schema for every source that can reach the
+step. Apply each source connection first, run `discover-schema <source-id>`,
+then apply the pipeline. Offline validation compiles supported expressions but
+does not evaluate them against connector records.
 
 ## `map`
 
@@ -82,6 +85,12 @@ supported expressions but does not evaluate them against connector records.
 Each field rule can rename a field (`$old_name`), drop it (`false`), set a
 literal value, or compute a value with an `=<CEL>` expression. Fields not listed
 pass through.
+
+A computed rule that reads `after.<field>` or `before.<field>` uses the same
+discovered-schema type gate as `filter`. Columns whose types cannot be mapped to
+CEL without loss may still pass through unchanged, but cannot participate in a
+computed expression. See [Troubleshooting](/docs/guides/troubleshooting#row-expression-schema-and-type-errors)
+for the corresponding diagnostic codes.
 
 ## `js`
 
@@ -124,16 +133,22 @@ scripts with representative insert, update, delete, and non-row events.
     from: customers
     key: [customer_id]
     mode: upsert
+    trackKeyChanges: true
     embed:
       - from: orders
         on:
           customer_id: customer_id
         as: array
         path: orders
+        arrayKey: [order_id]
+        trackKeyChanges: true
 ```
 
-The Schema describes the Nest declaration, but the current preview runtime
-refuses this stateful transform. Keep it out of runnable preview pipelines.
+`nest` assembles related streams into documents and keeps them updated as source
+records change. Set `trackKeyChanges: true` on the root to move a whole document
+when its root key changes. Set it on a child to move embedded data when its array
+key, parent key, or child-pointer key changes. Both forms require the source
+connector to provide a before image.
 
 ## `join`
 

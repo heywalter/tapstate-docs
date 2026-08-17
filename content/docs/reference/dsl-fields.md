@@ -127,7 +127,22 @@ Descriptions record declaration semantics, not runtime availability.
 | `TransformBody.Nest.type` | constant | yes | — | `nest` | Transform type discriminator. |
 | `TransformBody.Nest.primary_key` | string | no | — | — | Primary key used to group child records under their parent document. |
 | `TransformBody.Nest.order` | `NestOrder` | no | — | `main_first`, `sub_first` | Ordering applied to nested child records. |
+| `TransformBody.Nest.entries_in_memory` | integer | no | — | — | How many entries each of this nest's levels keeps in memory; what is beyond it is kept on the layer behind them and read back as it is asked for. A count of entries, not of bytes. Absent leaves the number the deployment was started with. |
+| `TransformBody.Nest.max_elements_per_document` | integer | no | — | — | How many embedded elements one document of this nest may hold before the run is failed. Per document rather than per nest: a document is assembled whole, so no layer behind the memory can absorb one that outgrows it. Absent leaves the number the deployment was started with. |
 | `TransformBody.Nest.root` | `NestRoot` | yes | — | — | The root stream whose documents receive the nested children. |
+| `NestRoot.from` | string | yes | — | — | Alias of the parent stream that anchors this nest tree. |
+| `NestRoot.key` | array<string> | no | — | — | Upsert key fields that identify a parent document for updates. |
+| `NestRoot.mode` | string | no | — | — | Write mode for the parent stream, such as append-only or upsert. |
+| `NestRoot.trackKeyChanges` | boolean | no | — | — | When true, changes to the root key are tracked so the whole document is moved to its new identity. The root declares its own because nothing above it does. Requires the source to supply a before image. |
+| `NestRoot.embed` | array<`Embed`> | no | — | — | Child streams embedded under each parent document. |
+| `Embed.from` | string | yes | — | — | Alias of the nest step's from map that supplies this child's rows. |
+| `Embed.on` | object | yes | — | — | Maps this child's join fields to the parent fields they match. |
+| `Embed.as` | `EmbedAs` | yes | — | `array`, `object` | How the matched child rows are shaped under the parent: a single object or an array. |
+| `Embed.path` | string | yes | — | — | Target field path under the parent where the embedded child is placed. |
+| `Embed.arrayKey` | array<string> | no | — | — | Fields that uniquely identify an element within an embedded array. |
+| `Embed.ignoreUpdates` | boolean | no | — | — | When true, updates to the child rows are not propagated into the parent. |
+| `Embed.trackKeyChanges` | boolean | no | — | — | When true, changes to this child's structural keys are tracked so embedded data is moved accordingly: the key identifying an element within its array, the key saying which parent it hangs under, and the key its own children point at. Requires the source to supply a before image. |
+| `Embed.embed` | array<`Embed`> | no | — | — | Further children embedded beneath this one, forming a nested tree. |
 | `TransformBody.Join.type` | constant | yes | — | `join` | Transform type discriminator. |
 | `TransformBody.Join.engine` | string | yes | — | — | The query engine that runs the join, such as duckdb. |
 | `TransformBody.Join.sql` | string | yes | — | — | The SQL query that produces the joined wide table. |

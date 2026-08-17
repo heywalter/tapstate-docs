@@ -103,7 +103,7 @@ executes a smaller subset.
 | Surface | Schema/validator | Current preview runtime |
 |---|---|---|
 | Resource kinds | `source`, `pipeline`, `transform`, `view`, `serve` | The local demo declares `source` + `pipeline` with inline `serve.sync`. |
-| Transforms | `filter`, `map`, `js`, `union`, `nest`, `join` | `filter`, `map`, `js`, and `union` are wired. The runtime refuses `nest` and `join`. |
+| Transforms | `filter`, `map`, `js`, `union`, `nest`, `join` | `filter`, `map`, `js`, `union`, and `nest` are wired. The runtime refuses `join`. |
 | Serve declarations | `sync`, `query`, `push` | The local demo exercises `sync`. Do not infer an executable runtime surface from Schema acceptance alone. |
 | Connector fields | Connector-specific keys are allowed structurally; known catalog fields can receive additional checks. | A catalog entry does not prove that a connector artifact is installed, registered, or release-verified. |
 
@@ -120,6 +120,21 @@ network access, install a connector artifact, or prove that a Schema-declared
 feature is executable by the current runtime. Unknown connector-specific config
 keys can pass the current offline validator, so test the real connector path
 before relying on a configuration.
+
+## Quote regular-expression table selectors
+
+Quote a table-selector regex when it contains YAML flow indicators such as `?`
+or `:`. This includes negative lookahead expressions:
+
+```yaml
+tables:
+  - "/^(?!timezone_test$).*/"
+```
+
+The equivalent flow form is `tables: ["/^(?!timezone_test$).*/"]`. Keeping the
+regex quoted preserves it as one string and ensures that canonical YAML returned
+by tapstate remains parseable. Do not rely on an unquoted scalar for these
+patterns, even if a YAML parser happens to accept the input form.
 
 ## Compatibility rules
 

@@ -50,6 +50,13 @@ metrics orders_to_analytics
 
 Metrics are an open map rather than a fixed schema. Depending on the active runtime path, the response can include numeric counters and a `perTableOffset` map of table names to opaque source positions.
 
+For a pipeline that uses `nest`, `dead_lettered` is the number of changes that
+the nest could not place into a document, summed across its namespaces. A
+nonzero value means those changes were retained in the dead-letter store rather
+than assembled into output documents. Check the pipeline logs for the failure
+code and affected key; a rising value means new unplaceable changes are still
+arriving.
+
 An absent metric is unavailable, not zero. Do not build a strict parser that rejects new metric keys.
 
 ## Read snapshot progress
@@ -60,7 +67,7 @@ snapshot orders_to_analytics
 
 Snapshot progress is per table and can be empty outside an initial-load phase or when the publisher has no progress to report. A missing total must not be interpreted as 0% or 100%.
 
-In `v0.1.0`, use target row counts and representative keyed samples as the primary snapshot proof. An empty `snapshot` result alone does not establish success or failure.
+In `v0.2.0`, use target row counts and representative keyed samples as the primary snapshot proof. An empty `snapshot` result alone does not establish success or failure.
 
 ## Read and follow logs
 

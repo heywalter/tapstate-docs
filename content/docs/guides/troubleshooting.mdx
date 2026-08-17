@@ -20,7 +20,9 @@ tapstate commands use these exit codes:
 | `2` | Invalid command usage |
 | `3` | Unavailable in this context, not connected, or not implemented |
 
-Use `tapstate --help` to inspect the commands in your installed version. In `v0.1.0`, subcommands do not accept their own `--help` option.
+Use `tapstate --help` to inspect the commands in your installed version. In
+`v0.2.0`, use `tapstate help <command>` or `tapstate <command> --help` for a
+command's operands and options.
 
 Successful data is written to standard output; usage and diagnostics are written to standard error. Preserve both streams and the exit code when collecting evidence.
 
@@ -63,6 +65,26 @@ Review the filename, location, diagnostic code, message, and suggested fix. Corr
 - Keep every referenced resource in the selected work directory.
 - Check for renamed files whose internal `id` did not change with the filename.
 
+### Row-expression schema and type errors
+
+These checks apply to `filter` expressions and computed `map` fields that read
+`after.<field>` or `before.<field>`:
+
+- `dsl.row-expression-needs-discovery` means at least one source that can reach
+  the expression has no discovered schema. Apply the source connection by
+  itself, run `discover-schema <source-id>`, then apply the pipeline or complete
+  workspace again.
+- `dsl.row-expression-type-unsupported` means the referenced column cannot be
+  represented in CEL without losing information. Carry the column through
+  unchanged, or compute from a compatible column instead.
+- `dsl.row-expression-type-unknown` means the discovered schema has no resolved
+  type for the referenced column. Remove that reference or use a column with a
+  declared type.
+
+These diagnostics restrict computation, not pass-through. A column that cannot
+be computed losslessly can still flow through a `map` when no computed rule
+reads it.
+
 ## Troubleshoot the local demo
 
 The [local demo](/docs/overview/quickstart-online) prints the MongoDB row count
@@ -71,7 +93,7 @@ after it requests that the pipeline start. A healthy server or a
 as successful only when connector registration and schema discovery complete
 without a refusal and the script prints `the target now holds 5 rows`.
 
-The `v0.1.0` script can continue after a refused command or a lower target
+The `v0.2.0` script can continue after a refused command or a lower target
 count, so inspect the complete output and target data instead of relying on its
 exit code alone.
 
@@ -135,7 +157,11 @@ sh quickstart.sh
 
 ### A connected command returns exit code 3
 
-In `v0.1.0`, connected commands need the state held by an interactive REPL. Start `tapstate`, then run `connect`, `login`, and the connected verb at the `tapstate>` prompt. Top-level one-shot forms cannot retain that session.
+The command was invoked without a server connection, or the verb is reserved
+but not implemented. Start an interactive session and run `connect` and `login`,
+or seed a one-shot command with `-c` and `-u`. For automation, pass the password
+through `TAPSTATE_PASSWORD` instead of `-p` so it is not exposed in shell history
+or the process list.
 
 ## Check external-system preparation
 

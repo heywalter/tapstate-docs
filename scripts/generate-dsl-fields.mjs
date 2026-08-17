@@ -34,6 +34,8 @@ const sections = [
       'TransformBody.Js',
       'TransformBody.Union',
       'TransformBody.Nest',
+      'NestRoot',
+      'Embed',
       'TransformBody.Join',
     ],
   },
