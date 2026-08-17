@@ -140,6 +140,21 @@ REPL session commands:
 
 Connected verbs entered directly as one-shot top-level commands do not preserve a connection or login. In `v0.1.0`, invoke them from the REPL; otherwise they exit with code `3`.
 
+## `mcp`
+
+Run the local MCP gateway for a tapstate server:
+
+```bash
+tapstate mcp [--server URL] [--allow-write]
+```
+
+The command starts the packaged `libexec/tapstate-mcp.jar` Boot JAR and keeps
+the MCP protocol on standard input and output. It requires a Java 21 or newer
+runtime and a running tapstate server. Set `TAPSTATE_TOKEN` to the server token;
+the token is intentionally not accepted as a command-line option. The native CLI
+itself does not require Java. Use `--allow-write` only when the server token is
+scoped for write tools.
+
 ## Apply and inspect resources
 
 | Command | Purpose |
