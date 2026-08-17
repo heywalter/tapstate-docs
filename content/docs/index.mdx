@@ -50,6 +50,14 @@ push/subscription delivery are roadmap capabilities, not current guarantees.
 Start with the [online quickstart](/docs/overview/quickstart-online) to run this
 path locally.
 
+On this MySQL-to-MongoDB reference path, a MySQL `TIMESTAMP` value is written as
+a MongoDB BSON date with millisecond precision. The instant is preserved; source
+time-zone or offset metadata is not.
+
+A directly launched tapstate server listens on port `8080` by default. Set
+`SERVER_PORT=8081` to bind a different port. The Docker playground remains
+pinned to `127.0.0.1:8080` so its Compose services and examples agree.
+
 ## Complete a task
 
 <CardGrid>

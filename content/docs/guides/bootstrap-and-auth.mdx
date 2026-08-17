@@ -14,7 +14,7 @@ The [local demo](/docs/overview/quickstart-online) performs these steps automati
 
 ## Before you begin
 
-- Start a `v0.1.0` server with its control port bound to loopback or another protected interface.
+- Start a `v0.2.0` server with its control port bound to loopback or another protected interface.
 - Confirm `GET /healthz` returns `ok`.
 - Install `curl` and `jq` for the HTTP examples.
 - Choose a strong first-administrator password and keep it out of shell history.
@@ -60,7 +60,9 @@ login admin
 
 The CLI asks for the password with masked input. A successful login keeps the session token in memory for that CLI process. Use `logout` or `exit` when finished.
 
-In `v0.1.0`, connected verbs run inside this interactive session.
+In `v0.2.0`, connected verbs can run inside this interactive session or as
+one-shot commands seeded with `-c` and `-u`. Prefer the session for a sequence
+that shares one login.
 
 ## Sign in over HTTP
 

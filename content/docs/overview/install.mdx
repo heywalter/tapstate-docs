@@ -5,7 +5,7 @@ ai:
   kind: guide
   id: install-tapstate
   maturity: preview
-  aliases: [install tapstate, tapstate CLI download, tapstate v0.1.0]
+  aliases: [install tapstate, tapstate CLI download, tapstate v0.2.0]
 ---
 
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
@@ -29,7 +29,7 @@ new · validate · explain · ls · desc
 ```
 
 A tapstate server is a separate, headless service. It has no built-in web UI in
-`v0.1.0`; it exposes an authenticated control plane and runs pipelines. The
+`v0.2.0`; it exposes an authenticated control plane and runs pipelines. The
 following operations require the CLI to connect to a running server:
 
 ```text
@@ -94,7 +94,7 @@ published SHA-256 checksum from the GitHub release. The installer:
 It should finish with a message similar to:
 
 ```text
-tapstate 0.1.0 installed to <home>/.tapstate/bin/tapstate
+tapstate 0.2.0 installed to <home>/.tapstate/bin/tapstate
 ```
 
 Add the installation directory to `PATH` if it is not already available:
@@ -115,7 +115,7 @@ Verify the result:
 tapstate --version
 ```
 
-The command should report `tapstate 0.1.0`.
+The command should report `tapstate 0.2.0`.
 
 If Zsh reports `command not found: tapstate`, either the installer did not
 finish or its default directory is not on the current shell's `PATH`. Check the
@@ -144,7 +144,7 @@ To pin the preview explicitly, set `TAPSTATE_VERSION` when running the saved
 script:
 
 ```bash
-TAPSTATE_VERSION=0.1.0 sh install-tapstate.sh
+TAPSTATE_VERSION=0.2.0 sh install-tapstate.sh
 ```
 
 If GitHub release downloads are restricted or slow in your network, use a
@@ -152,7 +152,7 @@ mirror that preserves the release layout expected by the installer:
 
 ```bash
 TAPSTATE_BASE_URL="https://mirror.example.com/tapstate/releases" \
-TAPSTATE_VERSION=0.1.0 \
+TAPSTATE_VERSION=0.2.0 \
 sh install-tapstate.sh
 ```
 
@@ -167,7 +167,7 @@ file, and `platform-minimums.txt`.
 Set `TAPSTATE_INSTALL_DIR` before running the installer:
 
 ```bash
-TAPSTATE_VERSION=0.1.0 \
+TAPSTATE_VERSION=0.2.0 \
 TAPSTATE_INSTALL_DIR="$HOME/bin" \
 sh install-tapstate.sh
 ```
@@ -176,25 +176,28 @@ The selected directory must be on your `PATH` before you can invoke `tapstate` b
 
 ### Install manually
 
-The [v0.1.0 release](https://github.com/tapstate/tapstate/releases/tag/v0.1.0) includes four platform archives, individual `.sha256` files, and a combined `checksums.txt`. Download the archive that matches your system and verify its checksum before extracting it.
+The [v0.2.0 release](https://github.com/tapstate/tapstate/releases/tag/v0.2.0) includes four platform archives, individual `.sha256` files, and a combined `checksums.txt`. Download the archive that matches your system and verify its checksum before extracting it.
 
 For example, on Apple silicon:
 
 ```bash
 curl -fLO \
-  https://github.com/tapstate/tapstate/releases/download/v0.1.0/tapstate-0.1.0-darwin-arm64.tar.gz
+  https://github.com/tapstate/tapstate/releases/download/v0.2.0/tapstate-0.2.0-darwin-arm64.tar.gz
 curl -fLO \
-  https://github.com/tapstate/tapstate/releases/download/v0.1.0/tapstate-0.1.0-darwin-arm64.tar.gz.sha256
+  https://github.com/tapstate/tapstate/releases/download/v0.2.0/tapstate-0.2.0-darwin-arm64.tar.gz.sha256
 
-shasum -a 256 -c tapstate-0.1.0-darwin-arm64.tar.gz.sha256
-tar -xzf tapstate-0.1.0-darwin-arm64.tar.gz
+shasum -a 256 -c tapstate-0.2.0-darwin-arm64.tar.gz.sha256
+tar -xzf tapstate-0.2.0-darwin-arm64.tar.gz
 ```
+
+The archive extracts a complete `tapstate-cli-0.2.0` bundle. Keep its `bin` and
+`libexec` directories together so `tapstate mcp` can find its sidecar.
 
 If macOS blocks a manually downloaded binary after the checksum passes, remove the quarantine attribute and try again:
 
 ```bash
-xattr -d com.apple.quarantine ./tapstate
-./tapstate --version
+xattr -d com.apple.quarantine ./tapstate-cli-0.2.0/bin/tapstate
+./tapstate-cli-0.2.0/bin/tapstate --version
 ```
 
 ### Update or remove the CLI
@@ -202,13 +205,14 @@ xattr -d com.apple.quarantine ./tapstate
 The preview has no automatic updater. To install a later release, rerun the
 installer with its version pinned and verify the reported version.
 
-To remove the default installation:
+To remove the default installation, including versioned bundles and the MCP
+sidecar:
 
 ```bash
-rm "$HOME/.tapstate/bin/tapstate"
+rm -rf "$HOME/.tapstate"
 ```
 
-This removes only the CLI binary. Workspaces, containers, and external-system data are separate.
+Workspaces, containers, and external-system data are separate and are not removed.
 
 ## Optional integrations
 
@@ -223,6 +227,16 @@ for the host configuration and command example.
 
 ## Next steps
 
+Before evaluating the runtime, account for two known `v0.2.0` limitations:
+
+- An insert-only target can receive duplicate rows when the snapshot and CDC
+  reads overlap. The preview claims at-least-once delivery, not exactly-once.
+- A source change written while the change stream is positioning itself can be
+  missed because the saved position is not handed to the stream read until the
+  snapshot finishes.
+
+See the [v0.2.0 release](https://github.com/tapstate/tapstate/releases/tag/v0.2.0)
+for the published disclosure.
+
 - [Author and validate a workspace](/docs/overview/quickstart) using only the installed CLI.
 - If Docker is available, [try tapstate locally](/docs/overview/quickstart-online) with the disposable MySQL-to-MongoDB demo.
-- Review the [v0.1.0 release limitations](/docs/releases/v0.1.0#known-limitations) before evaluating tapstate.

@@ -1,6 +1,6 @@
 ---
 title: CLI reference
-description: Use tapstate v0.1.0 offline workspace commands and connected REPL commands
+description: Use tapstate v0.2.0 offline workspace commands, connected sessions, and one-shot commands
 ai:
   kind: reference
   id: cli
@@ -8,10 +8,11 @@ ai:
   aliases: [tapstate CLI, tapstate commands, tapstate REPL, tapstate exit codes]
 ---
 
-The tapstate CLI has two operating contexts:
+The tapstate CLI has three operating forms:
 
 - **Offline commands** read or create local workspace files. They do not require a running server.
-- **Connected commands** run inside an interactive REPL after you connect and log in to a tapstate server.
+- **Connected sessions** retain the selected workspace, server, and login in an interactive REPL.
+- **Connected one-shot commands** use launch options to connect, authenticate, run one command, and exit.
 
 Run this command to see the command set included with your installed version:
 
@@ -19,13 +20,17 @@ Run this command to see the command set included with your installed version:
 tapstate --help
 ```
 
-In `v0.1.0`, subcommands do not implement their own `--help` option. A missing or invalid operand prints that command's usage.
+In `v0.2.0`, use `tapstate help <command>` or `tapstate <command> --help` to
+inspect a command without connecting to a server.
 
-## Global options
+## Launch and help options
 
 | Option | Purpose |
 |---|---|
-| `-w`, `--workdir <dir>` | Select the workspace directory. The default is `tap-work`, or `$TAPSTATE_WORKDIR` when set. |
+| `-w`, `--workdir <dir>` | Select the workspace for an interactive session. For an offline one-shot command, place this option after the command. The default is `tap-work`, or `$TAPSTATE_WORKDIR` when set. |
+| `-c`, `--connect <url>` | Connect to a server before opening a session or running a one-shot command. |
+| `-u`, `--user <name>` | Log in as this user after connecting. Requires `-c`. |
+| `-p`, `--password <password>` | Supply the password inline. Prefer `TAPSTATE_PASSWORD` or the prompt because command-line values are visible in shell history and process listings. |
 | `--version` | Print the CLI version and exit. |
 | `--help` | Print top-level help and exit. |
 
@@ -138,11 +143,20 @@ REPL session commands:
 | `pwd` | Print the current workspace directory. |
 | `exit`, `quit` | End the session. |
 
-Connected verbs entered directly as one-shot top-level commands do not preserve a connection or login. In `v0.1.0`, invoke them from the REPL; otherwise they exit with code `3`.
+For a connected one-shot command, seed the connection and user before the verb:
 
-## `mcp` — connect an MCP host to a tapstate server
+```bash
+TAPSTATE_PASSWORD="<server-password>" \
+  tapstate -c http://127.0.0.1:8080 -u admin status orders_to_analytics
+```
 
-Use this top-level command when an MCP-compatible AI tool needs to call a
+The process connects, signs in, runs `status`, and exits. Without `-c`, a
+connected verb exits with code `3`. `connect`, `login`, `logout`, and `cd` remain
+session commands; they are not one-shot verbs.
+
+## MCP
+
+Use the top-level `mcp` command when an MCP-compatible AI tool needs to call a
 running tapstate server. It starts the local gateway; it does not start the
 server or open an interactive CLI prompt.
 
@@ -229,9 +243,11 @@ Successful command output is written to standard output. Usage and diagnostic me
 
 Automation should check the exit code instead of matching human-readable output.
 
-## Commands not implemented in v0.1.0
+## Commands not implemented in v0.2.0
 
-The top-level help lists `run`, `export`, `diff`, and `edit` as planned verbs. They return exit code `3` in `v0.1.0`. Do not build a workflow that depends on them.
+The top-level help lists `run`, `export`, `diff`, and `edit` as reserved verbs.
+They return exit code `3` in `v0.2.0`. Do not build a workflow that depends on
+them.
 
 ## Related pages
 

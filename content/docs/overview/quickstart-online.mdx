@@ -38,9 +38,9 @@ You need:
 - enough local resources to run MySQL 8.0, MongoDB 7.0, and the tapstate server.
 
 You do not need to [install the tapstate CLI](/docs/overview/install) first.
-The script downloads a local `v0.1.0` CLI and the two connector preview JARs
+The script downloads a local `v0.2.0` CLI and the two connector preview JARs
 into the demo directory. Docker Compose runs the pinned
-`ghcr.io/tapstate/tapstate:0.1.0` server image. The CLI stays in the demo
+`ghcr.io/tapstate/tapstate:0.2.0` server image. The CLI stays in the demo
 directory and is not added to your `PATH`.
 
 ## 1. Start the local environment
@@ -92,7 +92,7 @@ The generated `.env` file contains the local demo password and is created with
 owner-only permissions. The script also prints the password once. Keep it
 local and do not commit the file.
 
-In `v0.1.0`, the script can continue after a server-side command is refused and
+In `v0.2.0`, the script can continue after a server-side command is refused and
 can finish with a target count below five. Output such as `The server refused the
 connector registration`, `The server refused the schema discovery`, or a count
 below five means the demo failed, even if a later line says `running` or the
@@ -224,5 +224,5 @@ with `docker compose down -v` before rerunning the script.
   [connector registration and testing](/docs/guides/register-connectors), and
   [pipeline operation](/docs/guides/apply-and-run) procedures.
 - Prepare external systems with the [MySQL](/docs/connectors/mysql) and [MongoDB](/docs/connectors/mongodb) guides.
-- Review the [v0.1.0 release limitations](/docs/releases/v0.1.0#known-limitations).
+- Review the [v0.2.0 release limitations](/docs/releases/v0.2.0#known-limitations).
 - Use [Troubleshooting](/docs/guides/troubleshooting) if the script does not produce the five-row result.
