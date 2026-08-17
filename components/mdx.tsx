@@ -1,14 +1,14 @@
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import { Popover, PopoverContent, PopoverTrigger } from 'fumadocs-ui/components/ui/popover';
 import Link from 'next/link';
-import { ArrowRight, BadgeCheck, Bot, Braces, Cable, CircleAlert, CircleCheck, Database, FileText, GitBranch, Info, Layers3, RadioTower, Store, TableProperties, Wrench } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Bot, Braces, Cable, CircleAlert, CircleCheck, Database, FileText, GitBranch, Info, Layers3, RadioTower } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { MDXComponents } from 'mdx/types';
 import {
-  connectorCategories,
   connectorMaturityCounts,
   connectorReleaseTestedCount,
-  getConnectorsByCategory,
+  getConnectorProductProfile,
+  getConnectorsByDocumentationStatus,
   type ConnectorCategoryId,
   type ConnectorMaturity,
 } from '@/lib/connector-directory';
@@ -84,7 +84,7 @@ export function ProductOverviewHero() {
             Build and maintain live operational state.
           </h1>
           <p className="mb-0 mt-5 max-w-3xl text-pretty text-base leading-8 text-fd-muted-foreground md:text-lg">
-            Tapstate is an open-source operational data engine in preview. The v0.1.0 local demo explores a MySQL-to-MongoDB snapshot and CDC workflow.
+            Tapstate is an open-source operational data engine in preview. The v0.2.0 local playground explores a MySQL-to-MongoDB snapshot and CDC workflow.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link href="/docs/overview/quickstart-online" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-fd-primary px-4 text-sm font-semibold text-fd-primary-foreground no-underline transition-colors hover:bg-fd-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
@@ -183,7 +183,7 @@ export function TapStateArchitecture() {
           <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
             <ArchitectureNode title="Sources" description="Databases, brokers, files, and APIs." icon={Database} />
             <ArchitectureNode title="Capture" description="Initial data and later changes." icon={RadioTower} accent />
-            <ArchitectureNode title="Transform" description="Stateless transforms now; stateful composition is a target." icon={GitBranch} accent />
+            <ArchitectureNode title="Transform" description="Filter, map, script, union, and assemble related records with nest." icon={GitBranch} accent />
             <ArchitectureNode title="Materialize" description="Maintain destination-ready current state." icon={Layers3} accent />
             <ArchitectureNode title="Deliver" description="Write targets or publish streams." icon={Cable} accent />
             <ArchitectureNode title="Consumers" description="Applications, APIs, and agents." icon={Bot} />
@@ -496,36 +496,6 @@ Unknown field 'unexpected' at unexpected.`}
   );
 }
 
-const categoryPresentation: Record<
-  ConnectorCategoryId,
-  { icon: typeof Database; iconClassName: string }
-> = {
-  databases: {
-    icon: Database,
-    iconClassName: 'bg-sky-50 text-sky-700 dark:bg-sky-950/45 dark:text-sky-300',
-  },
-  'warehouses-analytics': {
-    icon: TableProperties,
-    iconClassName: 'bg-violet-50 text-violet-700 dark:bg-violet-950/45 dark:text-violet-300',
-  },
-  'streaming-messaging': {
-    icon: RadioTower,
-    iconClassName: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/45 dark:text-cyan-300',
-  },
-  files: {
-    icon: FileText,
-    iconClassName: 'bg-amber-50 text-amber-800 dark:bg-amber-950/45 dark:text-amber-200',
-  },
-  'saas-business-commerce-apis': {
-    icon: Store,
-    iconClassName: 'bg-rose-50 text-rose-700 dark:bg-rose-950/45 dark:text-rose-300',
-  },
-  'custom-development': {
-    icon: Wrench,
-    iconClassName: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
-  },
-};
-
 function DirectoryMaturity({ maturity }: { maturity: ConnectorMaturity }) {
   const presentation = maturity === 'ga'
     ? {
@@ -649,16 +619,35 @@ function ConnectorDirectoryTerms({
 
 /** A compact connector maturity index. The canonical data lives in connector-directory.ts. */
 export function ConnectorDirectoryMatrix() {
-  const maturityCounts = connectorMaturityCounts();
-  const releaseTestedCount = connectorReleaseTestedCount();
+  const currentConnectors = getConnectorsByDocumentationStatus('current');
+  const maturityCounts = connectorMaturityCounts(currentConnectors);
+  const releaseTestedCount = connectorReleaseTestedCount(currentConnectors);
+  const sections = [
+    {
+      status: 'current' as const,
+      title: 'Current release path',
+      description: 'Connector roles published for the v0.2 MySQL-to-MongoDB operational-state path.',
+      icon: CircleCheck,
+      iconClassName: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-300',
+    },
+    {
+      status: 'roadmap' as const,
+      title: 'Roadmap',
+      description: 'Planned connector directions without a committed release date. These rows are not current release contracts.',
+      icon: RadioTower,
+      iconClassName: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/45 dark:text-cyan-300',
+    },
+  ];
 
   return (
     <section aria-label="Connector guide directory" className="not-prose my-8">
       <div className="mb-8 flex flex-wrap items-center gap-2 text-sm text-fd-muted-foreground">
-        <span className="font-medium text-fd-foreground">{maturityCounts.ga + maturityCounts.preview + maturityCounts.deprecated} connectors</span>
+        <span className="font-medium text-fd-foreground">{maturityCounts.ga + maturityCounts.preview + maturityCounts.deprecated} current connectors</span>
         <span aria-hidden="true">·</span>
         <span className="inline-flex items-center gap-1.5"><DirectoryMaturity maturity="ga" /> {maturityCounts.ga}</span>
-        <span className="inline-flex items-center gap-1.5"><DirectoryMaturity maturity="preview" /> {maturityCounts.preview}</span>
+        {maturityCounts.preview > 0 ? (
+          <span className="inline-flex items-center gap-1.5"><DirectoryMaturity maturity="preview" /> {maturityCounts.preview}</span>
+        ) : null}
         <span className="inline-flex items-center gap-1.5 text-sky-800 dark:text-sky-200"><BadgeCheck aria-hidden="true" className="size-4" strokeWidth={2.25} /> {releaseTestedCount} E2E-tested</span>
         {maturityCounts.deprecated > 0 ? (
           <span className="inline-flex items-center gap-1.5"><DirectoryMaturity maturity="deprecated" /> {maturityCounts.deprecated}</span>
@@ -666,21 +655,21 @@ export function ConnectorDirectoryMatrix() {
       </div>
 
       <div className="space-y-9">
-        {connectorCategories.map((category) => {
-          const Icon = categoryPresentation[category.id].icon;
-          const connectors = getConnectorsByCategory(category.id);
+        {sections.map((section) => {
+          const Icon = section.icon;
+          const connectors = getConnectorsByDocumentationStatus(section.status);
 
           return (
-            <section key={category.id} aria-labelledby={`connector-category-${category.id}`} className="border-t border-fd-border pt-5">
+            <section key={section.status} aria-labelledby={`connector-status-${section.status}`} className="border-t border-fd-border pt-5">
               <header className="mb-3 flex items-start gap-3">
-                <span className={`mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-lg ${categoryPresentation[category.id].iconClassName}`}>
+                <span className={`mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-lg ${section.iconClassName}`}>
                   <Icon aria-hidden="true" className="size-4" strokeWidth={2} />
                 </span>
                 <div>
-                  <h2 id={`connector-category-${category.id}`} className="m-0 text-base font-semibold tracking-tight text-fd-foreground">
-                    {category.label}
+                  <h2 id={`connector-status-${section.status}`} className="m-0 text-base font-semibold tracking-tight text-fd-foreground">
+                    {section.title}
                   </h2>
-                  <p className="mb-0 mt-1 text-sm leading-6 text-fd-muted-foreground">{category.description}</p>
+                  <p className="mb-0 mt-1 text-sm leading-6 text-fd-muted-foreground">{section.description}</p>
                 </div>
               </header>
               <div className="overflow-x-auto">
@@ -688,38 +677,41 @@ export function ConnectorDirectoryMatrix() {
                   <thead className="border-b border-fd-border text-xs font-medium uppercase tracking-[0.08em] text-fd-muted-foreground">
                     <tr>
                       <th className="px-0 py-2.5 font-medium">Connector</th>
-                      <th className="px-3 py-2.5 font-medium">Maturity</th>
-                      <th className="px-3 py-2.5 font-medium">Works as</th>
-                      <th className="px-3 py-2.5 font-medium">Read mode</th>
+                      <th className="px-3 py-2.5 font-medium">Guide maturity</th>
+                      <th className="px-3 py-2.5 font-medium">{section.status === 'current' ? 'Product role' : 'Planned role'}</th>
+                      <th className="px-3 py-2.5 font-medium">{section.status === 'current' ? 'Read mode' : 'Planned read mode'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-fd-border/80">
-                    {connectors.map((connector) => (
-                      <tr key={connector.slug} className="transition-colors hover:bg-fd-accent/40">
-                        <th className="px-0 py-2.5 font-medium text-fd-foreground">
-                          <Link href={`/docs/connectors/${connector.slug}`} className="group inline-flex items-center gap-1.5 text-fd-primary underline decoration-fd-primary/25 underline-offset-4 transition-colors hover:decoration-fd-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
-                            <span>{connector.title}</span>
-                            <ArrowRight aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
-                          </Link>
-                          {connector.releaseTestedE2E ? <span className="ml-2 inline-flex align-middle"><ReleaseTestedMarker /></span> : null}
-                        </th>
-                        <td className="px-3 py-2.5"><DirectoryMaturity maturity={connector.maturity} /></td>
-                        <td className="px-3 py-2.5 text-fd-muted-foreground">
-                          <ConnectorDirectoryTerms
-                            terms={connector.useAs}
-                            separator="+"
-                            emptyHelp="The current catalog does not report a role. The guide may still cover external-system preparation; verify the registered runtime before relying on a source or target path."
-                          />
-                        </td>
-                        <td className="px-3 py-2.5 text-fd-muted-foreground">
-                          <ConnectorDirectoryTerms
-                            terms={connector.modes}
-                            separator="·"
-                            emptyHelp="The current catalog does not report a source read mode. The guide may still cover external-system preparation; verify the registered runtime before relying on a read path."
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                    {connectors.map((connector) => {
+                      const profile = getConnectorProductProfile(connector.slug);
+                      return (
+                        <tr key={connector.slug} className="transition-colors hover:bg-fd-accent/40">
+                          <th className="px-0 py-2.5 font-medium text-fd-foreground">
+                            <Link href={`/docs/connectors/${connector.slug}`} className="group inline-flex items-center gap-1.5 text-fd-primary underline decoration-fd-primary/25 underline-offset-4 transition-colors hover:decoration-fd-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
+                              <span>{profile?.displayTitle ?? connector.title}</span>
+                              <ArrowRight aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
+                            </Link>
+                            {connector.releaseTestedE2E ? <span className="ml-2 inline-flex align-middle"><ReleaseTestedMarker /></span> : null}
+                          </th>
+                          <td className="px-3 py-2.5"><DirectoryMaturity maturity={connector.maturity} /></td>
+                          <td className="px-3 py-2.5 text-fd-muted-foreground">
+                            <ConnectorDirectoryTerms
+                              terms={profile?.useAs ?? []}
+                              separator="+"
+                              emptyHelp="No product role is published for this connector."
+                            />
+                          </td>
+                          <td className="px-3 py-2.5 text-fd-muted-foreground">
+                            <ConnectorDirectoryTerms
+                              terms={profile?.modes ?? []}
+                              separator="·"
+                              emptyHelp="Read modes do not apply to this published target role."
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

@@ -44,11 +44,10 @@ The public preview demonstrates one concrete operational data path:
 - an in-flight `map` transform
 - continuous materialization to MongoDB
 
-The local MongoDB instance is the preview's reference backing store; it does not
-make MongoDB the only future deployment option. A stable State Data API and
-push/subscription delivery are roadmap capabilities, not current guarantees.
-Start with the [online quickstart](/docs/overview/quickstart-online) to run this
-path locally.
+The local MongoDB instance is the preview's published materialization target.
+Do not infer another store, query API, or push surface from the broader product
+model. Start with the [online quickstart](/docs/overview/quickstart-online) to
+run the current path locally.
 
 On this MySQL-to-MongoDB reference path, a MySQL `TIMESTAMP` value is written as
 a MongoDB BSON date with millisecond precision. The instant is preserved; source

@@ -150,6 +150,9 @@ when its root key changes. Set it on a child to move embedded data when its arra
 key, parent key, or child-pointer key changes. Both forms require the source
 connector to provide a before image.
 
+Follow [Assemble documents with nest](/docs/guides/assemble-documents-with-nest)
+for a complete MySQL-to-MongoDB authoring and verification sequence.
+
 ## `join`
 
 ```yaml

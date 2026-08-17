@@ -101,6 +101,7 @@ validation still needs runtime and connector verification.
 
 ## Runtime boundary
 
-The current preview's local demo declares an inline `serve.sync` pipeline from
-MySQL to MongoDB. Schema acceptance of reusable views, `query`, `push`, Nest, or
-Join does not by itself prove that the current runtime executes that surface.
+The current preview's local playground declares an inline `serve.sync` pipeline
+from MySQL to MongoDB. The runtime also executes `nest` document assembly.
+Schema acceptance of reusable views, `query`, `push`, or `join` does not by
+itself prove that the current runtime executes that surface.

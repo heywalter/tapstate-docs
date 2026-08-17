@@ -230,10 +230,11 @@ for the host configuration and command example.
 Before evaluating the runtime, account for two known `v0.2.0` limitations:
 
 - An insert-only target can receive duplicate rows when the snapshot and CDC
-  reads overlap. The preview claims at-least-once delivery, not exactly-once.
+  reads overlap. A change that the connector reads is delivered at least once,
+  not exactly once.
 - A source change written while the change stream is positioning itself can be
-  missed because the saved position is not handed to the stream read until the
-  snapshot finishes.
+  missed before the connector reads it, because the saved position is not
+  handed to the stream read until the snapshot finishes.
 
 See the [v0.2.0 release](https://github.com/tapstate/tapstate/releases/tag/v0.2.0)
 for the published disclosure.

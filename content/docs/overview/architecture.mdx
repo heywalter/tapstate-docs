@@ -43,9 +43,9 @@ tapstate CLI ──→ single-node server
 
 - The local demo is designed to read MySQL, perform an initial snapshot followed
   by CDC, apply a map step, and write MongoDB.
-- The pipeline DAG wires `filter`, `map`, `js`, and `union`.
-- The v1 Schema can declare `nest` and `join`, but the current DAG builder
-  refuses both stateful transforms.
+- The pipeline DAG wires `filter`, `map`, `js`, `union`, and `nest`.
+- `nest` maintains a document assembled from related source tables. The v1
+  Schema also declares `join`, but the current DAG builder refuses it.
 - The Schema can declare `sync`, `query`, and `push`; the local demo exercises
   inline `serve.sync`.
 
@@ -71,7 +71,7 @@ records, from the **control plane**, which defines and operates data paths.
 ### Target data plane
 
 Capture establishes an initial state and follows later changes. Transform
-applies reviewable rules, including future stateful composition. Materialize
+applies reviewable shaping and document-assembly rules. Materialize
 maintains consumer-oriented state, and Deliver exposes that state through
 connector or query surfaces.
 

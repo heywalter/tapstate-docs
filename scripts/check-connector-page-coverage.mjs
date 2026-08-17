@@ -11,6 +11,7 @@ if (!catalogDir) {
 
 const docsDir = new URL('../content/docs/connectors/', import.meta.url);
 const directorySource = await readFile(new URL('../lib/connector-directory.ts', import.meta.url), 'utf8');
+const connectorMeta = JSON.parse(await readFile(new URL('../content/docs/connectors/meta.json', import.meta.url), 'utf8'));
 const pageNames = (await readdir(docsDir)).filter((name) => name.endsWith('.mdx') && name !== 'index.mdx');
 const coreSections = {
   profile: /<ConnectorProfile\b/,
@@ -57,6 +58,24 @@ const directoryItems = new Map(
       modes: quotedList(match[6]),
     }]),
 );
+const productProfiles = new Map(
+  [...directorySource.matchAll(/^\s*['"]?([\w-]+)['"]?:\s*\{\s*status:\s*'(current|roadmap)',[\s\S]*?useAs:\s*\[([^\]]*)\],\s*modes:\s*\[([^\]]*)\]\s*\},?$/gm)]
+    .map((match) => [match[1], {
+      status: match[2],
+      roles: quotedList(match[3]),
+      modes: quotedList(match[4]),
+    }]),
+);
+
+const expectedNavigation = [
+  'index',
+  ...[...productProfiles]
+    .filter(([, profile]) => profile.status === 'current')
+    .map(([slug]) => slug),
+];
+if (JSON.stringify(connectorMeta.pages) !== JSON.stringify(expectedNavigation)) {
+  failures.push(`meta.json: expected current connector navigation ${JSON.stringify(expectedNavigation)}, received ${JSON.stringify(connectorMeta.pages)}`);
+}
 
 for (const name of pageNames) {
   const page = await readFile(new URL(name, docsDir), 'utf8');
@@ -176,9 +195,12 @@ for (const name of pageNames) {
     missing.push(`connection fields not documented: ${undocumentedFields.join(', ')}`);
   }
 
-  const requiresCdcPath = directoryItem?.capabilityAuthority === 'server'
-    ? declaredModes.includes('cdc')
-    : (catalog.modes ?? []).includes('cdc');
+  const productProfile = productProfiles.get(slug);
+  const requiresCdcPath = productProfile
+    ? productProfile.modes.includes('cdc')
+    : directoryItem?.capabilityAuthority === 'server'
+      ? declaredModes.includes('cdc')
+      : (catalog.modes ?? []).includes('cdc');
   if (requiresCdcPath && (!/<SourceModeTabs\b/.test(page) || !/value="snapshot-cdc"/.test(page))) {
     missing.push('snapshot + CDC mode path');
   }

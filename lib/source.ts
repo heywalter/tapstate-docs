@@ -5,6 +5,8 @@ import { llms } from 'fumadocs-core/source';
 import {
   connectorCategories,
   connectorDirectory,
+  getConnectorDocumentationStatus,
+  getConnectorProductProfile,
   renderConnectorDirectoryForLLM,
 } from './connector-directory';
 import {
@@ -25,6 +27,7 @@ function groupConnectorNavigation(node: Folder, folderPath: string): Folder {
   const groupedUrls = new Set<string>();
   const groups: Folder[] = connectorCategories.map((category) => {
     const children = connectorDirectory.flatMap((connector) => {
+      if (getConnectorDocumentationStatus(connector.slug) !== 'current') return [];
       if (connector.category !== category.id) return [];
       const url = `${docsRoute}/connectors/${connector.slug}`;
       const page = pages.get(url);
@@ -174,7 +177,7 @@ Next, run the connection in a non-production environment and confirm credentials
 |---|---|---|
 | The assembled stack | Source systems → Capture → Broker → Processing → Serving store → Apps, automation & agents | Separate tools and operating boundaries. |
 | The tapstate target path | Source systems → tapstate (Capture · Transform · Serve) → Apps, automation & agents | Target Capture–Transform–Serve operating model. |`)
-    .replace(/<ProductOverviewHero\s*\/>/g, `Tapstate is an open-source operational data engine in preview. The v0.1.0 local demo explores a MySQL-to-MongoDB snapshot and CDC workflow.
+    .replace(/<ProductOverviewHero\s*\/>/g, `Tapstate is an open-source operational data engine in preview. The v0.2.0 local playground explores a MySQL-to-MongoDB snapshot and CDC workflow.
 
 - **Capture:** Load existing data, then follow committed changes.
 - **Transform:** Filter, map, script, and merge data as it moves.
@@ -192,7 +195,7 @@ This diagram describes design direction, not the current preview implementation 
 | Control | Operate | Apply, observe, and control lifecycle. |
 | Data | Sources | Databases, brokers, files, and APIs. |
 | Data | Capture | Read initial data and later changes. |
-| Data | Transform | Stateless transforms now; stateful composition is a target. |
+| Data | Transform | Filter, map, script, union, and assemble related records with nest. |
 | Data | Materialize | Maintain destination-ready current state. |
 | Data | Deliver | Write targets or publish streams. |
 | Data | Consumers | Applications, APIs, and agents. |
@@ -237,13 +240,28 @@ function renderAgentMetadata(page: (typeof source)['$inferPage']) {
   const ai = getAIPageMetadata(page);
   if (!ai) return '';
 
+  const connectorDocumentationStatus = ai.kind === 'connector'
+    ? getConnectorDocumentationStatus(page.slugs.at(-1) ?? '')
+    : undefined;
+  const connectorProductProfile = ai.kind === 'connector'
+    ? getConnectorProductProfile(page.slugs.at(-1) ?? '')
+    : undefined;
+  const statusExplanation = connectorDocumentationStatus === 'current'
+    ? 'current connector directory'
+    : connectorDocumentationStatus === 'roadmap'
+      ? 'roadmap reference; not a current release contract'
+      : connectorDocumentationStatus === 'unlisted'
+        ? 'unlisted reference; not in the current connector directory'
+        : undefined;
   const fields = [
     ['Content type', ai.kind],
     ['Identifier', ai.id],
+    ['Documentation status', statusExplanation],
+    ['Product role', connectorProductProfile?.useAs.join(', ')],
     ['Category', ai.category],
     ['Maturity', ai.maturity],
-    ['Use as', ai.useAs?.join(', ')],
-    ['Modes', ai.modes?.join(', ')],
+    ['Catalog roles', ai.useAs?.join(', ')],
+    ['Catalog read modes', ai.modes?.join(', ')],
     ['Aliases', ai.aliases?.join(', ')],
   ].filter((field): field is [string, string] => Boolean(field[1]));
 
@@ -293,6 +311,12 @@ export function getLLMIndex() {
     `- [Install the CLI](${absoluteDocsUrl('/docs/overview/install')})`,
     `- [Local demo](${absoluteDocsUrl('/docs/overview/quickstart-online')})`,
     '',
+    '## Connector status',
+    '',
+    `- Current release path: [MySQL source](${absoluteDocsUrl('/docs/connectors/mysql')}) with Snapshot and CDC into a [MongoDB target](${absoluteDocsUrl('/docs/connectors/mongodb')}).`,
+    `- Roadmap references: [PostgreSQL capture](${absoluteDocsUrl('/docs/connectors/postgresql')}) and [Kafka / Confluent delivery](${absoluteDocsUrl('/docs/connectors/kafka')}). They do not imply a release date or current runtime contract.`,
+    '- Other connector preparation pages are unlisted and excluded from primary navigation, search, sitemap, and combined agent context.',
+    '',
     '## Agent guidance',
     '',
     '- Prefer page-level Markdown for implementation decisions; this file is a discovery index.',
@@ -307,7 +331,11 @@ export function getLLMIndex() {
 }
 
 export async function getLLMFullText() {
-  const scanned = await Promise.all(source.getPages().map(getLLMText));
+  const pages = source.getPages().filter((page) => {
+    if (page.slugs[0] !== 'connectors' || page.slugs.length < 2) return true;
+    return getConnectorDocumentationStatus(page.slugs[1]) !== 'unlisted';
+  });
+  const scanned = await Promise.all(pages.map(getLLMText));
 
   return [
     '# Tapstate documentation — complete agent context',

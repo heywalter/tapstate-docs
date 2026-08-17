@@ -50,12 +50,13 @@ Recommended minimums for this build are macOS 15.0 and glibc 2.34.
   for production.
 - The public playground verifies one end-to-end combination: MySQL initial load
   plus CDC, an in-flight `map`, and MongoDB materialization.
-- Delivery is at-least-once, not exactly-once.
+- A change that a connector reads is delivered at least once, not exactly once.
 - An insert-only target can receive duplicate rows when the snapshot and CDC
   reads overlap and both observe the same row.
 - A source change written while the change stream is positioning itself can be
-  missed because the saved position is not passed to the stream read until the
-  snapshot finishes.
+  missed before the connector reads it, because the saved position is not
+  passed to the stream read until the snapshot finishes. The at-least-once
+  statement does not cover a change that the connector never reads.
 - `join` remains declared by the Schema but is refused by the current runtime.
 - `run`, `export`, `diff`, and `edit` remain reserved CLI verbs and return exit
   code `3`.
@@ -68,6 +69,8 @@ Use non-production systems and data for evaluation.
   to an existing server.
 - [Try tapstate locally](/docs/overview/quickstart-online) to run the disposable
   MySQL-to-MongoDB playground.
+- [Assemble documents with nest](/docs/guides/assemble-documents-with-nest) to
+  maintain one MongoDB document from related MySQL tables.
 - Use the [CLI reference](/docs/reference/cli) and
   [Troubleshooting](/docs/guides/troubleshooting) for command and diagnostic
   details.

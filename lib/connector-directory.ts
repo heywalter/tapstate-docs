@@ -8,6 +8,15 @@ export type ConnectorCategoryId =
 
 export type ConnectorMaturity = 'ga' | 'preview' | 'deprecated';
 
+export type ConnectorDocumentationStatus = 'current' | 'roadmap' | 'unlisted';
+
+export type ConnectorProductProfile = {
+  status: Exclude<ConnectorDocumentationStatus, 'unlisted'>;
+  displayTitle?: string;
+  useAs: Array<'source' | 'target'>;
+  modes: string[];
+};
+
 export type ConnectorDirectoryItem = {
   slug: string;
   id: string;
@@ -96,12 +105,41 @@ export const connectorDirectory: ConnectorDirectoryItem[] = [
   { slug: 'dummy', id: 'dummy', title: 'Dummy', category: 'custom-development', maturity: 'preview', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
 ];
 
+/**
+ * Product-facing connector exposure. This is deliberately separate from
+ * connector maturity and catalog metadata: it describes what the current
+ * tapstate docs directory publishes, not everything for which preparation
+ * material exists.
+ */
+export const connectorProductProfiles: Record<string, ConnectorProductProfile> = {
+  mysql: { status: 'current', useAs: ['source'], modes: ['snapshot', 'cdc'] },
+  mongodb: { status: 'current', useAs: ['target'], modes: [] },
+  postgresql: { status: 'roadmap', useAs: ['source'], modes: ['snapshot', 'cdc'] },
+  kafka: { status: 'roadmap', displayTitle: 'Kafka / Confluent', useAs: ['target'], modes: ['stream'] },
+};
+
+export function getConnectorDocumentationStatus(slug: string): ConnectorDocumentationStatus {
+  return connectorProductProfiles[slug]?.status ?? 'unlisted';
+}
+
+export function getConnectorsByDocumentationStatus(
+  status: Exclude<ConnectorDocumentationStatus, 'unlisted'>,
+) {
+  return connectorDirectory.filter(
+    (connector) => connectorProductProfiles[connector.slug]?.status === status,
+  );
+}
+
+export function getConnectorProductProfile(slug: string) {
+  return connectorProductProfiles[slug];
+}
+
 export function getConnectorsByCategory(category: ConnectorCategoryId) {
   return connectorDirectory.filter((connector) => connector.category === category);
 }
 
-export function connectorMaturityCounts() {
-  return connectorDirectory.reduce(
+export function connectorMaturityCounts(connectors = connectorDirectory) {
+  return connectors.reduce(
     (counts, connector) => {
       counts[connector.maturity] += 1;
       return counts;
@@ -110,8 +148,8 @@ export function connectorMaturityCounts() {
   );
 }
 
-export function connectorReleaseTestedCount() {
-  return connectorDirectory.filter((connector) => connector.releaseTestedE2E).length;
+export function connectorReleaseTestedCount(connectors = connectorDirectory) {
+  return connectors.filter((connector) => connector.releaseTestedE2E).length;
 }
 
 export function connectorMaturityLabel(maturity: ConnectorMaturity) {
@@ -123,22 +161,30 @@ export function connectorMaturityLabel(maturity: ConnectorMaturity) {
 }
 
 export function renderConnectorDirectoryForLLM() {
-  return connectorCategories
-    .map((category) => {
-      const rows = getConnectorsByCategory(category.id)
-        .map((connector) => {
-          const roles = connector.useAs.length > 0
-            ? connector.useAs.map((role) => role[0].toUpperCase() + role.slice(1)).join(' + ')
-            : '—';
-          const modes = connector.modes.length > 0
-            ? connector.modes.join(', ')
-            : '—';
-          const releaseTested = connector.releaseTestedE2E ? 'E2E' : '—';
-          return `| [${connector.title}](/docs/connectors/${connector.slug}) | ${connectorMaturityLabel(connector.maturity)} | ${releaseTested} | ${roles} | ${modes} |`;
-        })
-        .join('\n');
-
-      return `## ${category.label}\n\n${category.description}\n\n| Connector | Maturity | Release test | Roles | Read modes |\n|---|---|---|---|---|\n${rows}`;
+  const renderRows = (status: 'current' | 'roadmap') => getConnectorsByDocumentationStatus(status)
+    .map((connector) => {
+      const profile = connectorProductProfiles[connector.slug];
+      const roles = profile.useAs.map((role) => role[0].toUpperCase() + role.slice(1)).join(' + ') || '—';
+      const modes = profile.modes.join(', ') || '—';
+      const releaseTested = connector.releaseTestedE2E ? 'E2E' : '—';
+      const title = profile.displayTitle ?? connector.title;
+      return `| [${title}](/docs/connectors/${connector.slug}) | ${connectorMaturityLabel(connector.maturity)} | ${releaseTested} | ${roles} | ${modes} |`;
     })
-    .join('\n\n');
+    .join('\n');
+
+  return `## Current release path
+
+The current product directory publishes the connector roles used by the v0.2 release path.
+
+| Connector | Guide maturity | Release test | Product role | Read modes |
+|---|---|---|---|---|
+${renderRows('current')}
+
+## Roadmap
+
+These guides describe planned directions, not current release contracts. No release date is implied.
+
+| Connector | Guide maturity | Release test | Planned role | Planned read modes |
+|---|---|---|---|---|
+${renderRows('roadmap')}`;
 }

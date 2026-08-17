@@ -7,7 +7,10 @@ ai:
   aliases: [tapstate use cases, database offloading, database migration, operational data for ai]
 ---
 
-Tapstate is designed for operational data that loses value when it becomes stale. Use the patterns below to identify a customer outcome and the connector capabilities, data behavior, and operational preparation it requires.
+Tapstate is designed for operational data that loses value when it becomes
+stale. The patterns below describe the product model. The v0.2 evaluation path
+implements one slice of it: MySQL capture into MongoDB-backed operational state.
+Kafka/Confluent delivery remains a roadmap direction.
 
 ## Offload reads from a system of record
 
@@ -29,9 +32,9 @@ Tapstate is designed for operational data that loses value when it becomes stale
 
 **Customer need:** Customer, order, inventory, and entitlement data is fragmented across systems, while an application needs one current view.
 
-**tapstate model:** Capture relevant changes and reshape records into a
-consumer-oriented representation. Stateful Join belongs to the target model and
-is refused by the current preview runtime.
+**tapstate model:** Capture relevant changes and use `nest` to maintain a
+consumer-oriented document from related tables. The separately declared `join`
+transform remains outside the current runtime.
 
 **Verify before production:** Join semantics, late and duplicate records, key changes, delete propagation, source-of-truth ownership, and reconciliation.
 
@@ -43,7 +46,7 @@ is refused by the current preview runtime.
 
 **Verify before production:** Access control, data minimization, freshness requirements, auditability, failure behavior, and human authorization for actions.
 
-## Publish governed event and analytics feeds
+## Publish governed event feeds (roadmap)
 
 **Customer need:** Multiple teams need a consistent stream or destination without independently reading the same production database.
 

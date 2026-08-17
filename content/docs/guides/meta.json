@@ -4,6 +4,7 @@
     "bootstrap-and-auth",
     "register-connectors",
     "apply-and-run",
+    "assemble-documents-with-nest",
     "observe-a-pipeline",
     "troubleshooting"
   ]

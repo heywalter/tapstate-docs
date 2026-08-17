@@ -11,6 +11,10 @@ import { LinkCard, CardGrid } from '@/components/mdx';
 
 A **connector** defines how tapstate understands a system. A **connection** supplies the endpoint, credentials, scope, and role for one use of that connector.
 
+In the v0.2 product path, MySQL is the published source and MongoDB is the
+published operational-state target. Broader connector metadata and roadmap
+pages do not expand that current release path.
+
 ```text
 Connector definition     Connection resource         Pipeline reference
 MySQL fields + modes  →  orders_mysql            →  source: orders_mysql
@@ -27,7 +31,10 @@ The connector definition answers questions that should stay consistent across en
 - Which configuration keys and value shapes are recognized?
 - Which preparation steps and limitations apply to the external system?
 
-The [connector directory](/docs/connectors) is the reader-facing index for those answers. A connector definition can validate known fields and modes; connectivity and permissions are checked when the connection is used.
+The [connector directory](/docs/connectors) separates the current product roles
+from roadmap and unlisted references. A connector definition can validate known
+fields and modes; connectivity and permissions are checked when the connection
+is used.
 
 ## Connection resource
 

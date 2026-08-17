@@ -1,6 +1,6 @@
 ---
 title: Connector guides
-description: Find the tapstate guide for preparing a source or target system and authoring its connection resource.
+description: See the current MySQL-to-MongoDB connector path and the next planned connector directions
 sidebar:
   order: 1
 ai:
@@ -11,12 +11,28 @@ ai:
 
 import { ConnectorDirectoryMatrix } from '@/components/mdx';
 
-Choose the system you want tapstate to read from or write to. Select a connector
-to open its prerequisites, connection fields, documented roles and modes, and
-limitations. Use a [server-side connection test](/docs/guides/register-connectors#test-a-connection)
-before using a production endpoint.
+The current tapstate preview has one published operational-state path: capture
+an initial MySQL snapshot, follow later changes with CDC, and maintain the
+result in MongoDB. The current product release registers these two connector
+artifacts only.
+
+Select a current connector to prepare its external system and author the
+connection resource. Before using a real endpoint, run a
+[server-side connection test](/docs/guides/register-connectors#test-a-connection).
 
 <ConnectorDirectoryMatrix />
+
+## Roadmap entries
+
+Roadmap rows show the next connector directions: PostgreSQL capture and
+Kafka/Confluent delivery. They do not promise a release date, artifact, command,
+or runtime behavior. Use their linked guides only to understand likely
+preparation requirements until a release promotes them into the current path.
+
+Other connector preparation pages are intentionally omitted from navigation
+and AI directory indexes. A direct page labels itself as an unlisted reference
+so readers and agents do not mistake inherited preparation material for a
+current tapstate support contract.
 
 ## Maturity labels
 
@@ -29,11 +45,9 @@ test.
 
 ## Release-tested marker
 
-The **E2E** marker identifies a connector that participates in a published
-end-to-end release flow. It currently marks MySQL and MongoDB, which are the
-source and target used by the local demo. A missing marker does not
-mean that a connector is unsupported; it means that connector is not part of
-that release-tested flow.
+The **E2E** marker identifies a connector that participates in the published
+end-to-end release flow. It currently marks MySQL and MongoDB, the source and
+target used by the local playground. Roadmap entries do not receive this marker.
 
 ## How to read roles and modes
 
@@ -43,4 +57,4 @@ Hover a label or its information icon to see its exact meaning.
 - **Target** writes data to the listed system.
 - **Snapshot** reads the selected data once. **CDC** starts with existing data,
   then captures later committed changes.
-- A dash means the current catalog does not report that role or read mode.
+- A dash means a read mode does not apply to the published target role.
