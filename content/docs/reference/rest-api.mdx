@@ -161,6 +161,11 @@ The response proves that the intent was accepted. Read observed status and desti
 | `GET` | `/api/pipelines/{id}/snapshot` | Per-table initial-load progress when available |
 | `GET` | `/api/pipelines/{id}/logs` | Bounded node-local log tail |
 
+The status response includes `pipelineId` and `state`. When the observed state
+records a job failure, it also includes a `failure` object with `code`,
+`params`, and a reader-facing `message`. The same shape is used in status watch
+frames. The failure object is omitted when there is no failure to report.
+
 WebSocket endpoints:
 
 | Path | Behavior |
@@ -192,6 +197,11 @@ Coded failures use:
 ```
 
 Treat `code` as the stable machine key. `message` is reader-facing and can change.
+
+`engine.job-failed` is a pipeline failure code, not a request-level HTTP error.
+When it appears as `failure.code` in a status response or status watch frame, it
+means that the pipeline stopped because its job failed. Inspect
+`failure.message` and the pipeline logs for the underlying cause.
 
 Common status mappings:
 

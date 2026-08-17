@@ -35,7 +35,12 @@ States include:
 
 Status is observed state, not merely the last command issued. It is eventually consistent and can lag a lifecycle write briefly.
 
-`status --watch` uses an authenticated WebSocket that polls the same observation and emits only state changes. Press <kbd>Ctrl</kbd>+<kbd>C</kbd> to stop watching without stopping the pipeline.
+When a job fails, the CLI status output includes `failureCode` and
+`failureMessage` with the `FAILED` state. `failureCode` is the stable machine
+key; `failureMessage` is the reader-facing explanation. Healthy states omit
+these fields.
+
+`status --watch` uses an authenticated WebSocket that polls the same observation and emits only state changes. A failure frame carries the same failure fields. A normal connection drop may be re-attached, but when the server closes the stream with a coded refusal, the CLI reports that code and terminates instead of reconnecting indefinitely. Press <kbd>Ctrl</kbd>+<kbd>C</kbd> to stop watching without stopping the pipeline.
 
 ## Read metrics
 
@@ -66,7 +71,7 @@ logs orders_to_analytics --follow
 
 Logs are a bounded tail from the node serving the request. They are not a durable audit history or an aggregated multi-node log. An empty log result is valid when the pipeline has not logged on that node.
 
-`logs --follow` opens an authenticated WebSocket and sends newly observed lines. Under a burst, a bounded tail can re-send a line when it re-tails after eviction; consumers should tolerate duplicates.
+`logs --follow` opens an authenticated WebSocket and sends newly observed lines. Under a burst, a bounded tail can re-send a line when it re-tails after eviction; consumers should tolerate duplicates. A normal connection drop may be re-attached, but a server close carrying a coded refusal terminates the follow operation and reports the code instead of reconnecting indefinitely.
 
 ## Build an evidence set
 
