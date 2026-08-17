@@ -52,6 +52,20 @@ Artifact deletion requires a quoted 64-character content hash from the artifact'
 If-Match: "<64-hex-content-hash>"
 ```
 
+Read the artifact first to obtain the hash. The `contentHash` field is the
+unquoted 64-character value returned by `GET /api/artifacts/{id}` (and by the
+artifact list); wrap that value in quotes only when forming the `If-Match`
+header:
+
+```json
+{
+  "id": "orders_source",
+  "kind": "source",
+  "canonicalForm": "...",
+  "contentHash": "<64-hex-content-hash>"
+}
+```
+
 The server returns `428` when the header is missing or malformed, `412` when the hash is stale, and `204` after the artifact is removed.
 
 Apply request:

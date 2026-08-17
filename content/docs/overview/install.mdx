@@ -43,21 +43,6 @@ sample databases with Docker Compose. You do not need to install the CLI first.
 Installing the CLI is enough for the offline authoring walkthrough, but it
 cannot test a database connection or move data without a server.
 
-### MCP sidecar in the full CLI bundle
-
-The complete CLI bundle contains the native command and the local MCP sidecar:
-
-```text
-bin/tapstate
-libexec/tapstate-mcp.jar
-```
-
-`tapstate mcp` starts the sidecar as a Java Boot JAR and exposes its MCP protocol
-over standard input and output. Running it requires a Java 21 or newer runtime;
-the native CLI and its offline commands do not require Java. The sidecar is a
-client gateway, not the tapstate server, so it connects to an already running
-server using the `TAPSTATE_TOKEN` environment variable.
-
 ## Supported platforms
 
 | Operating system | Architecture | Recommended minimum |
@@ -224,6 +209,17 @@ rm "$HOME/.tapstate/bin/tapstate"
 ```
 
 This removes only the CLI binary. Workspaces, containers, and external-system data are separate.
+
+## Optional integrations
+
+### Connect an MCP host
+
+The full CLI bundle includes `tapstate mcp`, a local gateway for MCP-compatible
+AI tools. It does not start a tapstate server or provide an interactive prompt.
+Use it only when a server is already running and you have its
+`TAPSTATE_TOKEN`; the gateway also requires Java 21 or newer. Offline CLI
+commands do not require Java. See the [CLI reference](/docs/reference/cli#mcp)
+for the host configuration and command example.
 
 ## Next steps
 
