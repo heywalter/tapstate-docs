@@ -105,6 +105,27 @@ export function getPublicDocPages() {
   return source.getPages().filter(isPublicDocPage);
 }
 
+function isPublicPageTreeItem(item: Item) {
+  const page = source.getNodePage(item);
+  return !page || isPublicDocPage(page);
+}
+
+function filterPublicPageTreeNode(node: Node): Node | null {
+  if (node.type === 'page') return isPublicPageTreeItem(node) ? node : null;
+  if (node.type !== 'folder') return node;
+
+  const index = node.index && isPublicPageTreeItem(node.index)
+    ? node.index
+    : undefined;
+  const children = node.children.flatMap((child) => {
+    const publicChild = filterPublicPageTreeNode(child);
+    return publicChild ? [publicChild] : [];
+  });
+
+  if (!index && children.length === 0) return null;
+  return { ...node, index, children };
+}
+
 function readAttribute(attrs: string, name: string) {
   return attrs.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1];
 }
@@ -310,9 +331,13 @@ ${metadata ? `${metadata}\n\n` : ''}${processed}`;
 }
 
 export function getLLMIndex() {
-  const index = makeDocumentLinksAbsolute(llms(source).index());
-  const [, ...content] = index.split('\n');
-  const documentationMap = content.join('\n').trim();
+  const renderer = llms(source);
+  const documentationMap = makeDocumentLinksAbsolute(
+    source.getPageTree().children.flatMap((node) => {
+      const publicNode = filterPublicPageTreeNode(node);
+      return publicNode ? [renderer.indexNode(publicNode)] : [];
+    }).join('\n'),
+  ).trim();
 
   return [
     '# Tapstate documentation',

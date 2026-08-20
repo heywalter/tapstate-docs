@@ -146,10 +146,10 @@ exact field name, type, required flag, default, or accepted value. Start with
 [Resource grammar](/docs/reference/dsl-grammar) to choose a resource kind, then
 use the matching table here to complete or check its YAML.
 
-The tables are generated from the product \`tapstate-v1.schema.json\`. They
-describe what the YAML contract accepts; they do not prove that every declared
-field or surface is available in the current preview runtime. For the current
-execution boundary, see [Resource grammar](/docs/reference/dsl-grammar#declaration-and-execution-are-different-checks).
+The tables are generated from the \`tapstate-v1.schema.json\` shipped with the
+documented release. They describe what that release's YAML contract accepts;
+they do not prove that every declared field or surface is available in the
+current preview runtime. For the execution boundary, see [Resource grammar](/docs/reference/dsl-grammar#declaration-and-execution-are-different-checks).
 
 ${body}
 
