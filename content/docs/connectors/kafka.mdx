@@ -1,6 +1,6 @@
 ---
 title: Kafka
-description: Connect Apache Kafka to tapstate through kafka_enhanced for streaming reads or writes.
+description: Prepare Kafka or Confluent as a planned event-delivery target for tapstate operational changes.
 sidebar:
   order: 8
 ai:
@@ -8,9 +8,9 @@ ai:
   id: kafka_enhanced
   category: streaming-messaging
   maturity: ga
-  useAs: [source, target]
-  modes: [stream]
-  aliases: [apache kafka, confluent kafka, kafka stream, kafka source, kafka target, kafka enhanced]
+  useAs: [target]
+  modes: []
+  aliases: [apache kafka, confluent kafka, kafka delivery, kafka target, kafka enhanced]
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
@@ -18,26 +18,22 @@ import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 <ConnectorProfile
   category="Streaming & messaging"
   maturity="GA"
-  maturityLabel="Generally available"
-  worksAs="Source, Target"
-  capabilities="Stream read, Stream write, Schema Registry"
+  maturityLabel="Stable guide and configuration contract"
+  worksAs="Target"
+  capabilities="Stream write, Schema Registry"
   compatibility="Kafka 2.0–2.5 · Scala 2.12 · Single node or cluster"
 />
 
 ## Before you begin
 
-### Source
-
-- Ensure the tapstate runtime can reach every broker address in `clusterURI`.
-- Choose `keySerialization`, `valueSerialization`, and `schemaMode` to match the bytes already stored in each topic.
-- If Schema Registry is enabled, prepare its URL and authentication settings.
-- If SASL or Kerberos is enabled, prepare the matching credentials and Kerberos files.
-
-Kafka has no finite Snapshot/CDC split. Before the first production run, choose and verify whether the stream starts from the earliest available offset, the current position, or a time-derived offset. The broker connection itself does not set this policy.
-
 ### Target
 
-Pre-create production topics with the required partition count, replication factor, retention, and ACLs. For example:
+Use this roadmap guide to prepare a Kafka or Confluent target. It does not make
+the Kafka artifact part of the current runtime path.
+
+Ensure the future tapstate runtime can reach every broker address in
+`clusterURI`. Pre-create topics with the required partition count, replication
+factor, retention, and ACLs. For example:
 
 ```bash
 bin/kafka-topics.sh --create \
@@ -53,36 +49,19 @@ The selected serializers, structural mode, and optional Schema Registry type mus
 {"id": 1, "name": "Alice", "amount": 99.50}
 ```
 
-The connector can write its standard event envelope, standard JSON, original Kafka records, Canal, Debezium, Flink CDC, or a custom analyzed structure. Choose a format that the downstream consumer already understands; changing it later is a data-contract change.
+The connector contract describes a standard event envelope, standard JSON,
+original Kafka records, Canal, Debezium, Flink CDC, and a custom analyzed
+structure. Choose a format that the downstream consumer already understands;
+changing it later is a data-contract change.
 
 ## Create a connection
 
-```yaml
+For a Kafka target, omit a source `mode` and topic selection:
+
+```yaml title="tapstate-work/source/events_kafka.tap.yml"
 version: tapstate/v1
 kind: source
-id: my-kafka
-connector: kafka_enhanced
-mode: stream
-
-config:
-  clusterURI: "broker1.internal:9092,broker2.internal:9092"
-  schemaRegister: false
-  schemaMode: STANDARD_JSON
-  keySerialization: String
-  valueSerialization: JsonObject
-  useSasl: false
-  krb5: false
-
-tables:
-  - my_topic
-```
-
-For a Kafka target, use the same broker, serializer, and Schema Registry settings without a source `mode` or topic selection:
-
-```yaml title="tapstate-work/source/events_kafka_target.tap.yml"
-version: tapstate/v1
-kind: source
-id: events_kafka_target
+id: events_kafka
 connector: kafka_enhanced
 config:
   clusterURI: "broker1.internal:9092,broker2.internal:9092"
@@ -98,12 +77,12 @@ config:
 version: tapstate/v1
 kind: pipeline
 id: events_to_kafka
-source: my-kafka
+source: orders_source
 serve:
   from: /.*/
   sync:
     - id: write_to_kafka
-      source: events_kafka_target
+      source: events_kafka
       write_mode: append
       ddl: fail
 ```
@@ -118,13 +97,14 @@ tapstate validate --workdir tapstate-work
 
 <ValidationStatusGuide />
 
-In staging, read and write one record for every selected serialization path. Verify its key, headers, partition, timestamp, and value with an independent Kafka consumer before enabling production traffic.
+When a release publishes this target path, write one record for every selected
+serialization path in staging. Verify its key, headers, partition, timestamp,
+and value with an independent Kafka consumer before relying on the
+configuration.
 
 ## Limitations
 
-- Kafka is an unbounded stream; do not model it as Snapshot or CDC.
-- Re-reading an offset can deliver the same record more than once. Use stable keys and idempotent target writes when duplicates are unacceptable.
-- Consumer concurrency is bounded by the available topic partitions. More reader threads do not increase parallelism beyond that partition count.
+- Kafka is an event-stream target; do not model its delivery as Snapshot or CDC.
 - Topic existence, partitioning, replication factor, ACLs, retention, and message compatibility require live broker checks.
 - Do not assume end-to-end exactly-once delivery. Verify producer transactions, pipeline recovery, and downstream idempotency together before production.
 - `kafka_enhanced` supports JSON, Avro, and Protobuf Schema Registry types. The registered schema must remain compatible with the actual key/value encoding.

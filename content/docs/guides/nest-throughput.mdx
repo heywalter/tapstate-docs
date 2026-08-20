@@ -1,0 +1,78 @@
+---
+title: Plan nest capacity and delivery behavior
+description: Size a nest pipeline around whole-document writes, final-state delivery, and representative source changes
+ai:
+  kind: guide
+  id: nest-throughput
+  maturity: preview
+  aliases: [tapstate nest throughput, nest capacity, nest send window, nest document size]
+---
+
+`nest` writes an assembled document as a unit. A change to a row that belongs
+to a document can therefore rewrite that complete document, not only the
+changed row. Plan and test this path using the largest document and busiest root
+you expect, not only average rows.
+
+## Understand the delivery contract
+
+The v0.2 preview uses a 50 ms leading-edge send window for a normal `nest`
+root. The first changed document is sent immediately; later changes during that
+window can be folded into the next document write. A quiet document does not
+wait for the window.
+
+A deletion is sent immediately and closes the open window. It is not folded
+with later changes because the document key may no longer exist.
+
+This is final-state delivery, not an audit stream of every intermediate
+version. It fits an upserting target such as the published MongoDB path. If a
+consumer must receive every version, a normal folded `nest` path is not an
+appropriate contract. `root.mode: append` avoids folding, but it changes the
+target semantics and must be evaluated with representative data.
+
+The 50 ms window is preview behavior, not a latency or throughput service-level
+objective. Do not size a production deployment from this value.
+
+## Plan with four inputs
+
+Before a realistic test, record:
+
+1. the largest expected assembled document size;
+2. the maximum number of embedded elements under one root;
+3. the peak change rate for one busy root and the aggregate source change rate;
+4. target write capacity, indexes, and write concern for the actual topology.
+
+Whole-document writes make both document size and fan-out important. A source
+table can have modest row sizes while its assembled document is too large for
+the target or too expensive to rewrite at its peak update rate.
+
+## Test the target behavior
+
+Use a non-production environment that matches the intended schema and indexes.
+Test at least:
+
+- an initial load with documents near the largest expected size;
+- a sustained update run against the busiest root;
+- concurrent updates across many roots;
+- inserts, updates, deletes, and structural key changes where enabled; and
+- target reads that confirm consumers see the expected final document.
+
+Watch `metrics`, `logs`, target write latency, source retention, CPU, memory,
+and storage. A `running` pipeline is not enough evidence: verify target data
+and investigate any dead-lettered records or repeated failures.
+
+## Keep the document model bounded
+
+Set an explicit upper bound on business fan-out before authoring a deeply nested
+tree. When an assembled document can grow without a practical bound, split the
+consumer model or use a different materialization shape. Increasing a memory
+budget cannot make an oversized document safe to assemble or store.
+
+The preview is single-node and does not publish a production throughput SLO.
+Treat measured capacity as deployment-specific and repeat these tests after
+changing the source schema, document shape, target indexes, or server version.
+
+## Next steps
+
+- [Assemble documents with nest](/docs/guides/assemble-documents-with-nest)
+- [Handle structural key changes with nest](/docs/guides/nest-structural-key-changes)
+- [`nest` transform reference](/docs/reference/transforms#nest)

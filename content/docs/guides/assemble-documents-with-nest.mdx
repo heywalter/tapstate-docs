@@ -8,6 +8,8 @@ ai:
   aliases: [tapstate nest tutorial, document assembly, nested mongodb document, mysql table assembly]
 ---
 
+import { CardGrid, LinkCard } from '@/components/mdx';
+
 Use `nest` when an application needs one current document but the source stores
 that entity across related tables. The transform builds the document during the
 initial load and updates it as MySQL emits later changes.
@@ -16,6 +18,19 @@ This guide uses an `orders` root table and an `order_items` child table. It
 assumes the v0.2 playground or another non-production server is running, the
 MySQL and MongoDB connector artifacts are registered, and both connections pass
 a server-side test.
+
+<CardGrid>
+<LinkCard
+  title="Handle structural key changes"
+  description="Use before images and key tracking when a root, parent, or array key can change."
+  href="/docs/guides/nest-structural-key-changes"
+/>
+<LinkCard
+  title="Plan capacity and delivery"
+  description="Size whole-document writes and test final-state delivery with representative changes."
+  href="/docs/guides/nest-throughput"
+/>
+</CardGrid>
 
 ## 1. Choose the document root
 
@@ -111,9 +126,11 @@ the relationship has at most one child.
 
 `trackKeyChanges: true` moves an embedded row when its item key or parent key
 changes. It requires the source connector to provide a before image. Leave it
-off when those keys are immutable.
+off when those keys are immutable. Before enabling it, read [Handle structural
+key changes with nest](/docs/guides/nest-structural-key-changes) and verify that
+MySQL emits complete row images.
 
-## 4. Discover schemas, then apply again
+## 4. Discover the source schema, then apply again
 
 Validate locally, apply the connections, discover both source schemas, and
 apply the pipeline again before starting it:
@@ -152,6 +169,9 @@ A nest emits and writes the assembled document as a unit. Include a document
 near the expected maximum size in capacity and latency tests; a backing state
 layer cannot make one oversized document fit.
 
+For whole-document delivery behavior, peak-change planning, and a practical
+test matrix, see [Plan nest capacity and delivery behavior](/docs/guides/nest-throughput).
+
 ## Current limits
 
 - Every nested relationship must point from child to parent.
@@ -164,4 +184,6 @@ layer cannot make one oversized document fit.
 
 Continue with [Observe a pipeline](/docs/guides/observe-a-pipeline) and the
 [`nest` reference](/docs/reference/transforms#nest) for runtime signals and every
-field.
+field. Use [Handle structural key changes with nest](/docs/guides/nest-structural-key-changes)
+and [Plan nest capacity and delivery behavior](/docs/guides/nest-throughput) for
+the operational boundaries that apply to the example.

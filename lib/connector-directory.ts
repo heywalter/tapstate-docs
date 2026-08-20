@@ -115,7 +115,7 @@ export const connectorProductProfiles: Record<string, ConnectorProductProfile> =
   mysql: { status: 'current', useAs: ['source'], modes: ['snapshot', 'cdc'] },
   mongodb: { status: 'current', useAs: ['target'], modes: [] },
   postgresql: { status: 'roadmap', useAs: ['source'], modes: ['snapshot', 'cdc'] },
-  kafka: { status: 'roadmap', displayTitle: 'Kafka / Confluent', useAs: ['target'], modes: ['stream'] },
+  kafka: { status: 'roadmap', displayTitle: 'Kafka / Confluent', useAs: ['target'], modes: [] },
 };
 
 export function getConnectorDocumentationStatus(slug: string): ConnectorDocumentationStatus {
@@ -172,19 +172,19 @@ export function renderConnectorDirectoryForLLM() {
     })
     .join('\n');
 
-  return `## Current release path
+  return `## Current connector path
 
-The current product directory publishes the connector roles used by the v0.2 release path.
+The current product directory publishes the connector roles used by the MySQL-to-MongoDB operational-state path.
 
-| Connector | Guide maturity | Release test | Product role | Read modes |
+| Connector | Guide maturity | E2E | Published role | Read modes |
 |---|---|---|---|---|
 ${renderRows('current')}
 
 ## Roadmap
 
-These guides describe planned directions, not current release contracts. No release date is implied.
+These guides describe planned directions, not current product contracts. No release date is implied.
 
-| Connector | Guide maturity | Release test | Planned role | Planned read modes |
+| Connector | Guide maturity | E2E | Planned role | Planned read modes |
 |---|---|---|---|---|
 ${renderRows('roadmap')}`;
 }

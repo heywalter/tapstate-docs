@@ -13,7 +13,7 @@ import { ConnectorDirectoryMatrix } from '@/components/mdx';
 
 The current tapstate preview has one published operational-state path: capture
 an initial MySQL snapshot, follow later changes with CDC, and maintain the
-result in MongoDB. The current product release registers these two connector
+result in MongoDB. The current runtime path registers these two connector
 artifacts only.
 
 Select a current connector to prepare its external system and author the
@@ -27,12 +27,26 @@ connection resource. Before using a real endpoint, run a
 Roadmap rows show the next connector directions: PostgreSQL capture and
 Kafka/Confluent delivery. They do not promise a release date, artifact, command,
 or runtime behavior. Use their linked guides only to understand likely
-preparation requirements until a release promotes them into the current path.
+preparation requirements until a release promotes them into the current product
+path.
 
-Other connector preparation pages are intentionally omitted from navigation
-and AI directory indexes. A direct page labels itself as an unlisted reference
-so readers and agents do not mistake inherited preparation material for a
-current tapstate support contract.
+Only current and roadmap entries appear in this directory. Other integrations
+are not published in this public documentation site and are not presented as
+supported connector workflows.
+
+## Documentation status
+
+The directory uses a status separate from **Maturity**:
+
+- **Current path** means the connector has a published role in the current
+  product path. MySQL is the current source and MongoDB is the current target.
+- **Roadmap reference** means the connector is an explicitly planned direction,
+  not a current runtime contract. PostgreSQL and Kafka/Confluent are currently
+  in this group.
+
+**GA** and **Preview** describe guide or configuration-contract maturity. They
+do not change the documentation status or prove that an artifact is bundled,
+registered, or end-to-end tested.
 
 ## Maturity labels
 
@@ -40,8 +54,7 @@ current tapstate support contract.
 - **Preview** means the guide or configuration contract can still change.
 
 Maturity does not mean that a connector JAR is bundled with every tapstate
-release or that every listed role and mode has passed an end-to-end release
-test.
+release or that every listed role and mode has passed an end-to-end test.
 
 ## Release-tested marker
 

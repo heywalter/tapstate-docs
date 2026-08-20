@@ -8,9 +8,9 @@ ai:
   id: mysql
   category: databases
   maturity: ga
-  useAs: [source, target]
+  useAs: [source]
   modes: [snapshot, cdc]
-  aliases: [mysql snapshot, mysql full load, mysql cdc, mysql binlog, mysql source, mysql target]
+  aliases: [mysql snapshot, mysql full load, mysql cdc, mysql binlog, mysql source]
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
@@ -19,10 +19,10 @@ import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
 <ConnectorProfile
   category="Databases"
   maturity="GA"
-  maturityLabel="Generally available"
+  maturityLabel="Stable guide and configuration contract"
   releaseTested="Source in the published MySQL → MongoDB Snapshot + CDC flow"
-  worksAs="Source, Target"
-  capabilities="Snapshot, CDC, Schema discovery, DDL capture, Data write"
+  worksAs="Source"
+  capabilities="Snapshot, CDC, Schema discovery, DDL capture"
   compatibility="MySQL 5.0–9.x · Single node and primary-replica"
 />
 
@@ -111,13 +111,6 @@ Confirm `log_bin = ON`, `binlog_format = ROW`, and `binlog_row_image = FULL`. Al
 
 </SourceModeTab>
 </SourceModeTabs>
-
-### Target
-
-The connector definition also describes a MySQL target role. The current v0.2
-product directory does not publish MySQL as a target, so this guide does not
-present it as a runnable release path. Use the [MongoDB target](/docs/connectors/mongodb) for
-the current operational-state flow.
 
 ## Create a connection
 
@@ -272,6 +265,9 @@ for the full sequence.
 | Spatial | `POINT`, `LINESTRING`, `POLYGON`, `GEOMETRY`, `MULTIPOINT`, `MULTILINESTRING`, `MULTIPOLYGON`, `GEOMCOLLECTION` |
 | Other | `BIT`, `ENUM`, `SET`, `JSON` |
 
+- **Current MySQL → MongoDB path:** `TIMESTAMP(3)` → BSON `Date` at millisecond
+  precision. Preserves the instant; does not preserve the source time-zone or
+  offset representation.
 - Replicated row changes include `INSERT`, `UPDATE`, and `DELETE`.
 - Adding, changing, renaming, and dropping columns remain pipeline-level staging checks.
 - Test heterogeneous pipelines with spatial, custom, `ENUM`, and `SET` values because downstream systems commonly represent them as strings.

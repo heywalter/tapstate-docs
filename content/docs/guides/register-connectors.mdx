@@ -8,7 +8,10 @@ ai:
   aliases: [tapstate register connector, tapstate connection test, tapstate discover schema]
 ---
 
-Registration makes executable connector code available to the server. Validation, registration, and connection testing answer different questions:
+Registration makes executable connector code available to a running tapstate
+server. Use this guide only when the server does not already have the connector
+artifact you need. Validation, registration, and connection testing answer
+different questions:
 
 | Check | What it proves |
 |---|---|
@@ -17,25 +20,57 @@ Registration makes executable connector code available to the server. Validation
 | `test` | The registered connector ran its own checks against the supplied endpoint and credentials. |
 | `discover-schema` | A source connection can enumerate objects and return a model. |
 
-Offline validation does not require every catalog-required field, rejects neither unknown connector fields nor unresolved environment-variable contents, and never opens a network connection.
+Offline validation can accept a resource when catalog-required fields are
+missing, connector-specific keys are unknown, or environment-variable values
+are unresolved. It never opens a network connection.
+
+## When registration is required
+
+- **Local playground:** no action is required. `quickstart.sh` downloads and
+  registers the official MySQL and MongoDB JARs before it applies the sample
+  workspace.
+- **A server started with connector artifacts in its seed directory:** no manual
+  registration is required. The server registers those artifacts at startup.
+- **Any other connected server:** register an artifact only when the connector
+  you need is not already available to that server.
+
+After you connect and sign in, run `connectors -o json` to inspect the server's
+catalog. If the MySQL or MongoDB artifact you need is already available, skip
+the registration step and continue with [Apply the connections](#apply-the-connections).
 
 ## Before you begin
 
 - [Bootstrap and authenticate](/docs/guides/bootstrap-and-auth).
-- Obtain the connector JAR from a trusted, versioned source.
-- Verify its published checksum or content hash.
 - Create and validate the connection resources locally.
 
-The `v0.2.0` local demo uses the separately published [MySQL and MongoDB connector preview assets](https://github.com/tapstate/tapstate/releases/tag/connectors-preview).
+## Get the current preview connector JARs
+
+The current preview accepts only the official MySQL and MongoDB artifacts from
+the [connector preview release](https://github.com/tapstate/tapstate/releases/tag/connectors-preview).
+Download `mysql-connector.jar` or `mongodb-connector.jar` from that release to
+a local directory that the CLI can read. Do not use a catalog entry, roadmap
+page, or third-party JAR as evidence that the current server will accept it.
+
+## Current preview registration boundary
+
+The `v0.2.0` release accepts only the published MySQL and MongoDB preview
+connector artifacts. A connector catalog entry, a roadmap page, or a JAR by
+itself does not expand that runtime boundary.
+
+Registering an artifact with another connector ID returns
+`connector.not-official`; the server does not register it. The same boundary
+applies when a server scans a connector seed directory.
 
 ## Register connector artifacts
 
-Place the connector JARs next to the workspace:
+The JAR does not need to live in the workspace. The CLI uploads it, and the
+server stores the accepted artifact. For example:
 
 ```text
-tapstate-demo/
-├── mysql-connector.jar
-├── mongodb-connector.jar
+tapstate-work/
+├── connector-artifacts/
+│   ├── mysql-connector.jar
+│   └── mongodb-connector.jar
 └── work/
 ```
 
@@ -48,8 +83,8 @@ tapstate -w work
 ```text
 connect http://127.0.0.1:8080
 login admin
-register ../mysql-connector.jar -o json
-register ../mongodb-connector.jar -o json
+register ../connector-artifacts/mysql-connector.jar -o json
+register ../connector-artifacts/mongodb-connector.jar -o json
 connectors -o json
 ```
 
@@ -64,7 +99,7 @@ At the same prompt:
 ```text
 apply
 get orders_source
-get analytics_mongodb
+get operational_state
 ```
 
 `apply` reparses and validates the YAML on the server. It reports each artifact as `CREATED`, `UPDATED`, or `UNCHANGED`.
@@ -122,7 +157,8 @@ schema orders_source orders -o json
 
 | Symptom | Check |
 |---|---|
-| Connector not found | Register the correct JAR, then confirm its ID with `connectors`. |
+| Connector not found | Download the matching official JAR, register it, then confirm availability with `connectors`. |
+| `connector.not-official` | This v0.2.0 server accepts only the published MySQL and MongoDB preview artifacts. Confirm the artifact ID and use the current release assets. |
 | API-level incompatibility | Use an artifact built for a compatible PDK API level. |
 | `FAILED` connection report | Read every failed check; verify DNS, port, TLS, credentials, database, and permissions from the server host. |
 | No stored test result | Run `test` before `test-result`. |

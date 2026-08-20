@@ -20,17 +20,14 @@ connector: mysql
 mode: cdc
 config:
   host: db.internal
-  port: 3306
+  port: "3306"
   database: production
   username: ${MYSQL_USER}
   password: ${MYSQL_PASSWORD}
 tables:
   - users
   - /orders_.*/
-  - name: audit_log
-    filter: "tenant_id == 'north'"
-    pk: [id]
-    options: {}
+  - audit_log
 srs:
   enabled: true
   key: id
@@ -85,6 +82,14 @@ reads or writes against the real connector.
 
 ### `tables`
 
+For a connection used as a read source, an omitted `tables` field makes
+tapstate select every table in its latest discovered schema. Run schema
+discovery first; an omitted selector cannot start from an absent or empty
+discovery result. Use explicit names or patterns when you need the selected set
+to remain stable as the source schema changes.
+
+A target-only connection does not read tables, so omit `tables` there.
+
 Each item can be:
 
 - a literal table or collection name;
@@ -92,8 +97,15 @@ Each item can be:
 - an object with `name` plus optional `filter`, `pk`, and connector-owned
   `options`.
 
-Regex discovery and table-level options depend on the connector. Do not infer
-runtime support from Schema acceptance.
+Regex selectors also require a discovered schema. A literal can be used before
+discovery, but once a discovered schema is available it must name one of its
+tables.
+
+The v1 grammar accepts `filter`, `pk`, and `options` on an object selector, but
+the current preview capture path supports an object with `name` only. It
+returns `actuation.source-table-spec-unsupported` when those extra fields are
+present. Do not use them in a runnable preview pipeline merely because offline
+validation accepts the resource.
 
 ### `options`
 
@@ -106,5 +118,5 @@ SRS settings. They are valid only for a `cdc` source. Accepted fields are
 `enabled`, `key`, `queryable`, `retention`, and `schema_evolution` (`ignore` or
 `track`).
 
-See the [connector directory](/docs/connectors) for catalog metadata and
+See the [connector directory](/docs/connectors) for current roles, modes, and
 external-system preparation.

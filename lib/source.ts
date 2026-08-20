@@ -52,9 +52,13 @@ function groupConnectorNavigation(node: Folder, folderPath: string): Folder {
   );
   const remainingNodes = node.children.filter((child) => child.type !== 'page') as Node[];
 
+  const children = groups.length === 1
+    ? [...directPages, ...groups[0].children, ...remainingNodes]
+    : [...directPages, ...groups, ...remainingNodes];
+
   return {
     ...node,
-    children: [...directPages, ...groups, ...remainingNodes],
+    children,
   };
 }
 
@@ -86,6 +90,21 @@ export function getPageMarkdownUrl(page: (typeof source)['$inferPage']) {
   };
 }
 
+/**
+ * Public documentation policy for generated pages and machine-readable
+ * surfaces. Connector pages without a product profile are preparation
+ * material only; they stay in the source tree for history and future review,
+ * but must not be emitted as public documentation.
+ */
+export function isPublicDocPage(page: (typeof source)['$inferPage']) {
+  if (page.slugs[0] !== 'connectors' || page.slugs.length < 2) return true;
+  return getConnectorDocumentationStatus(page.slugs[1]) !== 'unlisted';
+}
+
+export function getPublicDocPages() {
+  return source.getPages().filter(isPublicDocPage);
+}
+
 function readAttribute(attrs: string, name: string) {
   return attrs.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1];
 }
@@ -94,9 +113,9 @@ function renderConnectorProfileForLLM(attrs: string) {
   const field = (name: string) => readAttribute(attrs, name);
   const rows = [
     `| Category | ${field('category') ?? 'Not specified'} |`,
-    `| Maturity | ${field('maturity') ?? 'Not specified'} — ${field('maturityLabel') ?? 'Not specified'} |`,
+    `| Guide maturity | ${field('maturity') ?? 'Not specified'} — ${field('maturityLabel') ?? 'Not specified'} |`,
     field('releaseTested') ? `| Release-tested | E2E — ${field('releaseTested')} |` : null,
-    field('worksAs') ? `| Works as | ${field('worksAs')} |` : null,
+    field('worksAs') ? `| Role in this guide | ${field('worksAs')} |` : null,
     field('capabilities') ? `| Capabilities | ${field('capabilities')} |` : null,
     `| Compatibility | ${field('compatibility') ?? 'Not specified'} |`,
   ].filter(Boolean);
@@ -184,7 +203,13 @@ Next, run the connection in a non-production environment and confirm credentials
 - **Serve:** Write current state to a downstream system.
 
 [Try tapstate locally](/docs/overview/quickstart-online) or [browse connectors](/docs/connectors).`)
-    .replace(/<TapStateArchitecture\s*\/>/g, `## Target logical architecture
+    .replace(/<PreviewArchitecture\s*\/>/g, `### Current preview architecture diagram
+
+| Path | Components | Current behavior |
+|---|---|---|
+| Control | \`.tap.yml\` workspace → tapstate CLI → single-node server | The CLI validates locally and sends authenticated control requests to the server. |
+| Data | MySQL → Capture and transform → MongoDB | The local playground runs an initial snapshot followed by CDC. The runtime wires \`filter\`, \`map\`, \`js\`, \`union\`, and \`nest\`. |`)
+    .replace(/<TapStateArchitecture\s*\/>/g, `### Target architecture diagram
 
 This diagram describes design direction, not the current preview implementation boundary.
 
@@ -246,22 +271,25 @@ function renderAgentMetadata(page: (typeof source)['$inferPage']) {
   const connectorProductProfile = ai.kind === 'connector'
     ? getConnectorProductProfile(page.slugs.at(-1) ?? '')
     : undefined;
+  const connectorCatalogEntry = ai.kind === 'connector'
+    ? connectorDirectory.find((entry) => entry.slug === (page.slugs.at(-1) ?? ''))
+    : undefined;
   const statusExplanation = connectorDocumentationStatus === 'current'
     ? 'current connector directory'
     : connectorDocumentationStatus === 'roadmap'
-      ? 'roadmap reference; not a current release contract'
+      ? 'roadmap reference; not a current product contract'
       : connectorDocumentationStatus === 'unlisted'
-        ? 'unlisted reference; not in the current connector directory'
+        ? 'not published in the public connector documentation'
         : undefined;
   const fields = [
     ['Content type', ai.kind],
     ['Identifier', ai.id],
     ['Documentation status', statusExplanation],
-    ['Product role', connectorProductProfile?.useAs.join(', ')],
+    [connectorDocumentationStatus === 'roadmap' ? 'Planned role' : 'Published role', connectorProductProfile?.useAs.join(', ')],
     ['Category', ai.category],
-    ['Maturity', ai.maturity],
-    ['Catalog roles', ai.useAs?.join(', ')],
-    ['Catalog read modes', ai.modes?.join(', ')],
+    ['Guide maturity', ai.maturity],
+    ['Catalog metadata roles', connectorCatalogEntry?.useAs.join(', ')],
+    ['Catalog metadata read modes', connectorCatalogEntry?.modes.join(', ')],
     ['Aliases', ai.aliases?.join(', ')],
   ].filter((field): field is [string, string] => Boolean(field[1]));
 
@@ -307,15 +335,16 @@ export function getLLMIndex() {
     '## Start here',
     '',
     `- [What is tapstate?](${absoluteDocsUrl('/docs/overview/what-is-tapstate')})`,
-    `- [Architecture](${absoluteDocsUrl('/docs/overview/architecture')})`,
     `- [Install the CLI](${absoluteDocsUrl('/docs/overview/install')})`,
-    `- [Local demo](${absoluteDocsUrl('/docs/overview/quickstart-online')})`,
+    `- [Local playground](${absoluteDocsUrl('/docs/overview/quickstart-online')})`,
+    `- [Author and validate a workspace](${absoluteDocsUrl('/docs/overview/quickstart')})`,
+    `- [Architecture](${absoluteDocsUrl('/docs/overview/architecture')})`,
     '',
     '## Connector status',
     '',
-    `- Current release path: [MySQL source](${absoluteDocsUrl('/docs/connectors/mysql')}) with Snapshot and CDC into a [MongoDB target](${absoluteDocsUrl('/docs/connectors/mongodb')}).`,
-    `- Roadmap references: [PostgreSQL capture](${absoluteDocsUrl('/docs/connectors/postgresql')}) and [Kafka / Confluent delivery](${absoluteDocsUrl('/docs/connectors/kafka')}). They do not imply a release date or current runtime contract.`,
-    '- Other connector preparation pages are unlisted and excluded from primary navigation, search, sitemap, and combined agent context.',
+    `- Current product path: [MySQL source](${absoluteDocsUrl('/docs/connectors/mysql')}) with Snapshot and CDC into a [MongoDB target](${absoluteDocsUrl('/docs/connectors/mongodb')}).`,
+    `- Roadmap references: [PostgreSQL capture](${absoluteDocsUrl('/docs/connectors/postgresql')}) and [Kafka / Confluent delivery](${absoluteDocsUrl('/docs/connectors/kafka')}). They do not imply a release date or current product contract.`,
+    '- Other connector preparation materials are not published in the public documentation site or combined agent context.',
     '',
     '## Agent guidance',
     '',
@@ -331,10 +360,7 @@ export function getLLMIndex() {
 }
 
 export async function getLLMFullText() {
-  const pages = source.getPages().filter((page) => {
-    if (page.slugs[0] !== 'connectors' || page.slugs.length < 2) return true;
-    return getConnectorDocumentationStatus(page.slugs[1]) !== 'unlisted';
-  });
+  const pages = getPublicDocPages();
   const scanned = await Promise.all(pages.map(getLLMText));
 
   return [

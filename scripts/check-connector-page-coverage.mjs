@@ -92,6 +92,7 @@ for (const name of pageNames) {
   const description = page.match(/^description:\s*(.+)$/m)?.[1]?.trim();
   const slug = name.replace(/\.mdx$/, '');
   const directoryItem = directoryItems.get(slug);
+  const productProfile = productProfiles.get(slug);
   const isServerAuthoritative = directoryItem?.capabilityAuthority === 'server';
   const missing = Object.entries(coreSections)
     .filter(([section, pattern]) => section !== 'validationExamples' && !pattern.test(page))
@@ -139,8 +140,10 @@ for (const name of pageNames) {
   } else {
     if (directoryItem.id !== id) missing.push(`directory id differs (${directoryItem.id})`);
     if (directoryItem.maturity !== maturity) missing.push(`directory maturity differs (${directoryItem.maturity})`);
-    if (directoryItem.roles.join(',') !== roles.join(',')) missing.push('directory roles differ from frontmatter');
-    if (directoryItem.modes.join(',') !== declaredModes.join(',')) missing.push('directory modes differ from frontmatter');
+    const expectedRoles = productProfile?.roles ?? directoryItem.roles;
+    const expectedModes = productProfile?.modes ?? directoryItem.modes;
+    if (expectedRoles.join(',') !== roles.join(',')) missing.push('published roles differ from frontmatter');
+    if (expectedModes.join(',') !== declaredModes.join(',')) missing.push('published modes differ from frontmatter');
   }
 
   if (/^kind:\s*target\s*$/m.test(page)) {
@@ -174,7 +177,7 @@ for (const name of pageNames) {
 
   if (isServerAuthoritative) {
     serverAuthoritative += 1;
-  } else {
+  } else if (!productProfile) {
     const unexpectedModes = declaredModes.filter((mode) => !catalogModes.includes(mode));
     const missingModes = catalogModes.filter((mode) => !declaredModes.includes(mode));
     if (unexpectedModes.length > 0 || missingModes.length > 0) {
@@ -195,7 +198,6 @@ for (const name of pageNames) {
     missing.push(`connection fields not documented: ${undocumentedFields.join(', ')}`);
   }
 
-  const productProfile = productProfiles.get(slug);
   const requiresCdcPath = productProfile
     ? productProfile.modes.includes('cdc')
     : directoryItem?.capabilityAuthority === 'server'

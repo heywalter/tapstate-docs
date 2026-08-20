@@ -1,0 +1,100 @@
+---
+title: Handle structural key changes with nest
+description: Keep assembled documents correct when a root, parent, or array key can change
+ai:
+  kind: guide
+  id: nest-structural-key-changes
+  maturity: preview
+  aliases: [tapstate nest key changes, nest before image, nest reparent, trackKeyChanges]
+---
+
+Use structural key tracking only when a key that determines a row's position in
+an assembled document can change. It is off by default because immutable keys do
+not need the extra source information or runtime work.
+
+This applies to a root key, an embedded row's parent key, and an embedded array
+key. The current published path is MySQL to MongoDB.
+
+## Enable tracking only on mutable branches
+
+Set `trackKeyChanges: true` on the root when a root key may change, and on each
+`embed` whose structural keys may change:
+
+```yaml
+transforms:
+  - id: customer_documents
+    type: nest
+    from:
+      customer: customers
+      order: orders
+    root:
+      from: customer
+      key: [customer_id]
+      trackKeyChanges: true
+      embed:
+        - from: order
+          on:
+            customer_id: customer_id
+          as: array
+          path: orders
+          arrayKey: [order_id]
+          trackKeyChanges: true
+```
+
+With tracking enabled, a changed root key moves the whole document. A changed
+child parent key moves the child subtree to its new parent, and a changed array
+key moves the element within its array.
+
+## Provide complete before images
+
+Tracking compares the old and new row positions, so every tracked update needs
+a before image. On the current MySQL path, configure:
+
+```ini
+[mysqld]
+binlog_format = ROW
+binlog_row_image = FULL
+```
+
+If MySQL cannot provide complete row images, capture can stop with
+`connector.capture-failed`. If an individual tracked update reaches `nest`
+without a before image, the pipeline stops with
+`nest.key-change-tracking-requires-before-image`. Correct the source setting or
+turn tracking off for that root or embed; do not ignore the failure because the
+old document position cannot be determined safely.
+
+With tracking off, a changed parent key can leave a child under its old parent,
+and a changed array key can leave a duplicate element. Use that mode only when
+the relevant keys are immutable or when those semantics are acceptable.
+
+## Check incompatible and large moves
+
+`root.mode: append` cannot be combined with key tracking. The pipeline is
+refused with `nest.append-mode-conflicts-with-key-tracking` because an
+append-only root must retain every version while a structural move needs to
+reconcile state.
+
+Large cross-parent moves are held temporarily until the complete subtree can be
+placed. If that holding area exceeds its configured bound, the pipeline stops
+with `nest.migration-parking-limit-exceeded`. Investigate the source update,
+parent coverage, and pipeline logs before increasing any deployment limit.
+
+## Verify before relying on the result
+
+In a non-production environment, test all mutable shapes that apply to your
+tree:
+
+1. change a root key and verify the old target key is gone;
+2. change a child parent key and verify the subtree appears only under the new
+   parent;
+3. change an array key and verify there is one element at the new key; and
+4. inspect `logs` and `metrics` for failures or dead-lettered records.
+
+Also test the [document size and update rate](/docs/guides/nest-throughput)
+that these moves can produce.
+
+## Next steps
+
+- [Assemble documents with nest](/docs/guides/assemble-documents-with-nest)
+- [`nest` transform reference](/docs/reference/transforms#nest)
+- [Prepare MySQL for CDC](/docs/connectors/mysql#before-you-begin)

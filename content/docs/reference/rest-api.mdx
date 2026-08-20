@@ -136,7 +136,9 @@ audit record.
 
 Update and delete require the quoted 64-character content hash returned in `ETag`. Missing or stale preconditions return HTTP `428` or `412`. Secret values are not returned; use the structured secret-clearing contract deliberately when replacing a source.
 
-For resource authoring and pipeline batches, prefer `/api/artifacts:apply`; do not mix the two write styles casually.
+Use one write model consistently. Prefer `/api/artifacts:apply` for resource
+authoring and pipeline batches. Use the structured source endpoints when a
+client needs source-specific draft and `ETag` workflows.
 
 ## Machine-token endpoints
 
@@ -153,6 +155,32 @@ manager or process environment; later list responses do not return it. Scope is
 ordered `read` < `write` < `admin`, and a token can call operations at or below
 its own grade.
 
+Create a write-scoped token with an administrator credential:
+
+```bash
+curl --fail-with-body --silent --show-error \
+  -X POST "$TAPSTATE_URL/api/tokens" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"scope":"write"}'
+```
+
+The response has this shape. The `token` value is returned only in this create
+response:
+
+```json
+{
+  "tokenId": "<token-id>",
+  "scope": "WRITE",
+  "token": "<one-time-bearer-value>",
+  "createdAt": "<timestamp>"
+}
+```
+
+List secret-free token metadata with `GET /api/tokens`. Revoke a token with
+`POST /api/tokens/<token-id>:revoke`; revocation returns HTTP `204` and takes
+effect immediately.
+
 ## Pipeline lifecycle endpoints
 
 | Method | Path |
@@ -166,7 +194,7 @@ Each response is desired state:
 
 ```json
 {
-  "pipelineId": "orders_to_analytics",
+  "pipelineId": "orders_to_operational_state",
   "targetState": "RUNNING",
   "revision": "<content-hash>"
 }
@@ -243,6 +271,11 @@ Common status mappings:
 
 Artifact edits and deletions use a shared `artifact.*` error domain:
 
+The v0.2.0 `GET /api/artifacts/{id}` read path currently returns HTTP `404`
+without a structured error body when the ID is absent. Handle the HTTP status
+first and do not require an `artifact.not-found` JSON envelope for that read;
+the coded error is used by artifact mutation/precondition paths.
+
 | Code | Meaning |
 |---|---|
 | `artifact.not-found` | The requested artifact does not exist. A delete that already succeeded returns this code if it is attempted again. |
@@ -250,9 +283,11 @@ Artifact edits and deletions use a shared `artifact.*` error domain:
 | `artifact.version-conflict` | The supplied content hash is stale (`412`). |
 | `artifact.in-use` | Another resource still refers to the artifact (`409`). |
 | `artifact.pipeline-not-stopped` | The artifact's pipeline is not stopped, so removal is refused (`409`). |
-| `artifact.reclaim-incomplete` | The deletion already took effect, but dependent bookkeeping left residue. Do not retry the deletion; inspect the `reason` and `residue` parameters and reconcile the remaining bookkeeping. A retry returns `artifact.not-found`. |
+| `artifact.reclaim-incomplete` | The deletion succeeded, but dependent cleanup did not finish. Do not retry the deletion. Record the `reason` and `residue` parameters and contact the server operator; a retry returns `artifact.not-found`. |
 
-Bare programmer errors can still return a framework-level HTTP `500` without the coded envelope. Preserve the status, response body, method, path, and tapstate version when diagnosing one.
+Unexpected server errors can return HTTP `500` without the coded envelope.
+Preserve the status, response body, method, path, and tapstate version when
+reporting one.
 
 ## Version boundary
 

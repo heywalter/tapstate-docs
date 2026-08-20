@@ -20,7 +20,7 @@ Tapstate connects operational systems through one governed Captureâ€“Transformâ€
     href="/docs/overview/what-is-tapstate"
   />
   <LinkCard
-    title="Local demo"
+    title="Local playground"
     description="Explore the MySQL-to-MongoDB snapshot and CDC workflow in a disposable Docker environment."
     href="/docs/overview/quickstart-online"
   />
@@ -46,16 +46,14 @@ The public preview demonstrates one concrete operational data path:
 
 The local MongoDB instance is the preview's published materialization target.
 Do not infer another store, query API, or push surface from the broader product
-model. Start with the [online quickstart](/docs/overview/quickstart-online) to
+model. Start with the [local playground](/docs/overview/quickstart-online) to
 run the current path locally.
 
 On this MySQL-to-MongoDB reference path, a MySQL `TIMESTAMP` value is written as
-a MongoDB BSON date with millisecond precision. The instant is preserved; source
-time-zone or offset metadata is not.
-
-A directly launched tapstate server listens on port `8080` by default. Set
-`SERVER_PORT=8081` to bind a different port. The Docker playground remains
-pinned to `127.0.0.1:8080` so its Compose services and examples agree.
+a MongoDB BSON date with millisecond precision. The instant is preserved; the
+source time-zone or offset representation is not preserved. The server-backed
+preview is supplied through the disposable Docker playground; this release
+does not publish a standalone server installer.
 
 ## Complete a task
 

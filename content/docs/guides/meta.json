@@ -1,10 +1,15 @@
 {
-  "title": "Operate tapstate",
+  "title": "Build and operate",
   "pages": [
+    "---Set up and run---",
     "bootstrap-and-auth",
     "register-connectors",
     "apply-and-run",
+    "---Document assembly---",
     "assemble-documents-with-nest",
+    "nest-structural-key-changes",
+    "nest-throughput",
+    "---Operate and troubleshoot---",
     "observe-a-pipeline",
     "troubleshooting"
   ]

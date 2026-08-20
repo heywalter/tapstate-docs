@@ -9,6 +9,7 @@ ai:
 ---
 
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { CliServerWorkflow } from '@/components/mdx';
 
 The current preview provides native tapstate CLI archives for macOS and Linux. The CLI installer is separate from the local Docker playground, so choose the path that matches what you want to do.
 
@@ -22,26 +23,17 @@ Docker playground and does not add `tapstate` to your shell `PATH`.
 
 ## Understand the CLI and server
 
-The CLI is useful on its own for authoring and validating local workspaces:
+The CLI can author and validate a local workspace without a server. A tapstate
+server is a separate, headless service that exposes an authenticated control
+plane and runs pipelines; it has no built-in web UI in `v0.2.0`.
 
-```text
-new · validate · explain · ls · desc
-```
+<CliServerWorkflow />
 
-A tapstate server is a separate, headless service. It has no built-in web UI in
-`v0.2.0`; it exposes an authenticated control plane and runs pipelines. The
-following operations require the CLI to connect to a running server:
-
-```text
-apply · register · test · discover-schema · start · status · metrics · logs
-```
-
-[Try tapstate locally](/docs/overview/quickstart-online) in a separate,
-disposable environment. The demo downloads its own CLI and starts a server and
-sample databases with Docker Compose. You do not need to install the CLI first.
-
-Installing the CLI is enough for the offline authoring walkthrough, but it
-cannot test a database connection or move data without a server.
+The CLI cannot test a database connection or move data without a server. This
+release does not publish a standalone server installer. To explore a
+server-backed path, use the disposable [local playground](/docs/overview/quickstart-online),
+which downloads its own CLI and starts the server and sample databases with
+Docker Compose. You do not need to install the CLI first.
 
 ## Supported platforms
 
@@ -86,7 +78,7 @@ installer script, then the script downloads the platform archive and its
 published SHA-256 checksum from the GitHub release. The installer:
 
 - selects the archive for your operating system and architecture;
-- uses the pinned preview release unless `TAPSTATE_VERSION` overrides it;
+- downloads the preview release configured by the installer;
 - verifies its SHA-256 checksum;
 - installs `tapstate` in `$HOME/.tapstate/bin` by default;
 - does not use `sudo` or edit your shell profile.
@@ -129,37 +121,6 @@ If that succeeds, run the `export PATH=...` command above for the current
 shell. After adding it to `.zshrc`, open a new terminal or run `source
 "$HOME/.zshrc"`, then repeat `tapstate --version`.
 
-## Audit, pin, or mirror the installer
-
-The one-line command is convenient, but it executes a remote script. To inspect
-the exact script before running it, download it first:
-
-```bash
-curl -fsSL https://install.tapstate.dev/cli -o install-tapstate.sh
-less install-tapstate.sh
-sh install-tapstate.sh
-```
-
-To pin the preview explicitly, set `TAPSTATE_VERSION` when running the saved
-script:
-
-```bash
-TAPSTATE_VERSION=0.2.0 sh install-tapstate.sh
-```
-
-If GitHub release downloads are restricted or slow in your network, use a
-mirror that preserves the release layout expected by the installer:
-
-```bash
-TAPSTATE_BASE_URL="https://mirror.example.com/tapstate/releases" \
-TAPSTATE_VERSION=0.2.0 \
-sh install-tapstate.sh
-```
-
-The mirror must provide
-`download/v<version>/tapstate-<version>-<os>-<arch>.tar.gz`, its `.sha256`
-file, and `platform-minimums.txt`.
-
 ## Other installation methods
 
 ### Use a different installation directory
@@ -167,9 +128,8 @@ file, and `platform-minimums.txt`.
 Set `TAPSTATE_INSTALL_DIR` before running the installer:
 
 ```bash
-TAPSTATE_VERSION=0.2.0 \
-TAPSTATE_INSTALL_DIR="$HOME/bin" \
-sh install-tapstate.sh
+curl -fsSL https://install.tapstate.dev/cli | \
+  TAPSTATE_INSTALL_DIR="$HOME/bin" sh
 ```
 
 The selected directory must be on your `PATH` before you can invoke `tapstate` by name.
@@ -203,7 +163,7 @@ xattr -d com.apple.quarantine ./tapstate-cli-0.2.0/bin/tapstate
 ### Update or remove the CLI
 
 The preview has no automatic updater. To install a later release, rerun the
-installer with its version pinned and verify the reported version.
+installer and verify the reported version.
 
 To remove the default installation, including versioned bundles and the MCP
 sidecar:
@@ -214,30 +174,15 @@ rm -rf "$HOME/.tapstate"
 
 Workspaces, containers, and external-system data are separate and are not removed.
 
-## Optional integrations
-
-### Connect an MCP host
+## Connect an MCP host
 
 The full CLI bundle includes `tapstate mcp`, a local gateway for MCP-compatible
-AI tools. It does not start a tapstate server or provide an interactive prompt.
-Use it only when a server is already running and you have its
-`TAPSTATE_TOKEN`; the gateway also requires Java 21 or newer. Offline CLI
-commands do not require Java. See the [CLI reference](/docs/reference/cli#mcp)
-for the host configuration and command example.
+AI tools. Configure it after a tapstate server is running and you have created
+a scoped machine token. See [Connect an MCP host](/docs/reference/mcp) for the
+authentication flow and Codex, Claude Code, and generic host examples.
 
 ## Next steps
 
-Before evaluating the runtime, account for two known `v0.2.0` limitations:
-
-- An insert-only target can receive duplicate rows when the snapshot and CDC
-  reads overlap. A change that the connector reads is delivered at least once,
-  not exactly once.
-- A source change written while the change stream is positioning itself can be
-  missed before the connector reads it, because the saved position is not
-  handed to the stream read until the snapshot finishes.
-
-See the [v0.2.0 release](https://github.com/tapstate/tapstate/releases/tag/v0.2.0)
-for the published disclosure.
-
 - [Author and validate a workspace](/docs/overview/quickstart) using only the installed CLI.
-- If Docker is available, [try tapstate locally](/docs/overview/quickstart-online) with the disposable MySQL-to-MongoDB demo.
+- If Docker is available, [try tapstate locally](/docs/overview/quickstart-online) with the disposable MySQL-to-MongoDB playground.
+- Review the [v0.2.0 release notes](/docs/releases/v0.2.0) before evaluating the runtime.

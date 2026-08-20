@@ -8,9 +8,9 @@ ai:
   id: mongodb
   category: databases
   maturity: ga
-  useAs: [source, target]
-  modes: [snapshot, cdc]
-  aliases: [mongodb snapshot, mongodb cdc, mongodb source, mongodb materialization, mongodb operational state, mongodb target]
+  useAs: [target]
+  modes: []
+  aliases: [mongodb materialization, mongodb operational state, mongodb target]
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
@@ -18,25 +18,19 @@ import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 <ConnectorProfile
   category="Databases"
   maturity="GA"
-  maturityLabel="Generally available"
+  maturityLabel="Stable guide and configuration contract"
   releaseTested="Target in the published MySQL → MongoDB Snapshot + CDC flow"
-  worksAs="Source, Target"
-  capabilities="Snapshot, CDC, Schema discovery, Operational-state materialization, Data write"
+  worksAs="Target"
+  capabilities="Operational-state materialization, Data write"
   compatibility="MongoDB 4.0+ · Standalone, replica sets, and sharded clusters"
 />
 
 ## Before you begin
 
-### Source
-
-The connector definition also describes MongoDB Snapshot and CDC source modes.
-The current v0.2 product directory publishes MongoDB only as the
-operational-state target, so source preparation is not presented as a runnable
-release path here.
-
 ### Target
 
-Grant write access only to the destination database. `clusterMonitor` is needed only when a later product workflow performs cluster-level validation.
+Grant write access only to the destination database. The current target path
+does not require the `clusterMonitor` role.
 
 ```js
 use admin
@@ -51,20 +45,20 @@ db.createUser({
 
 ## Create a connection
 
-```yaml title="tapstate-work/source/analytics_mongodb.tap.yml"
+```yaml title="tapstate-work/source/operational_state.tap.yml"
 version: tapstate/v1
 kind: source
-id: analytics_mongodb
+id: operational_state
 connector: mongodb
 config:
   isUri: true
-  uri: "mongodb://${MONGO_WRITER_USER}:${MONGO_WRITER_PASSWORD}@analytics-rs0-1:27017,analytics-rs0-2:27017/analytics?replicaSet=analytics-rs0&authSource=admin"
+  uri: "mongodb://${MONGO_WRITER_USER}:${MONGO_WRITER_PASSWORD}@state-rs0-1:27017,state-rs0-2:27017/operational_state?replicaSet=state-rs0&authSource=admin"
 ```
 
 The target deliberately omits `mode` and `tables`. Create the pipeline after the
 MySQL source and MongoDB target both exist:
 
-```yaml title="tapstate-work/pipeline/orders_to_operational_state.tap.yml"
+```yaml title="tapstate-work/pipeline/orders_to_operational_state.tap.yml" structure-only
 version: tapstate/v1
 kind: pipeline
 id: orders_to_operational_state
@@ -72,8 +66,8 @@ source: orders_source
 serve:
   from: /.*/
   sync:
-    - id: write_to_analytics
-      source: analytics_mongodb
+    - id: write_operational_state
+      source: operational_state
       write_mode: upsert
       ddl: fail
 ```
@@ -105,7 +99,7 @@ tapstate -w tapstate-work
 connect http://127.0.0.1:8080
 login admin
 apply
-test analytics_mongodb -o json
+test operational_state -o json
 ```
 
 Only `outcome: PASSED` establishes that the connector accepted the supplied
@@ -153,3 +147,7 @@ for the full sequence.
 | Binary and identifiers | `Binary`, `ObjectId` |
 | Date and time | `Date`, `Timestamp` |
 | Other | `Boolean`, `MinKey`, `MaxKey`, `Null` |
+
+In the current MySQL-to-MongoDB path, `TIMESTAMP(3)` becomes a BSON `Date` at
+millisecond precision; it preserves the instant, not the source time-zone or
+offset representation.

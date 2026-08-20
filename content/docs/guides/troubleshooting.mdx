@@ -85,17 +85,30 @@ These diagnostics restrict computation, not pass-through. A column that cannot
 be computed losslessly can still flow through a `map` when no computed rule
 reads it.
 
-## Troubleshoot the local demo
+## Troubleshoot the local playground
 
-The [local demo](/docs/overview/quickstart-online) prints the MongoDB row count
+The [local playground](/docs/overview/quickstart-online) prints the MongoDB row count
 after it requests that the pipeline start. A healthy server or a
-`sync_orders running` line does not establish that data moved. Treat the demo
+`sync_orders running` line does not establish that data moved. Treat the playground
 as successful only when connector registration and schema discovery complete
 without a refusal and the script prints `the target now holds 5 rows`.
 
 The `v0.2.0` script can continue after a refused command or a lower target
 count, so inspect the complete output and target data instead of relying on its
 exit code alone.
+
+The preview script has two additional repeatability limits:
+
+- Its default inner directory is `tapstate-demo`, so Compose may reuse named
+  volumes from another run. Set a unique `COMPOSE_PROJECT_NAME` for a
+  disposable rerun, or explicitly reset the known disposable project with
+  `docker compose -p tapstate-demo down -v`.
+- A pipeline expression that reads `after.<field>` needs a discovered source
+  schema. If the script reports `dsl.row-expression-needs-discovery`, apply
+  the source and target resources, run `discover-schema <source-id>`, then
+  apply the pipeline/workspace again before starting it. Treat any refusal or
+  schema/lifecycle error as a failed playground even if a later row-count message
+  looks successful.
 
 ### Docker is unavailable
 
@@ -104,7 +117,7 @@ docker info
 docker compose version
 ```
 
-Start Docker and confirm the Compose plugin is available. The demo needs to pull and run MySQL 8.0, MongoDB 7.0, and the tapstate server.
+Start Docker and confirm the Compose plugin is available. The playground needs to pull and run MySQL 8.0, MongoDB 7.0, and the tapstate server.
 
 ### A container is unhealthy or stopped
 
@@ -153,7 +166,7 @@ docker compose down -v
 sh quickstart.sh
 ```
 
-`down -v` permanently removes the demo's local MySQL and MongoDB volumes. It does not remove files in the demo directory.
+`down -v` permanently removes the playground's local MySQL and MongoDB volumes. It does not remove files in the playground directory.
 
 ### A connected command returns exit code 3
 
@@ -162,6 +175,15 @@ but not implemented. Start an interactive session and run `connect` and `login`,
 or seed a one-shot command with `-c` and `-u`. For automation, pass the password
 through `TAPSTATE_PASSWORD` instead of `-p` so it is not exposed in shell history
 or the process list.
+
+### Connector registration is refused
+
+`connector.not-official` means the server refused the artifact before
+registration. In `v0.2.0`, the released registrar accepts only the published
+MySQL and MongoDB preview connector artifacts. A catalog entry or a connector
+JAR does not make another connector runnable. Confirm the artifact ID and use
+`connectors -o json` after a successful registration; see [Register and test
+connectors](/docs/guides/register-connectors) for the complete boundary.
 
 ## Check external-system preparation
 
@@ -176,6 +198,21 @@ If the resource shape is valid but a deployment cannot connect or discover objec
 For TLS and connection testing, use only the fields and workflow supported by the tapstate environment you operate. Do not copy certificate fields or test commands from another product.
 
 ## Check Snapshot or CDC behavior
+
+### Table selection errors
+
+Table selectors are resolved when the runtime builds the pipeline. Validate the
+resource first, then run schema discovery for the source and apply the updated
+resources before starting again.
+
+| Diagnostic | What it means | What to do |
+|---|---|---|
+| `actuation.source-schema-not-discovered` | The source needs a discovered schema to expand an omitted `tables` field or a regex selector. | Run `discover-schema <source-id>`, then apply or start the pipeline again. |
+| `actuation.source-table-not-discovered` | A named table is not in the source's current discovered schema. | Discover the source again and use the exact discovered table name. |
+| `actuation.source-table-selection-empty` | The selectors resolve to no tables. This includes an empty list, a non-matching regex, or an omitted selector with no discovered tables. | Supply a literal name or a regex that matches at least one discovered table. |
+| `actuation.source-table-ambiguous` | More than one pipeline source selects the same bare table name. | Where the pipeline names that table, replace the bare name with `source_id.table`. |
+| `actuation.source-table-regex-invalid` | A table regex is not valid Java regular-expression syntax. | Correct the regex, keep it quoted when it contains YAML flow indicators, then apply the pipeline again. |
+| `actuation.source-table-spec-unsupported` | A table object includes fields that the current preview capture path does not execute. | Use a literal or regex selector, or an object with `name` only. |
 
 For an incomplete Snapshot:
 

@@ -1,4 +1,4 @@
-import { source, getPageImage, getPageMarkdownUrl } from '@/lib/source';
+import { source, getPageImage, getPageMarkdownUrl, getPublicDocPages, isPublicDocPage } from '@/lib/source';
 import {
   DocsBody,
   DocsDescription,
@@ -19,9 +19,9 @@ import {
 
 const sectionInfo: Record<string, { label: string; href: string }> = {
   overview: { label: 'Get started', href: '/docs/overview/what-is-tapstate' },
-  concepts: { label: 'Concepts', href: '/docs/concepts/dsl' },
+  concepts: { label: 'Understand tapstate', href: '/docs/concepts/dsl' },
   connectors: { label: 'Connectors', href: '/docs/connectors' },
-  guides: { label: 'Guides', href: '/docs/guides/bootstrap-and-auth' },
+  guides: { label: 'Build and operate', href: '/docs/guides/bootstrap-and-auth' },
   reference: { label: 'Reference', href: '/docs/reference/dsl-grammar' },
   releases: { label: 'Release notes', href: '/docs/releases/v0.2.0' },
   'for-ai': { label: 'AI-ready docs', href: '/docs/for-ai/llms' },
@@ -37,6 +37,7 @@ export default async function Page(props: DocsPageProps) {
   const params = await props.params;
   const page = source.getPage(params.slug ?? []);
   if (!page) notFound();
+  if (!isPublicDocPage(page)) notFound();
 
   const MDX = page.data.body;
   const markdownUrl = getPageMarkdownUrl(page).url;
@@ -104,19 +105,9 @@ export default async function Page(props: DocsPageProps) {
           </>
         ) : null}
         <DocsBody>
-          {connectorDocumentationStatus === 'current' && connectorProductProfile ? (
-            <Aside title="Current release role" type="tip">
-              In the v0.2 product path, {page.data.title} is published as a {connectorProductProfile.useAs.join(' and ')} connector. Broader connector metadata does not expand that current release role.
-            </Aside>
-          ) : null}
           {connectorDocumentationStatus === 'roadmap' ? (
-            <Aside title="Roadmap connector" type="note">
-              This page is retained as a planning and external-system preparation reference{connectorProductProfile ? ` for a planned ${connectorProductProfile.useAs.join(' and ')} role` : ''}. It is not part of the current tapstate release path and does not imply a release date or runtime support contract.
-            </Aside>
-          ) : null}
-          {connectorDocumentationStatus === 'unlisted' ? (
-            <Aside title="Unlisted connector reference" type="caution">
-              This page is intentionally excluded from the current connector directory. Its preparation and catalog details do not establish current tapstate artifact availability, registration, or runtime support.
+            <Aside title="Roadmap reference" type="note">
+              This page is retained as a planning and external-system preparation reference{connectorProductProfile ? ` for a planned ${connectorProductProfile.useAs.join(' and ')} role` : ''}. It is not in the current product path and does not imply a release date or runtime support contract.
             </Aside>
           ) : null}
           <MDX
@@ -131,27 +122,23 @@ export default async function Page(props: DocsPageProps) {
 }
 
 export async function generateStaticParams() {
-  return source.generateParams();
+  return getPublicDocPages().map((page) => ({ slug: page.slugs }));
 }
 
 export async function generateMetadata(props: DocsPageProps): Promise<Metadata> {
   const params = await props.params;
   const page = source.getPage(params.slug ?? []);
   if (!page) notFound();
+  if (!isPublicDocPage(page)) notFound();
 
   const canonicalUrl = new URL(page.url, docsBaseUrl).toString();
   const pageDescription = page.data.description;
-  const isUnlistedConnector = page.slugs[0] === 'connectors'
-    && page.slugs.length > 1
-    && getConnectorDocumentationStatus(page.slugs[1]) === 'unlisted';
-
   return {
     title: page.data.title,
     description: pageDescription,
     alternates: {
       canonical: canonicalUrl,
     },
-    robots: isUnlistedConnector ? { index: false, follow: false } : undefined,
     openGraph: {
       type: 'article',
       url: canonicalUrl,

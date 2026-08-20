@@ -35,11 +35,11 @@ accepts a workspace directory or one resource file.
 
 | Kind | Declares |
 |---|---|
-| `source` | A connector connection. A read source includes `mode`; a target connection omits it. |
-| `pipeline` | Source references, ordered transform steps, an optional view, a serve surface, and task settings. |
-| `transform` | Reusable transform logic without input wiring. |
-| `view` | Reusable materialization settings without input wiring. |
-| `serve` | Reusable `sync`, `query`, and `push` declarations without input wiring. |
+| [`source`](/docs/reference/source) | A connector connection. A read source includes `mode`; a target connection omits it. |
+| [`pipeline`](/docs/reference/pipeline) | Source references, ordered transform steps, an optional view, a serve surface, and task settings. |
+| [`transform`](/docs/reference/transforms) | Reusable transform logic without input wiring. |
+| [`view`](/docs/reference/view-and-serve) | Reusable materialization settings without input wiring. |
+| [`serve`](/docs/reference/view-and-serve) | Reusable `sync`, `query`, and `push` declarations without input wiring. |
 
 A string reference resolves by resource ID. Top-level IDs must be unique in the
 workspace and cannot contain `.`.
@@ -56,7 +56,7 @@ connector: mysql
 mode: cdc
 config:
   host: mysql
-  port: 3306
+  port: "3306"
   database: appdb
   username: ${MYSQL_USER}
   password: ${MYSQL_PASSWORD}
@@ -80,16 +80,16 @@ id: orders-sync
 source: orders
 settings:
   read_mode: snapshot_and_cdc
-transforms:
-  - id: active-orders
-    from: [orders]
-    type: filter
-    expr: "after.status == 'active'"
 serve:
-  from: active-orders
+  from: orders
   sync:
     - source: warehouse
 ```
+
+Apply the two connection resources first, run `discover-schema orders`, then
+apply the complete workspace and start the pipeline. Add expressions that read
+`after.<field>` or `before.<field>` only after discovery has supplied the field
+types used during server-side validation.
 
 For the complete field shapes, see [source](/docs/reference/source),
 [pipeline](/docs/reference/pipeline), [transforms](/docs/reference/transforms),
@@ -102,9 +102,9 @@ executes a smaller subset.
 
 | Surface | Schema/validator | Current preview runtime |
 |---|---|---|
-| Resource kinds | `source`, `pipeline`, `transform`, `view`, `serve` | The local demo declares `source` + `pipeline` with inline `serve.sync`. |
+| Resource kinds | `source`, `pipeline`, `transform`, `view`, `serve` | The local playground declares `source` + `pipeline` with inline `serve.sync`. |
 | Transforms | `filter`, `map`, `js`, `union`, `nest`, `join` | `filter`, `map`, `js`, `union`, and `nest` are wired. The runtime refuses `join`. |
-| Serve declarations | `sync`, `query`, `push` | The local demo exercises `sync`. Do not infer an executable runtime surface from Schema acceptance alone. |
+| Serve declarations | `sync`, `query`, `push` | The local playground exercises `sync`. Do not infer an executable runtime surface from Schema acceptance alone. |
 | Connector fields | Connector-specific keys are allowed structurally; known catalog fields can receive additional checks. | A catalog entry does not prove that a connector artifact is installed, registered, or release-verified. |
 
 ## Validation model

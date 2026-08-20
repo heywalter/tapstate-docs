@@ -9,7 +9,7 @@ ai:
   aliases: [try tapstate locally, tapstate demo, tapstate local demo, tapstate Docker quickstart, MySQL to MongoDB quickstart]
 ---
 
-Try tapstate with sample data in a disposable local environment. The demo
+Try tapstate with sample data in a disposable local environment. The playground
 starts MySQL, MongoDB, and a tapstate server, then guides you through an initial
 snapshot and later changes captured with CDC.
 
@@ -35,12 +35,13 @@ You need:
 - macOS or Linux;
 - Docker with the Compose plugin;
 - `curl`;
-- enough local resources to run MySQL 8.0, MongoDB 7.0, and the tapstate server.
+- several GB of free Docker storage for the server and database images, connector
+  JARs, and initialized volumes. Check it with `docker system df` and `df -h`.
 
 You do not need to [install the tapstate CLI](/docs/overview/install) first.
 The script downloads a local `v0.2.0` CLI and the two connector preview JARs
-into the demo directory. Docker Compose runs the pinned
-`ghcr.io/tapstate/tapstate:0.2.0` server image. The CLI stays in the demo
+into the playground directory. Docker Compose runs the pinned
+`ghcr.io/tapstate/tapstate:0.2.0` server image. The CLI stays in the playground
 directory and is not added to your `PATH`.
 
 ## 1. Start the local environment
@@ -64,44 +65,29 @@ less quickstart.sh
 sh quickstart.sh
 ```
 
-The script prepares the workspace, starts the Docker Compose stack, creates a
-local administrator, and drives the CLI through connector registration,
-resource application, schema discovery, and pipeline start.
+The script creates a local administrator, registers the MySQL and MongoDB
+connectors, applies the MySQL source, discovers its schema, applies the full
+workspace, starts `sync_orders`, and waits for the initial snapshot.
+
+The published Compose mapping exposes the playground server at
+`http://127.0.0.1:8080`. Use that literal address at the CLI REPL prompt; the
+REPL does not expand shell variables such as `$TAPSTATE_URL`.
 
 ## 2. Confirm the initial snapshot
 
-Before changing the sample data, confirm that the initial five rows reached
-MongoDB. A healthy server or a `sync_orders running` line by itself does not
-establish that data moved. The lifecycle command records the requested state
-before the runtime reports the observed result.
-
-A successful run must meet all of these conditions:
-
-- both connector registrations complete without a refusal;
-- schema discovery completes without a refusal;
-- the script reports exactly five rows in the MongoDB target;
-- `status`, `metrics`, and the target data do not show a pipeline failure.
-
-The successful result includes:
+The script verifies the initial snapshot before it finishes. Confirm this
+result before changing the sample data:
 
 ```text
 quickstart: the target now holds 5 rows (MySQL orders -> MongoDB warehouse.orders)
 ```
 
-The generated `.env` file contains the local demo password and is created with
-owner-only permissions. The script also prints the password once. Keep it
-local and do not commit the file.
-
-In `v0.2.0`, the script can continue after a server-side command is refused and
-can finish with a target count below five. Output such as `The server refused the
-connector registration`, `The server refused the schema discovery`, or a count
-below five means the demo failed, even if a later line says `running` or the
-script prints more instructions. Do not continue to the CDC experiment until
-the initial target count is five.
+The generated `.env` file contains the local playground password. Keep it local
+and do not commit it.
 
 ## 3. Explore the running data path
 
-Start an interactive CLI session from the demo directory:
+Start an interactive CLI session from the playground directory:
 
 ```bash
 ./tapstate -w work
@@ -129,8 +115,8 @@ logs sync_orders
 
 ## 4. Experiment with CDC
 
-With the five initial rows in MongoDB, open a second terminal and change the
-sample data in MySQL:
+With the five initial rows in MongoDB, open a second terminal in the playground
+directory and change the sample data in MySQL:
 
 ```bash
 docker compose exec mysql mysql -uroot -psecret appdb \
@@ -171,7 +157,7 @@ The insert creates the document, the update changes the mapped `customer_name` t
 
 ## What gets created
 
-The demo keeps all generated files in its directory:
+The playground keeps all generated files in its directory:
 
 ```text
 tapstate-demo/
@@ -187,12 +173,13 @@ tapstate-demo/
 
 The workspace declares:
 
-- a MySQL source using `snapshot_and_cdc`;
+- a MySQL source using `mode: cdc`;
 - a MongoDB target connection;
-- a pipeline that maps `appdb.orders` to `warehouse.orders`.
+- a pipeline using `settings.read_mode: snapshot_and_cdc` that maps
+  `appdb.orders` to `warehouse.orders`.
 
 The connector JARs come from the separate [connector preview assets](https://github.com/tapstate/tapstate/releases/tag/connectors-preview).
-They are provided for this local demo; the asset bundle is not a general
+They are provided for this local playground; the asset bundle is not a general
 connector distribution or support matrix.
 
 ## Reset the environment
@@ -209,13 +196,10 @@ Reset the environment before trying the flow again from clean databases:
 docker compose down -v
 ```
 
-The reset removes the demo's MySQL and MongoDB data. It does not remove
+The reset removes the playground's MySQL and MongoDB data. It does not remove
 downloaded container images or files in `tapstate-demo`.
 
-The script preserves existing `.env`, connector, workspace, and Compose files
-when rerun. If a partial or completed run leaves the pipeline in a state that
-cannot be started again, inspect `status` and `logs`, or reset the local demo
-with `docker compose down -v` before rerunning the script.
+Run `sh quickstart.sh` from the playground directory to start the flow again.
 
 ## Next steps
 
@@ -224,5 +208,4 @@ with `docker compose down -v` before rerunning the script.
   [connector registration and testing](/docs/guides/register-connectors), and
   [pipeline operation](/docs/guides/apply-and-run) procedures.
 - Prepare external systems with the [MySQL](/docs/connectors/mysql) and [MongoDB](/docs/connectors/mongodb) guides.
-- Review the [v0.2.0 release limitations](/docs/releases/v0.2.0#known-limitations).
 - Use [Troubleshooting](/docs/guides/troubleshooting) if the script does not produce the five-row result.

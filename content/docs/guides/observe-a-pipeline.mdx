@@ -8,9 +8,9 @@ ai:
   aliases: [tapstate status, tapstate metrics, tapstate logs, tapstate snapshot]
 ---
 
-tapstate exposes four observation faces. They answer different questions and should be read together with source and destination data.
+tapstate exposes four observation surfaces. They answer different questions and should be read together with source and destination data.
 
-| Face | Question | Storage boundary |
+| Surface | Question | Storage boundary |
 |---|---|---|
 | Status | What lifecycle state is currently observed? | Latest store-backed observation |
 | Metrics | What numeric run statistics and per-table positions are available? | Latest store-backed observation |
@@ -20,8 +20,8 @@ tapstate exposes four observation faces. They answer different questions and sho
 ## Read status
 
 ```text
-status orders_to_analytics
-status orders_to_analytics --watch
+status orders_to_operational_state
+status orders_to_operational_state --watch
 ```
 
 States include:
@@ -45,7 +45,7 @@ these fields.
 ## Read metrics
 
 ```text
-metrics orders_to_analytics
+metrics orders_to_operational_state
 ```
 
 Metrics are an open map rather than a fixed schema. Depending on the active runtime path, the response can include numeric counters and a `perTableOffset` map of table names to opaque source positions.
@@ -62,7 +62,7 @@ An absent metric is unavailable, not zero. Do not build a strict parser that rej
 ## Read snapshot progress
 
 ```text
-snapshot orders_to_analytics
+snapshot orders_to_operational_state
 ```
 
 Snapshot progress is per table and can be empty outside an initial-load phase or when the publisher has no progress to report. A missing total must not be interpreted as 0% or 100%.
@@ -72,8 +72,8 @@ In `v0.2.0`, use target row counts and representative keyed samples as the prima
 ## Read and follow logs
 
 ```text
-logs orders_to_analytics
-logs orders_to_analytics --follow
+logs orders_to_operational_state
+logs orders_to_operational_state --follow
 ```
 
 Logs are a bounded tail from the node serving the request. They are not a durable audit history or an aggregated multi-node log. An empty log result is valid when the pipeline has not logged on that node.

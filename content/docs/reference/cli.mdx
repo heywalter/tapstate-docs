@@ -147,38 +147,26 @@ For a connected one-shot command, seed the connection and user before the verb:
 
 ```bash
 TAPSTATE_PASSWORD="<server-password>" \
-  tapstate -c http://127.0.0.1:8080 -u admin status orders_to_analytics
+  tapstate -c http://127.0.0.1:8080 -u admin status orders_to_operational_state
 ```
 
 The process connects, signs in, runs `status`, and exits. Without `-c`, a
 connected verb exits with code `3`. `connect`, `login`, `logout`, and `cd` remain
 session commands; they are not one-shot verbs.
 
-## MCP
+## MCP integration
 
-Use the top-level `mcp` command when an MCP-compatible AI tool needs to call a
-running tapstate server. It starts the local gateway; it does not start the
-server or open an interactive CLI prompt.
-
-```bash
-export TAPSTATE_TOKEN="<server-token>"
-tapstate mcp --server http://127.0.0.1:8080
-```
-
-The command starts the sidecar packaged with the full CLI bundle and keeps the
-MCP protocol on standard input and output for the host. It requires a Java 21 or
-newer runtime and a running tapstate server. Set `TAPSTATE_TOKEN` to the server
-token; the token is intentionally not accepted as a command-line option. A
-standalone `bin/tapstate` binary without its sibling sidecar cannot run this
-command. The native CLI and its offline commands do not require Java. Add
-`--allow-write` only when the server token is authorized for write tools.
+Use `tapstate mcp` when an MCP-compatible host needs to call a running tapstate
+server. The command starts a local stdio gateway; it does not start the server
+or open an interactive CLI prompt. See the [MCP integration reference](/docs/reference/mcp)
+for host configuration, authentication, tools, and troubleshooting.
 
 ## Apply and inspect resources
 
 | Command | Purpose |
 |---|---|
 | `apply [path] [--if-match <hash>]` | Interpolate local environment variables and create or update one resource or the whole workspace. For a single existing resource, `--if-match` declares the content hash of the version being edited; it is not a batch-workspace precondition. |
-| `delete <id> [--if-match <hash>] [-o text\|json\|yaml]` | Permanently remove one stored artifact. `--if-match` must match the artifact's current content hash. |
+| `delete <id> [--if-match <hash>] [-o text\|json\|yaml]` | Permanently remove one stored artifact. When supplied, `--if-match` must match the artifact's current content hash. |
 | `get <id>` | Read one stored resource. |
 | `ls [kind]` | List stored resources, optionally by kind. |
 | `connectors [-o text\|json\|yaml]` | List registered connectors. |
@@ -187,6 +175,21 @@ command. The native CLI and its offline commands do not require Java. Add
 `apply` reports each resource as created, updated, or unchanged. Connector registration is idempotent for the same artifact.
 
 For `delete`, omitting `--if-match` makes the CLI read the current artifact and use that version for the removal. Supplying a hash pins a version already held by the caller; a stale hash is refused instead of overwriting a newer version. Deletion is irreversible. The CLI `get` command prints the artifact content, not its hash; use the REST or MCP representation when you need to supply an explicit hash.
+
+## Manage machine tokens
+
+An authenticated administrator can create, list, and revoke machine tokens from
+the REPL:
+
+| Command | Purpose |
+|---|---|
+| `token create --scope <read\|write\|admin> [-o text\|json\|yaml]` | Create a machine token. The bearer value is returned once. |
+| `token list [-o text\|json\|yaml]` | List token IDs, scopes, creation times, and revocation state without bearer values. |
+| `token revoke <token-id> [-o text\|json\|yaml]` | Revoke a machine token. |
+
+Use the narrowest scope required by the integration. Store a newly created
+bearer value in a secret manager or process environment; it cannot be retrieved
+later.
 
 ## Test and discover connections
 

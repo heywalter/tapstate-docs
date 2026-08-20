@@ -1,7 +1,7 @@
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import { Popover, PopoverContent, PopoverTrigger } from 'fumadocs-ui/components/ui/popover';
 import Link from 'next/link';
-import { ArrowRight, BadgeCheck, Bot, Braces, Cable, CircleAlert, CircleCheck, Database, FileText, GitBranch, Info, Layers3, RadioTower } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Bot, Braces, Cable, CircleAlert, CircleCheck, Database, FileText, GitBranch, Info, KeyRound, Layers3, RadioTower, Server, TerminalSquare } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { MDXComponents } from 'mdx/types';
 import {
@@ -9,7 +9,6 @@ import {
   connectorReleaseTestedCount,
   getConnectorProductProfile,
   getConnectorsByDocumentationStatus,
-  type ConnectorCategoryId,
   type ConnectorMaturity,
 } from '@/lib/connector-directory';
 
@@ -151,6 +150,40 @@ function ArchitectureNode({
   );
 }
 
+/** Shows the one end-to-end path available in the current local preview. */
+export function PreviewArchitecture() {
+  return (
+    <figure className="not-prose my-8 overflow-hidden rounded-2xl border border-fd-border bg-fd-card shadow-sm shadow-black/[0.03] dark:shadow-none">
+      <figcaption className="border-b border-fd-border px-5 py-4">
+        <p className="m-0 text-sm font-semibold text-fd-foreground">Current preview architecture</p>
+        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">One runnable, single-node MySQL-to-MongoDB path in the local playground.</p>
+      </figcaption>
+      <div className="grid gap-4 p-4 sm:p-5">
+        <section className="rounded-xl border border-fd-border bg-fd-muted/20 p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary">Control path</p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+            <WorkflowNode title=".tap.yml workspace" description="Source and pipeline resources." icon={FileText} />
+            <WorkflowArrow label="validate / apply" />
+            <WorkflowNode title="tapstate CLI" description="Offline authoring and authenticated control requests." icon={TerminalSquare} accent />
+            <WorkflowArrow label="HTTP" />
+            <WorkflowNode title="Single-node server" description="Registers artifacts, runs pipelines, and reports status." icon={Server} accent />
+          </div>
+        </section>
+        <section className="rounded-xl border border-fd-primary/20 bg-fd-primary/[0.045] p-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary">Data path</p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+            <WorkflowNode title="MySQL" description="Initial snapshot and later CDC." icon={Database} />
+            <WorkflowArrow />
+            <WorkflowNode title="Capture and transform" description="Current path uses filter or map; the runtime also wires js, union, and nest." icon={GitBranch} accent />
+            <WorkflowArrow />
+            <WorkflowNode title="MongoDB" description="Current operational-state materialization target." icon={Layers3} />
+          </div>
+        </section>
+      </div>
+    </figure>
+  );
+}
+
 /** Responsive, semantic representation of the target tapstate architecture. */
 export function TapStateArchitecture() {
   return (
@@ -289,6 +322,98 @@ export function DataPathComparison() {
   );
 }
 
+function WorkflowNode({
+  title,
+  description,
+  icon: Icon,
+  accent = false,
+}: {
+  title: string;
+  description: string;
+  icon: typeof Database;
+  accent?: boolean;
+}) {
+  return (
+    <div className={`min-w-0 flex-1 rounded-xl border p-4 ${accent ? 'border-fd-primary/25 bg-fd-primary/[0.07]' : 'border-fd-border bg-fd-background'}`}>
+      <div className="flex items-center gap-2">
+        <Icon aria-hidden="true" className={`size-4 ${accent ? 'text-fd-primary' : 'text-fd-muted-foreground'}`} />
+        <p className="m-0 text-sm font-semibold text-fd-foreground">{title}</p>
+      </div>
+      <p className="mb-0 mt-2 text-xs leading-5 text-fd-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+function WorkflowArrow({ label }: { label?: string }) {
+  return (
+    <span className="flex shrink-0 flex-col items-center justify-center gap-1 py-1 text-[0.65rem] font-medium text-fd-muted-foreground sm:px-1">
+      {label ? <span>{label}</span> : null}
+      <ArrowRight aria-hidden="true" className="size-4 rotate-90 sm:rotate-0" />
+    </span>
+  );
+}
+
+/** Shows which CLI work is local and which work requires a running server. */
+export function CliServerWorkflow() {
+  return (
+    <figure className="not-prose my-8 overflow-hidden rounded-2xl border border-fd-border bg-fd-card shadow-sm shadow-black/[0.03] dark:shadow-none">
+      <figcaption className="border-b border-fd-border px-5 py-4">
+        <p className="m-0 text-sm font-semibold text-fd-foreground">CLI and server responsibilities</p>
+        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">Author locally; connect to a server only when an operation needs the control plane or runtime.</p>
+      </figcaption>
+      <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-2">
+        <section className="rounded-xl border border-fd-border bg-fd-muted/20 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="m-0 text-sm font-semibold text-fd-foreground">Offline authoring</h3>
+            <span className="rounded-full border border-fd-border bg-fd-background px-2.5 py-1 text-[0.65rem] font-semibold text-fd-muted-foreground">No server</span>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+            <WorkflowNode title="CLI" description="Create and inspect resources." icon={TerminalSquare} />
+            <WorkflowArrow />
+            <WorkflowNode title="Local workspace" description="Run new, validate, explain, ls, and desc." icon={FileText} accent />
+          </div>
+        </section>
+        <section className="rounded-xl border border-fd-primary/20 bg-fd-primary/[0.04] p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="m-0 text-sm font-semibold text-fd-foreground">Connected operation</h3>
+            <span className="rounded-full border border-fd-primary/20 bg-fd-primary/[0.07] px-2.5 py-1 text-[0.65rem] font-semibold text-fd-primary">Server required</span>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+            <WorkflowNode title="CLI" description="Send authenticated control requests." icon={TerminalSquare} />
+            <WorkflowArrow />
+            <WorkflowNode title="tapstate server" description="Apply, test, discover, run, and observe." icon={Server} accent />
+          </div>
+        </section>
+      </div>
+    </figure>
+  );
+}
+
+/** Shows the local stdio gateway between an MCP host and a tapstate server. */
+export function McpConnectionFlow() {
+  return (
+    <figure className="not-prose my-8 overflow-hidden rounded-2xl border border-fd-border bg-fd-card shadow-sm shadow-black/[0.03] dark:shadow-none">
+      <figcaption className="border-b border-fd-border px-5 py-4">
+        <p className="m-0 text-sm font-semibold text-fd-foreground">MCP connection path</p>
+        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">The host starts a local gateway; the server authenticates every control-plane request.</p>
+      </figcaption>
+      <div className="p-4 sm:p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+          <WorkflowNode title="MCP host" description="Codex, Claude Code, or another MCP client." icon={Bot} />
+          <WorkflowArrow label="stdio" />
+          <WorkflowNode title="tapstate mcp" description="Local gateway from the complete CLI bundle." icon={TerminalSquare} accent />
+          <WorkflowArrow label="HTTP(S)" />
+          <WorkflowNode title="tapstate server" description="Checks the token, exposes tools, and performs operations." icon={Server} />
+        </div>
+        <div className="mt-4 flex items-start gap-3 rounded-xl border border-fd-border bg-fd-muted/25 px-4 py-3">
+          <KeyRound aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fd-primary" />
+          <p className="m-0 text-xs leading-5 text-fd-muted-foreground">The MCP host receives a scoped machine token through <code className="text-[0.7rem]">TAPSTATE_TOKEN</code>. It never needs the tapstate administrator password.</p>
+        </div>
+      </div>
+    </figure>
+  );
+}
+
 type ConnectorProfileProps = {
   category: string;
   maturity: string;
@@ -297,15 +422,6 @@ type ConnectorProfileProps = {
   worksAs?: string;
   capabilities?: string;
   compatibility: string;
-};
-
-const connectorCategoryAnchors: Record<string, ConnectorCategoryId> = {
-  Databases: 'databases',
-  'Warehouses & analytics': 'warehouses-analytics',
-  'Streaming & messaging': 'streaming-messaging',
-  Files: 'files',
-  'SaaS, business & commerce APIs': 'saas-business-commerce-apis',
-  'Custom & development': 'custom-development',
 };
 
 function connectorMaturityTone(maturity: string) {
@@ -409,15 +525,11 @@ export function ConnectorProfile({
       <h2 className="sr-only">Connector profile</h2>
       <dl className="divide-y divide-fd-border">
         <ConnectorProfileRow label="Category">
-          <Link
-            href={`/docs/connectors#connector-category-${connectorCategoryAnchors[category] ?? 'databases'}`}
-            className="group inline-flex items-center gap-1.5 rounded-md border border-fd-border bg-fd-muted/55 px-2 py-0.5 text-xs font-medium leading-5 text-fd-foreground no-underline transition-colors hover:border-fd-primary/40 hover:text-fd-primary"
-          >
-            <span>{category}</span>
-            <ArrowRight aria-hidden="true" className="size-3 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
-          </Link>
+          <span className="inline-flex rounded-md border border-fd-border bg-fd-muted/55 px-2 py-0.5 text-xs font-medium leading-5 text-fd-foreground">
+            {category}
+          </span>
         </ConnectorProfileRow>
-        <ConnectorProfileRow label="Maturity">
+        <ConnectorProfileRow label="Guide maturity">
           <span className="flex flex-wrap items-center gap-2.5">
             <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-semibold leading-5 ${maturityTone.badge}`}>
               <BadgeCheck aria-hidden="true" className="size-3.5" strokeWidth={2.25} />
@@ -438,7 +550,7 @@ export function ConnectorProfile({
           </ConnectorProfileRow>
         ) : null}
         {worksAs ? (
-          <ConnectorProfileRow label="Works as">
+          <ConnectorProfileRow label="Role in this guide">
             <ConnectorProfileTags value={worksAs} />
           </ConnectorProfileRow>
         ) : null}
@@ -578,7 +690,7 @@ function ReleaseTestedMarker() {
       </PopoverTrigger>
       <PopoverContent role="tooltip" sideOffset={8} className="w-64 border-fd-border bg-fd-popover p-3 shadow-xl">
         <p className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-fd-muted-foreground">Release-tested</p>
-        <p className="mb-0 mt-1.5 text-sm leading-5 text-fd-popover-foreground">This connector participates in a published end-to-end release flow. A missing marker does not mean that the connector is unsupported.</p>
+        <p className="mb-0 mt-1.5 text-sm leading-5 text-fd-popover-foreground">This connector participates in the published end-to-end path. The marker reports test coverage, not maturity or a broader support contract.</p>
       </PopoverContent>
     </Popover>
   );
@@ -625,15 +737,15 @@ export function ConnectorDirectoryMatrix() {
   const sections = [
     {
       status: 'current' as const,
-      title: 'Current release path',
-      description: 'Connector roles published for the v0.2 MySQL-to-MongoDB operational-state path.',
+      title: 'Current connector path',
+      description: 'Connector roles published for the current MySQL-to-MongoDB operational-state path.',
       icon: CircleCheck,
       iconClassName: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-300',
     },
     {
       status: 'roadmap' as const,
       title: 'Roadmap',
-      description: 'Planned connector directions without a committed release date. These rows are not current release contracts.',
+      description: 'Planned connector directions without a committed release date. These rows are not current product contracts.',
       icon: RadioTower,
       iconClassName: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/45 dark:text-cyan-300',
     },
@@ -678,7 +790,7 @@ export function ConnectorDirectoryMatrix() {
                     <tr>
                       <th className="px-0 py-2.5 font-medium">Connector</th>
                       <th className="px-3 py-2.5 font-medium">Guide maturity</th>
-                      <th className="px-3 py-2.5 font-medium">{section.status === 'current' ? 'Product role' : 'Planned role'}</th>
+                      <th className="px-3 py-2.5 font-medium">{section.status === 'current' ? 'Published role' : 'Planned role'}</th>
                       <th className="px-3 py-2.5 font-medium">{section.status === 'current' ? 'Read mode' : 'Planned read mode'}</th>
                     </tr>
                   </thead>
@@ -699,7 +811,7 @@ export function ConnectorDirectoryMatrix() {
                             <ConnectorDirectoryTerms
                               terms={profile?.useAs ?? []}
                               separator="+"
-                              emptyHelp="No product role is published for this connector."
+                              emptyHelp="No role is published for this connector."
                             />
                           </td>
                           <td className="px-3 py-2.5 text-fd-muted-foreground">
@@ -732,8 +844,11 @@ export function getMDXComponents(components?: MDXComponents) {
     LinkCard,
     Badge,
     ProductOverviewHero,
+    PreviewArchitecture,
     TapStateArchitecture,
     DataPathComparison,
+    CliServerWorkflow,
+    McpConnectionFlow,
     ConnectorProfile,
     ValidationStatusGuide,
     ConnectorDirectoryMatrix,

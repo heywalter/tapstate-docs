@@ -16,20 +16,22 @@ for native CLI bundles, checksums, and measured platform requirements.
 
 ## Highlights
 
-- Run `nest` transforms that assemble related streams into documents, including
-  explicit root and child key-change tracking when the source supplies before
-  images.
+- Use [`nest` transforms](/docs/guides/assemble-documents-with-nest) to assemble
+  related streams into documents, including explicit [root and child key-change
+  tracking](/docs/guides/nest-structural-key-changes) when the source supplies
+  before images.
 - Catch incompatible CEL row expressions at apply time using discovered source
   schemas, with separate diagnostics for missing, unsupported, and unknown
-  types.
-- Use command-level CLI help and authenticated one-shot connected commands in
-  addition to the interactive REPL.
-- Run the local MCP sidecar from the complete CLI bundle to expose supported
-  control-plane operations to an MCP host.
-- Preserve MySQL zoned date-time instants as MongoDB BSON dates at millisecond
-  precision on the verified MySQL-to-MongoDB path.
-- Override the port of a directly launched server with `SERVER_PORT`; the
-  default remains `8080`.
+  types. See [row-expression schema and type errors](/docs/guides/troubleshooting#row-expression-schema-and-type-errors).
+- Use [command-level CLI help and authenticated connected commands](/docs/reference/cli)
+  in addition to the interactive REPL.
+- Run the [local MCP gateway](/docs/reference/mcp) from the complete CLI bundle
+  to expose supported control-plane operations to an MCP host.
+- Write MySQL `TIMESTAMP(3)` values as MongoDB BSON dates at millisecond
+  precision on the verified MySQL-to-MongoDB path. The instant is preserved;
+  the source time-zone or offset representation is not. See the data
+  compatibility notes for [MySQL](/docs/connectors/mysql#data-compatibility)
+  and [MongoDB](/docs/connectors/mongodb#data-compatibility).
 
 ## Release components
 
@@ -48,7 +50,7 @@ Recommended minimums for this build are macOS 15.0 and glibc 2.34.
 
 - The runtime is single-node, keeps runtime state in memory, and is not intended
   for production.
-- The public playground verifies one end-to-end combination: MySQL initial load
+- The [local playground](/docs/overview/quickstart-online) verifies one end-to-end combination: MySQL initial load
   plus CDC, an in-flight `map`, and MongoDB materialization.
 - A change that a connector reads is delivered at least once, not exactly once.
 - An insert-only target can receive duplicate rows when the snapshot and CDC
@@ -57,9 +59,17 @@ Recommended minimums for this build are macOS 15.0 and glibc 2.34.
   missed before the connector reads it, because the saved position is not
   passed to the stream read until the snapshot finishes. The at-least-once
   statement does not cover a change that the connector never reads.
-- `join` remains declared by the Schema but is refused by the current runtime.
-- `run`, `export`, `diff`, and `edit` remain reserved CLI verbs and return exit
-  code `3`.
+- [Runtime connector registration](/docs/guides/register-connectors) accepts only the published MySQL and MongoDB
+  preview artifacts. An artifact declaring another connector ID is refused with
+  `connector.not-official`; catalog metadata does not expand this boundary.
+- [`join`](/docs/reference/transforms#join) remains declared by the Schema but is
+  refused by the current runtime.
+- [`run`, `export`, `diff`, and `edit`](/docs/reference/cli#commands-not-implemented-in-v020)
+  remain reserved CLI verbs and return exit code `3`.
+- The server-backed preview is provided through the disposable Docker
+  playground; this release does not include a standalone server installer or
+  operator deployment guide. See [Install the CLI](/docs/overview/install#understand-the-cli-and-server)
+  for the CLI/server boundary.
 
 Use non-production systems and data for evaluation.
 

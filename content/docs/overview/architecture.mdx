@@ -7,46 +7,30 @@ ai:
   aliases: [tapstate architecture, capture transform serve architecture, tapstate control plane]
 ---
 
-import { TapStateArchitecture } from '@/components/mdx';
+import { PreviewArchitecture, TapStateArchitecture } from '@/components/mdx';
 
-Tapstate has a working preview slice and a broader target architecture. The
-target explains design direction; it is not a statement that every component is
-implemented or production-ready.
+This page separates what you can run in the current preview from the product's
+target logical architecture. The preview is an implemented, narrow path; the
+target is design direction and does not mean every component is available or
+production-ready.
 
-## Current preview architecture
+## Current preview: one runnable path
 
-The `v0.2.0` local demo is designed around one end-to-end path:
+The `v0.2.0` local playground provides one end-to-end path:
 
-```text
-.tap.yml workspace
-      │
-      ▼
-tapstate CLI ──→ single-node server
-                     │
-           MySQL snapshot + CDC
-                     │
-              filter / map
-                     │
-                     ▼
-                  MongoDB
-```
+<PreviewArchitecture />
 
-### Control surface
+### Current preview boundaries
 
 - The native CLI scaffolds and validates `*.tap.yml` resources offline.
 - A connected CLI session can register connector artifacts, apply resources,
   start a pipeline, and inspect status, metrics, and logs.
 - The runtime and CLI are prerelease surfaces; command and API compatibility can
   change before a stable release.
-
-### Data path
-
-- The local demo is designed to read MySQL, perform an initial snapshot followed
-  by CDC, apply a map step, and write MongoDB.
 - The pipeline DAG wires `filter`, `map`, `js`, `union`, and `nest`.
 - `nest` maintains a document assembled from related source tables. The v1
   Schema also declares `join`, but the current DAG builder refuses it.
-- The Schema can declare `sync`, `query`, and `push`; the local demo exercises
+- The Schema can declare `sync`, `query`, and `push`; the local playground exercises
   inline `serve.sync`.
 
 ### Recovery and scale limits
@@ -58,13 +42,14 @@ tapstate CLI ──→ single-node server
   current preview contract.
 
 See [Author and validate a workspace](/docs/overview/quickstart) for the offline authoring path.
-The [local demo](/docs/overview/quickstart-online) packages this preview
+The [local playground](/docs/overview/quickstart-online) packages this preview
 topology for local exploration; it is not a deployment architecture.
 
-## Target architecture
+## Target logical architecture
 
-The target design separates the **data plane**, which moves and maintains
-records, from the **control plane**, which defines and operates data paths.
+The target design expands this one runnable path into a general data plane and
+control plane. It explains the intended product boundaries, not additional
+current-preview components.
 
 <TapStateArchitecture />
 

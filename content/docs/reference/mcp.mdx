@@ -1,0 +1,282 @@
+---
+title: MCP integration
+description: Connect an MCP-compatible host to a running tapstate server through the CLI gateway
+sidebar:
+  order: 2
+ai:
+  kind: reference
+  id: mcp
+  maturity: preview
+  aliases: [tapstate MCP, Model Context Protocol, MCP host, AI tool integration]
+---
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { McpConnectionFlow } from '@/components/mdx';
+
+MCP (Model Context Protocol) lets an AI desktop app, editor, or agent call
+selected tapstate control-plane operations through a standard tool interface.
+In `v0.2.0`, tapstate provides a local MCP gateway in the complete CLI bundle.
+
+The gateway is an optional integration. It does not install or start a tapstate
+server, provide a web UI, or expose an MCP HTTP endpoint from the server.
+
+## How the connection works
+
+The MCP host starts `tapstate mcp` as a local process and speaks MCP over the
+process's standard input and output. The gateway then calls an already-running
+tapstate server over its authenticated HTTP(S) control plane.
+
+<McpConnectionFlow />
+
+This means the CLI and the server have separate responsibilities:
+
+- The **MCP host** launches and supervises the local gateway.
+- The **CLI bundle** supplies the `tapstate mcp` command and its sidecar.
+- The **tapstate server** authenticates requests and performs the operation.
+- The **MCP gateway** does not replace the server or the server's authorization
+  checks.
+
+The current `v0.2.0` server-backed path is provided by the disposable Docker
+playground. This release does not include a standalone server installer. See
+[Try tapstate locally](/docs/overview/quickstart-online) when you need a local
+server to test the integration.
+
+## Requirements
+
+Before configuring an MCP host, make sure that:
+
+1. You installed the complete CLI bundle, not only a standalone `bin/tapstate`
+   binary. The bundle keeps `bin` and `libexec` together so the CLI can find its
+   sidecar.
+2. A tapstate server is already running and reachable from the gateway.
+3. You have administrator credentials to create a scoped machine token, or an
+   existing machine token with the scope required by the tools you plan to use.
+4. The `v0.2.0` bundle's sidecar is `tapstate-mcp.jar`, so Java 21 or newer is
+   required for this release. The native CLI's offline commands do not require
+   Java.
+
+For a loopback server, use `http://127.0.0.1:8080` or another loopback address.
+For a remote server, use HTTPS. The gateway rejects a non-loopback HTTP URL.
+
+## Authenticate the host
+
+Do not give an MCP host the tapstate administrator password. Use the password
+once in an interactive CLI session, then create a scoped machine token for the
+host.
+
+Start the CLI and connect to the server:
+
+```bash
+tapstate -w tapstate-work
+```
+
+In the CLI, log in as an administrator and enter the password only when the
+prompt requests it:
+
+```text
+connect http://127.0.0.1:8080
+login admin
+Password:
+```
+
+Create a read token for read-only tools:
+
+```text
+token create --scope read -o json
+```
+
+Create a `write` token instead only when the host must run write tools. The
+bearer value is displayed once; copy it into the host's protected local secret
+configuration. The host presents this token to the tapstate server on every
+request, and the server verifies its scope. The host does not repeat the
+administrator-password login.
+
+See [Manage machine tokens](/docs/reference/cli#manage-machine-tokens) for list
+and revoke commands, or the [REST API machine-token endpoints](/docs/reference/rest-api#machine-token-endpoints)
+for the HTTP request and response.
+
+## Start the gateway manually
+
+Set `TAPSTATE_TOKEN` in the environment through your shell's secret-handling
+method rather than passing the value as a command argument. The gateway accepts
+`TAPSTATE_SERVER_URL` as a default server URL; passing `--server` makes the
+target explicit:
+
+```bash
+tapstate mcp --server http://127.0.0.1:8080
+```
+
+When the command starts successfully, it waits for MCP JSON-RPC messages on
+standard input. It is not an interactive tapstate prompt. Keep this process in
+the foreground when testing it manually; an MCP host normally starts and
+stops it for you.
+
+If the server is remote, use its HTTPS URL:
+
+```bash
+tapstate mcp --server https://tapstate.example.com
+```
+
+Do not put a real token in a checked-in host configuration, shell history, or a
+support report. Use the host's secret or environment-variable facility.
+
+## Configure an MCP host
+
+MCP hosts use different settings locations, but the registration has the same
+shape: launch the installed `tapstate` executable, pass `mcp` and the server
+URL as arguments, and provide `TAPSTATE_TOKEN` as an environment variable.
+
+Set `TAPSTATE_TOKEN` in the current shell using your local secret-handling
+method. The following commands copy its current value into the client's local
+MCP configuration.
+
+<Tabs items={["Codex", "Claude Code"]} label="MCP host">
+<Tab value="Codex">
+
+Register the stdio gateway with Codex, then inspect the saved entry:
+
+```bash
+codex mcp add \
+  --env TAPSTATE_TOKEN="$TAPSTATE_TOKEN" \
+  tapstate -- \
+  "$HOME/.tapstate/bin/tapstate" mcp \
+  --server http://127.0.0.1:8080
+
+codex mcp get tapstate
+```
+
+</Tab>
+<Tab value="Claude Code">
+
+Register the stdio gateway for the current user, then inspect the saved entry:
+
+```bash
+claude mcp add --scope user tapstate \
+  -e TAPSTATE_TOKEN="$TAPSTATE_TOKEN" -- \
+  "$HOME/.tapstate/bin/tapstate" mcp \
+  --server http://127.0.0.1:8080
+
+claude mcp get tapstate
+```
+
+</Tab>
+</Tabs>
+
+Protect the resulting client configuration as a secret-bearing file. Do not
+commit it to a repository or include it in a support report.
+
+### Other MCP hosts
+
+For a host that accepts an `mcpServers` JSON object, the shape is:
+
+```json
+{
+  "mcpServers": {
+    "tapstate": {
+      "command": "/Users/you/.tapstate/bin/tapstate",
+      "args": [
+        "mcp",
+        "--server",
+        "http://127.0.0.1:8080"
+      ],
+      "env": {
+        "TAPSTATE_TOKEN": "<server-token>"
+      }
+    }
+  }
+}
+```
+
+Replace `command` with the absolute path to the installed CLI on your system.
+If you installed to another directory, use that directory's `tapstate` entry
+point. Keep the corresponding `libexec/tapstate-mcp.jar` beside the versioned
+CLI bundle; moving only the executable breaks sidecar discovery.
+
+After saving the host configuration, restart or reload the host according to
+its instructions. A healthy integration should start the process, complete the
+MCP initialization handshake, and return the read-only tools from `tools/list`.
+
+## Verify the connection
+
+After reloading the host:
+
+1. Confirm that the `tapstate` MCP entry starts without a handshake or
+   authentication error.
+2. Confirm that the client's available MCP tools include `connector_list`.
+3. Ask the host to list the connectors visible to tapstate. A successful call
+   verifies the local process, MCP handshake, server URL, and machine token.
+
+If the host can list tools but a tool call returns `isError: true`, the MCP
+connection is working and the server rejected the operation. Check the returned
+error code, token scope, and server state. If write tools are needed, create a
+`write` token and add `--allow-write` to the gateway arguments; both controls
+are required.
+
+## Tools and write access
+
+By default, the gateway exposes read-only tools:
+
+| MCP tool | Purpose |
+|---|---|
+| `artifact_validate` | Validate a complete `tapstate/v1` workspace without writing it. |
+| `artifact_get` | Read one applied resource and its content hash. |
+| `source_draft` | Render canonical YAML for a source from its live connector contract. |
+| `connection_test_result` | Read the latest persisted connection-test result. |
+| `connection_schema` | Read the latest discovered source schema. |
+| `connector_list` | List connectors visible to the online server. |
+| `connector_get` | Read a connector's live specification and availability. |
+| `pipeline_status` | Read a pipeline's current lifecycle status. |
+| `pipeline_metrics` | Read the latest bounded pipeline metrics. |
+| `pipeline_snapshot` | Read the latest per-table snapshot progress. |
+| `pipeline_logs` | Read a bounded, secret-redacted pipeline log tail. |
+
+Add `--allow-write` to the host arguments only when the server token is
+authorized for write operations:
+
+```json
+{
+  "args": ["mcp", "--server", "http://127.0.0.1:8080", "--allow-write"]
+}
+```
+
+This adds the following tools:
+
+| MCP tool | Purpose |
+|---|---|
+| `artifact_apply` | Validate and apply a complete `tapstate/v1` workspace. |
+| `artifact_delete` | Permanently remove one resource after a content-hash check. |
+| `connection_test` | Test a connector configuration and persist the result. |
+| `connection_discover_schema` | Discover and persist a source schema. |
+| `pipeline_start` | Set a pipeline's desired state to running. |
+| `pipeline_stop` | Set a pipeline's desired state to stopped. |
+
+`--allow-write` only makes write tools visible. The server still enforces the
+token's authorization scope. The current gateway does not expose source CRUD,
+connector JAR registration, user or token administration, cluster-member
+listing, or pipeline pause/resume operations. Use the authenticated [REST
+API](/docs/reference/rest-api) or [CLI reference](/docs/reference/cli) for
+those operations.
+
+The host's `tools/list` response is the runtime authority if a later release
+adds, removes, or renames a tool.
+
+## Troubleshooting
+
+| Symptom | Meaning | Action |
+|---|---|---|
+| `cli.mcp-unavailable` (exit code `3`) | The CLI cannot find or start its sidecar, or Java 21 is unavailable. | Use the complete bundle, keep `bin` and `libexec` together, and verify `java -version`. |
+| `TAPSTATE_TOKEN must be set` | The gateway did not receive a token through its environment. | Add `TAPSTATE_TOKEN` to the host environment; do not use `--token`. |
+| `MCP Server URL must use HTTPS unless host is loopback` | A remote server was configured with plain HTTP. | Use an HTTPS URL or test against a loopback server. |
+| MCP tool result has `isError: true` | The server rejected an otherwise valid MCP tool call. | Inspect the returned code and parameters, then check the server state and token scope. |
+| Protocol error `-32602` | The host called an unknown tool or supplied invalid protocol parameters. | Refresh the tool list and use the exact tool name and input schema returned by the server. |
+
+The gateway writes protocol frames to stdout. Do not wrap it in a command that
+prints banners or diagnostics to stdout; non-protocol output can prevent the
+host from completing the MCP handshake.
+
+## Related pages
+
+- [Install the CLI](/docs/overview/install)
+- [CLI reference](/docs/reference/cli)
+- [REST API preview](/docs/reference/rest-api)
+- [Try tapstate locally](/docs/overview/quickstart-online)
