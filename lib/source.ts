@@ -247,6 +247,13 @@ This diagram describes design direction, not the current preview implementation 
 | Data | Consumers | Applications, APIs, and agents. |
 
 Durable recovery state includes resource versions, checkpoints, schema and mapping state, retries, and operational history.`)
+    .replace(/<CliServerWorkflow\s*\/>/g, `### CLI and server responsibilities
+
+- **Offline authoring (no server):** The CLI works with a local workspace to create and inspect resources, and to run 'new', 'validate', 'explain', 'ls', and 'desc'.
+- **Connected operation (server required):** The CLI sends authenticated requests to a tapstate server for 'apply', 'test', 'discover', 'start', 'status', 'metrics', and 'logs'.`)
+    .replace(/<McpConnectionFlow\s*\/>/g, `### MCP connection path
+
+The MCP host (such as Codex or Claude Code) starts 'tapstate mcp' over **stdio**. The local gateway then calls the tapstate server over **HTTP(S)**, passing the scoped 'TAPSTATE_TOKEN' for authentication. The gateway does not replace or start the server.`)
     .replace(/<ConnectorDirectoryMatrix\s*\/>/g, renderConnectorDirectoryForLLM())
     .replace(/<ConnectorProfile\s+([\s\S]*?)\/>/g, (_match, attrs: string) => {
       return renderConnectorProfileForLLM(attrs);
