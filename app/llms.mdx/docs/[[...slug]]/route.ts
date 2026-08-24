@@ -1,4 +1,4 @@
-import { getLLMText, getPageMarkdownUrl, source } from '@/lib/source';
+import { getLLMText, getPageMarkdownUrl, getPublicDocPages, isPublicDocPage, source } from '@/lib/source';
 import { notFound } from 'next/navigation';
 
 export const revalidate = false;
@@ -14,6 +14,7 @@ export async function GET(_req: Request, { params }: RouteProps) {
   // remove the appended "content.md"
   const page = source.getPage(slug?.slice(0, -1));
   if (!page) notFound();
+  if (!isPublicDocPage(page)) notFound();
 
   return new Response(await getLLMText(page), {
     headers: {
@@ -23,7 +24,7 @@ export async function GET(_req: Request, { params }: RouteProps) {
 }
 
 export function generateStaticParams() {
-  return source.getPages().map((page) => ({
+  return getPublicDocPages().map((page) => ({
     slug: getPageMarkdownUrl(page).segments,
   }));
 }

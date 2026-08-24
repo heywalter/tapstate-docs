@@ -84,6 +84,30 @@ Each element requires a target connection ID in `source` and can include:
 - target table rename rules;
 - connector-owned `options`.
 
+#### Rename target tables
+
+`rename` changes the target table or collection name without changing the
+pipeline output fields:
+
+```yaml
+serve:
+  from: shaped-orders
+  sync:
+    - id: warehouse-write
+      source: warehouse
+      write_mode: upsert
+      rename:
+        map:
+          ORDERS: orders_current
+        case: lower
+        prefix: odp_
+        suffix: _v1
+```
+
+An exact entry in `map` has priority. For every other table, tapstate applies
+`case` first and then adds `prefix` and `suffix`. Accepted `case` values are
+`upper`, `lower`, `camel`, and `pascal`.
+
 ### `query`
 
 Each element requires `type`: `rest`, `graphql`, or `mcp`. `backend` can name a
@@ -96,7 +120,7 @@ Each element requires a target connection ID in `source` and can include `id`,
 
 ## Runtime boundary
 
-These shapes come from the v1 Schema. The released preview's local demo declares
+These shapes come from the v1 Schema. The released preview's local playground declares
 inline `serve.sync` for MySQL to MongoDB. Schema acceptance alone does not prove
 that reusable views, query endpoints, or push delivery are executable in your
 runtime version.

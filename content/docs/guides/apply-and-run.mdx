@@ -50,7 +50,7 @@ Confirm the server-held resources:
 ```text
 ls
 get orders_source
-get orders_to_analytics
+get orders_to_operational_state
 ```
 
 Local files remain authoring input; connected `get` and `ls` show the server's current truth.
@@ -58,8 +58,8 @@ Local files remain authoring input; connected `get` and `ls` show the server's c
 ## Start the pipeline
 
 ```text
-start orders_to_analytics
-status orders_to_analytics --watch
+start orders_to_operational_state
+status orders_to_operational_state --watch
 ```
 
 `start` writes a `RUNNING` intent at the latest applied pipeline revision. `status --watch` reports observed runtime state, which can lag the command briefly.
@@ -80,9 +80,9 @@ An illegal transition returns `lifecycle.illegal-transition`. If a paused pipeli
 Recover a failed pipeline deliberately:
 
 ```text
-logs orders_to_analytics
-stop orders_to_analytics
-start orders_to_analytics
+logs orders_to_operational_state
+stop orders_to_operational_state
+start orders_to_operational_state
 ```
 
 Do not start directly from `FAILED`.
@@ -101,4 +101,4 @@ The preview is single-node and does not persist a resumable runtime offset acros
 
 - [Observe a pipeline](/docs/guides/observe-a-pipeline)
 - [Troubleshooting](/docs/guides/troubleshooting)
-- [v0.1.0 release limitations](/docs/releases/v0.1.0#known-limitations)
+- [v0.2.0 release limitations](/docs/releases/v0.2.0#known-limitations)

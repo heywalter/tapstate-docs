@@ -1,6 +1,6 @@
 ---
 title: MongoDB
-description: Connect MongoDB replica sets or sharded clusters to tapstate for snapshots, Oplog-based CDC, or target writes.
+description: Materialize MySQL snapshots and ongoing changes as application-ready operational state in a MongoDB target.
 sidebar:
   order: 6
 ai:
@@ -8,110 +8,28 @@ ai:
   id: mongodb
   category: databases
   maturity: ga
-  useAs: [source, target]
-  modes: [snapshot, cdc]
-  aliases: [mongodb snapshot, mongodb full load, mongodb cdc, mongodb oplog, mongodb source, mongodb target]
+  useAs: [target]
+  modes: []
+  aliases: [mongodb materialization, mongodb operational state, mongodb target]
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
-import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
 
 <ConnectorProfile
   category="Databases"
   maturity="GA"
-  maturityLabel="Generally available"
-  releaseTested="Target in the published MySQL → MongoDB Snapshot + CDC flow"
-  worksAs="Source, Target"
-  capabilities="Snapshot, CDC, Schema discovery, Data write"
-  compatibility="MongoDB 4.0+ · Replica sets and sharded clusters"
+  maturityLabel="Stable guide and configuration contract"
+  worksAs="Target"
+  capabilities="Operational-state materialization, Data write"
+  compatibility="MongoDB 4.0+ · Standalone, replica sets, and sharded clusters"
 />
 
 ## Before you begin
 
-### Source
-
-Choose the outcome you need. Each tab includes the complete source preparation path for that mode.
-
-<SourceModeTabs label="Choose the MongoDB source read mode">
-<SourceModeTab value="snapshot" label="Full load (Snapshot)" description="Copy existing documents once">
-
-Use **Full load** (`Snapshot`) when you need one copy of the documents that exist now. Snapshot reads the selected collections and does not require Oplog access.
-
-**1. Create a dedicated reader**
-
-```js
-use admin
-db.createUser({
-  user: "tapstate",
-  pwd: "your_password",
-  roles: [
-    { role: "read", db: "your_database" },
-    { role: "clusterMonitor", db: "admin" }
-  ]
-})
-```
-
-Use `readAnyDatabase` only when one connection must discover and read multiple databases.
-
-```js
-use admin
-db.createUser({
-  user: "tapstate",
-  pwd: "your_password",
-  roles: [
-    { role: "readAnyDatabase", db: "admin" },
-    { role: "clusterMonitor", db: "admin" }
-  ]
-})
-```
-
-**2. Prepare sharded snapshots**
-
-For a sharded cluster, stop the Balancer during the snapshot and clean up orphaned documents before the run. Chunk migrations and orphaned documents can produce inconsistent counts or `_id` conflicts.
-
-</SourceModeTab>
-<SourceModeTab value="snapshot-cdc" label="Full load + CDC" description="Copy existing documents, then follow Oplog changes">
-
-Use **Full load + CDC** when the target must begin with existing documents and then stay current with ongoing MongoDB changes.
-
-**1. Use a replica set or sharded cluster**
-
-Standalone MongoDB does not expose the Oplog required for CDC. Convert it to a single-member replica set before using this mode.
-
-**2. Create a CDC reader**
-
-Grant access to the application database plus the `local` and `config` databases needed for Oplog capture.
-
-```js
-use admin
-db.createUser({
-  user: "tapstate",
-  pwd: "your_password",
-  roles: [
-    { role: "read", db: "your_database" },
-    { role: "read", db: "local" },
-    { role: "read", db: "config" },
-    { role: "clusterMonitor", db: "admin" }
-  ]
-})
-```
-
-**3. Size the Oplog recovery window**
-
-Keep enough Oplog history to cover the longest expected interruption; start with at least 24 hours, then verify the actual window and monitor it as the write rate changes. See [Change the Size of the Oplog](https://www.mongodb.com/docs/manual/tutorial/change-oplog-window/).
-
-**4. Prepare sharded CDC**
-
-- Stop the Balancer during the initial snapshot.
-- Clean up orphaned documents before the run.
-- Create equivalent users on the primary of every shard.
-
-</SourceModeTab>
-</SourceModeTabs>
-
 ### Target
 
-Grant write access only to the destination database. `clusterMonitor` is needed only when a later product workflow performs cluster-level validation.
+Grant write access only to the destination database. The current target path
+does not require the `clusterMonitor` role.
 
 ```js
 use admin
@@ -126,59 +44,36 @@ db.createUser({
 
 ## Create a connection
 
-```yaml
+```yaml title="tapstate-work/source/operational_state.tap.yml"
 version: tapstate/v1
 kind: source
-id: my-mongodb
-connector: mongodb
-mode: cdc   # snapshot | cdc
-
-config:
-  # URI mode (recommended)
-  isUri: true
-  uri: "mongodb://${MONGO_USER}:${MONGO_PASS}@rs0-host1:27017,rs0-host2:27017/mydb?replicaSet=rs0&authSource=admin"
-
-  # Standard mode (alternative — use instead of uri)
-  # isUri: false
-  # host: rs0-host1
-  # database: mydb
-  # user: ${MONGO_USER}
-  # password: ${MONGO_PASS}
-
-tables:
-  - users
-  - /orders_.*/
-```
-
-For a target connection, keep the same MongoDB configuration but omit `mode` and `tables`:
-
-```yaml title="tapstate-work/source/analytics_mongodb.tap.yml"
-version: tapstate/v1
-kind: source
-id: analytics_mongodb
+id: operational_state
 connector: mongodb
 config:
   isUri: true
-  uri: "mongodb://${MONGO_WRITER_USER}:${MONGO_WRITER_PASSWORD}@analytics-rs0-1:27017,analytics-rs0-2:27017/analytics?replicaSet=analytics-rs0&authSource=admin"
+  uri: "mongodb://${MONGO_WRITER_USER}:${MONGO_WRITER_PASSWORD}@state-rs0-1:27017,state-rs0-2:27017/operational_state?replicaSet=state-rs0&authSource=admin"
 ```
 
-Create the pipeline after both connections exist:
+The target deliberately omits `mode` and `tables`. Create the pipeline after the
+MySQL source and MongoDB target both exist:
 
-```yaml title="tapstate-work/pipeline/mongo_to_analytics.tap.yml"
+```yaml title="tapstate-work/pipeline/orders_to_operational_state.tap.yml" structure-only
 version: tapstate/v1
 kind: pipeline
-id: mongo_to_analytics
-source: my-mongodb
+id: orders_to_operational_state
+source: orders_source
 serve:
   from: /.*/
   sync:
-    - id: write_to_analytics
-      source: analytics_mongodb
+    - id: write_operational_state
+      source: operational_state
       write_mode: upsert
       ddl: fail
 ```
 
-`upsert` writes a document by its key; `append` only inserts. MongoDB source changes are document changes, so keep the DDL policy at `fail` unless the destination workflow has been staging-tested for the schema events it receives.
+`upsert` writes a document by its key; `append` only inserts. Keep the DDL
+policy at `fail` unless the destination workflow has been staging-tested for
+the schema events it receives.
 
 ## Validate the configuration
 
@@ -192,8 +87,8 @@ Validation does not require all connection fields, reject unknown connector
 keys, resolve the URI, or contact MongoDB. A syntactically valid resource that
 uses `mongo.invalid` can therefore pass validation.
 
-To check both roles, register the MongoDB connector JAR, apply the workspace,
-and run each test from an authenticated `v0.1.0` REPL:
+To check the target, register the MongoDB connector JAR, apply the workspace,
+and run the test from an authenticated REPL:
 
 ```bash
 tapstate -w tapstate-work
@@ -203,8 +98,7 @@ tapstate -w tapstate-work
 connect http://127.0.0.1:8080
 login admin
 apply
-test my-mongodb -o json
-test analytics_mongodb -o json
+test operational_state -o json
 ```
 
 Only `outcome: PASSED` establishes that the connector accepted the supplied
@@ -215,12 +109,11 @@ for the full sequence.
 
 ## Limitations
 
-- CDC requires a replica set or sharded cluster. Test standalone deployments with Snapshot before production.
-- If the Oplog rotates past the last captured position, recovery requires a new snapshot.
-- Sharded-cluster balancing and orphaned documents can affect snapshot consistency.
-- Oplog update events can contain only the modified fields. When a pipeline depends on a non-`_id` key, a changed sub-document, or an embedded-array `PULL`, verify that the captured event contains the complete document needed for routing or writing.
-- Delete events normally contain only `_id`. If the target match condition does not include `_id`, enable and test MongoDB 6.0+ document pre-images when the deployed connector supports them, or design an intermediate keyed flow that preserves the deleted document.
-- When a pipeline depends on document pre-images, deleted-document caching, full-document filling, or a specific target write concern, verify the behavior with representative updates and deletes before production.
+- Confirm that each materialized collection has a stable key for `upsert`.
+- Test source inserts, updates, deletes, and key changes against representative
+  nested documents before consumers rely on the target.
+- Verify target write concern, index creation, schema evolution, and document
+  size limits in the MongoDB version and topology you operate.
 
 ## Reference
 
@@ -253,3 +146,7 @@ for the full sequence.
 | Binary and identifiers | `Binary`, `ObjectId` |
 | Date and time | `Date`, `Timestamp` |
 | Other | `Boolean`, `MinKey`, `MaxKey`, `Null` |
+
+In the current MySQL-to-MongoDB path, `TIMESTAMP(3)` becomes a BSON `Date` at
+millisecond precision; it preserves the instant, not the source time-zone or
+offset representation.

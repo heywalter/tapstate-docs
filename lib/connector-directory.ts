@@ -8,14 +8,21 @@ export type ConnectorCategoryId =
 
 export type ConnectorMaturity = 'ga' | 'preview' | 'deprecated';
 
+export type ConnectorDocumentationStatus = 'current' | 'roadmap' | 'unlisted';
+
+export type ConnectorProductProfile = {
+  status: Exclude<ConnectorDocumentationStatus, 'unlisted'>;
+  displayTitle?: string;
+  useAs: Array<'source' | 'target'>;
+  modes: string[];
+};
+
 export type ConnectorDirectoryItem = {
   slug: string;
   id: string;
   title: string;
   category: ConnectorCategoryId;
   maturity: ConnectorMaturity;
-  /** Participates in a published, end-to-end release flow. This is distinct from maturity. */
-  releaseTestedE2E?: boolean;
   /** Server registration is authoritative for roles and modes while catalog metadata catches up. */
   capabilityAuthority?: 'server';
   useAs: Array<'source' | 'target'>;
@@ -40,11 +47,11 @@ export const connectorCategories: Array<{
  * and read modes.
  */
 export const connectorDirectory: ConnectorDirectoryItem[] = [
-  { slug: 'mysql', id: 'mysql', title: 'MySQL', category: 'databases', maturity: 'ga', releaseTestedE2E: true, useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
+  { slug: 'mysql', id: 'mysql', title: 'MySQL', category: 'databases', maturity: 'ga', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'postgresql', id: 'postgres', title: 'PostgreSQL', category: 'databases', maturity: 'ga', capabilityAuthority: 'server', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'oracle', id: 'oracle', title: 'Oracle', category: 'databases', maturity: 'ga', capabilityAuthority: 'server', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'sqlserver', id: 'sqlserver', title: 'SQL Server', category: 'databases', maturity: 'ga', capabilityAuthority: 'server', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
-  { slug: 'mongodb', id: 'mongodb', title: 'MongoDB', category: 'databases', maturity: 'ga', releaseTestedE2E: true, useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
+  { slug: 'mongodb', id: 'mongodb', title: 'MongoDB', category: 'databases', maturity: 'ga', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'mongodb-atlas', id: 'mongodb-atlas', title: 'MongoDB Atlas', category: 'databases', maturity: 'ga', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'tidb', id: 'tidb', title: 'TiDB', category: 'databases', maturity: 'ga', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'aws-rds-mysql', id: 'aws-rds-mysql', title: 'Amazon RDS for MySQL', category: 'databases', maturity: 'preview', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
@@ -96,22 +103,47 @@ export const connectorDirectory: ConnectorDirectoryItem[] = [
   { slug: 'dummy', id: 'dummy', title: 'Dummy', category: 'custom-development', maturity: 'preview', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
 ];
 
+/**
+ * Product-facing connector exposure. This is deliberately separate from
+ * connector maturity and catalog metadata: it describes what the current
+ * tapstate docs directory publishes, not everything for which preparation
+ * material exists.
+ */
+export const connectorProductProfiles: Record<string, ConnectorProductProfile> = {
+  mysql: { status: 'current', useAs: ['source'], modes: ['snapshot', 'cdc'] },
+  mongodb: { status: 'current', useAs: ['target'], modes: [] },
+  postgresql: { status: 'roadmap', useAs: ['source'], modes: ['snapshot', 'cdc'] },
+  kafka: { status: 'roadmap', displayTitle: 'Kafka / Confluent', useAs: ['target'], modes: [] },
+};
+
+export function getConnectorDocumentationStatus(slug: string): ConnectorDocumentationStatus {
+  return connectorProductProfiles[slug]?.status ?? 'unlisted';
+}
+
+export function getConnectorsByDocumentationStatus(
+  status: Exclude<ConnectorDocumentationStatus, 'unlisted'>,
+) {
+  return connectorDirectory.filter(
+    (connector) => connectorProductProfiles[connector.slug]?.status === status,
+  );
+}
+
+export function getConnectorProductProfile(slug: string) {
+  return connectorProductProfiles[slug];
+}
+
 export function getConnectorsByCategory(category: ConnectorCategoryId) {
   return connectorDirectory.filter((connector) => connector.category === category);
 }
 
-export function connectorMaturityCounts() {
-  return connectorDirectory.reduce(
+export function connectorMaturityCounts(connectors = connectorDirectory) {
+  return connectors.reduce(
     (counts, connector) => {
       counts[connector.maturity] += 1;
       return counts;
     },
     { ga: 0, preview: 0, deprecated: 0 },
   );
-}
-
-export function connectorReleaseTestedCount() {
-  return connectorDirectory.filter((connector) => connector.releaseTestedE2E).length;
 }
 
 export function connectorMaturityLabel(maturity: ConnectorMaturity) {
@@ -123,22 +155,29 @@ export function connectorMaturityLabel(maturity: ConnectorMaturity) {
 }
 
 export function renderConnectorDirectoryForLLM() {
-  return connectorCategories
-    .map((category) => {
-      const rows = getConnectorsByCategory(category.id)
-        .map((connector) => {
-          const roles = connector.useAs.length > 0
-            ? connector.useAs.map((role) => role[0].toUpperCase() + role.slice(1)).join(' + ')
-            : '—';
-          const modes = connector.modes.length > 0
-            ? connector.modes.join(', ')
-            : '—';
-          const releaseTested = connector.releaseTestedE2E ? 'E2E' : '—';
-          return `| [${connector.title}](/docs/connectors/${connector.slug}) | ${connectorMaturityLabel(connector.maturity)} | ${releaseTested} | ${roles} | ${modes} |`;
-        })
-        .join('\n');
-
-      return `## ${category.label}\n\n${category.description}\n\n| Connector | Maturity | Release test | Roles | Read modes |\n|---|---|---|---|---|\n${rows}`;
+  const renderRows = (status: 'current' | 'roadmap') => getConnectorsByDocumentationStatus(status)
+    .map((connector) => {
+      const profile = connectorProductProfiles[connector.slug];
+      const roles = profile.useAs.map((role) => role[0].toUpperCase() + role.slice(1)).join(' + ') || '—';
+      const modes = profile.modes.join(', ') || '—';
+      const title = profile.displayTitle ?? connector.title;
+      return `| [${title}](/docs/connectors/${connector.slug}) | ${connectorMaturityLabel(connector.maturity)} | ${roles} | ${modes} |`;
     })
-    .join('\n\n');
+    .join('\n');
+
+  return `## Current connector path
+
+The current product directory publishes the connector roles used by the MySQL-to-MongoDB operational-state path.
+
+| Connector | Guide maturity | Published role | Read modes |
+|---|---|---|---|
+${renderRows('current')}
+
+## Roadmap
+
+These guides describe planned directions, not current product contracts. No release date is implied.
+
+| Connector | Guide maturity | Planned role | Planned read modes |
+|---|---|---|---|
+${renderRows('roadmap')}`;
 }

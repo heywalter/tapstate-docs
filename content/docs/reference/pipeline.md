@@ -45,7 +45,28 @@ metadata:
 ### `source`
 
 A source resource ID or an array of IDs. Every referenced resource must exist
-in the validated workspace.
+in the validated workspace. A source can select multiple tables; that selection
+lives in the referenced source's `tables` field, not in `pipeline.source`.
+
+When a source omits `tables`, tapstate selects every table in its latest
+discovered schema. Discover the source before applying or starting a pipeline
+that relies on this automatic selection. If two sources select tables with the
+same name, use a qualified `source_id.table` reference where a pipeline step or
+serve declaration names that table.
+
+For example, keep the connection IDs in `source`, then qualify the table names
+in a transform input:
+
+```yaml
+source: [east_orders, west_orders]
+transforms:
+  - id: combine-orders
+    from: [east_orders.orders, west_orders.orders]
+    type: union
+```
+
+See [source](/docs/reference/source#tables) for selector syntax and runtime
+limits.
 
 ### `transforms`
 
@@ -101,6 +122,7 @@ validation still needs runtime and connector verification.
 
 ## Runtime boundary
 
-The current preview's local demo declares an inline `serve.sync` pipeline from
-MySQL to MongoDB. Schema acceptance of reusable views, `query`, `push`, Nest, or
-Join does not by itself prove that the current runtime executes that surface.
+The current preview's local playground declares an inline `serve.sync` pipeline
+from MySQL to MongoDB. The runtime also executes `nest` document assembly.
+Schema acceptance of reusable views, `query`, `push`, or `join` does not by
+itself prove that the current runtime executes that surface.

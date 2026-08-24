@@ -34,6 +34,8 @@ const sections = [
       'TransformBody.Js',
       'TransformBody.Union',
       'TransformBody.Nest',
+      'NestRoot',
+      'Embed',
       'TransformBody.Join',
     ],
   },
@@ -46,11 +48,20 @@ const sections = [
       'Storage.Cold',
       'ViewSchema',
       'SyncElement',
+      'RenameSpec',
       'QueryElement',
       'PushElement',
     ],
   },
 ];
+
+const descriptionOverrides = {
+  'Srs.key': 'Optional identifier that overrides automatic mining-chain derivation. Reuse a value only when compatible CDC sources must share one replay store.',
+  'TransformBody.Nest.entries_in_memory': 'Maximum entries kept in memory at each nest level. Additional entries use the configured backing layer. Omit to use the deployment default.',
+  'TransformBody.Nest.max_elements_per_document': 'Maximum embedded elements allowed in one assembled document. Exceeding the limit fails the pipeline. Omit to use the deployment default.',
+  'NestRoot.trackKeyChanges': 'When true, moves the assembled document when its root key changes. Requires the source to provide a before image.',
+  'Embed.trackKeyChanges': 'When true, moves an embedded subtree when its array key, parent key, or child-reference key changes. Requires the source to provide a before image.',
+};
 
 function refName(ref) {
   return ref?.replace('#/$defs/', '');
@@ -100,7 +111,10 @@ function renderDefinition(name) {
     const values = enumValues(spec);
     const resolved = resolve(spec);
     const defaultValue = spec.default ?? resolved.default;
-    return `| \`${name}.${field}\` | ${cell(typeOf(spec))} | ${required.has(field) ? 'yes' : 'no'} | ${cell(defaultValue)} | ${cell(values.map((value) => `\`${value}\``).join(', '))} | ${cell(spec.description ?? resolved.description)} |`;
+    const description = descriptionOverrides[`${name}.${field}`]
+      ?? spec.description
+      ?? resolved.description;
+    return `| \`${name}.${field}\` | ${cell(typeOf(spec))} | ${required.has(field) ? 'yes' : 'no'} | ${cell(defaultValue)} | ${cell(values.map((value) => `\`${value}\``).join(', '))} | ${cell(description)} |`;
   });
 
   if (name === 'TransformResource') {
@@ -127,9 +141,15 @@ ai:
   aliases: [tapstate fields, tapstate schema, yaml field reference]
 ---
 
-This lookup is generated from the product \`tapstate-v1.schema.json\`. Regenerate
-it with the Schema from the same product revision whenever the contract changes.
-Descriptions record declaration semantics, not runtime availability.
+Use this page when you are authoring or reviewing a \`.tap.yml\` file and need an
+exact field name, type, required flag, default, or accepted value. Start with
+[Resource grammar](/docs/reference/dsl-grammar) to choose a resource kind, then
+use the matching table here to complete or check its YAML.
+
+The tables are generated from the \`tapstate-v1.schema.json\` shipped with the
+documented release. They describe what that release's YAML contract accepts;
+they do not prove that every declared field or surface is available in the
+current preview runtime. For the execution boundary, see [Resource grammar](/docs/reference/dsl-grammar#declaration-and-execution-are-different-checks).
 
 ${body}
 

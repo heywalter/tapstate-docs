@@ -1,6 +1,6 @@
 ---
 title: Connector guides
-description: Find the tapstate guide for preparing a source or target system and authoring its connection resource.
+description: See the current MySQL-to-MongoDB connector path and the next planned connector directions
 sidebar:
   order: 1
 ai:
@@ -11,12 +11,42 @@ ai:
 
 import { ConnectorDirectoryMatrix } from '@/components/mdx';
 
-Choose the system you want tapstate to read from or write to. Select a connector
-to open its prerequisites, connection fields, documented roles and modes, and
-limitations. Use a [server-side connection test](/docs/guides/register-connectors#test-a-connection)
-before using a production endpoint.
+The current tapstate preview has one published operational-state path: capture
+an initial MySQL snapshot, follow later changes with CDC, and maintain the
+result in MongoDB. The current runtime path registers these two connector
+artifacts only.
+
+Select a current connector to prepare its external system and author the
+connection resource. Before using a real endpoint, run a
+[server-side connection test](/docs/guides/register-connectors#test-a-connection).
 
 <ConnectorDirectoryMatrix />
+
+## Roadmap entries
+
+Roadmap rows show the next connector directions: PostgreSQL capture and
+Kafka/Confluent delivery. They do not promise a release date, artifact, command,
+or runtime behavior. Use their linked guides only to understand likely
+preparation requirements until a release promotes them into the current product
+path.
+
+Only current and roadmap entries appear in this directory. Other integrations
+are not published in this public documentation site and are not presented as
+supported connector workflows.
+
+## Documentation status
+
+The directory uses a status separate from **Maturity**:
+
+- **Current path** means the connector has a published role in the current
+  product path. MySQL is the current source and MongoDB is the current target.
+- **Roadmap reference** means the connector is an explicitly planned direction,
+  not a current runtime contract. PostgreSQL and Kafka/Confluent are currently
+  in this group.
+
+**GA** and **Preview** describe guide or configuration-contract maturity. They
+do not change the documentation status or prove that an artifact is bundled or
+registered.
 
 ## Maturity labels
 
@@ -24,16 +54,8 @@ before using a production endpoint.
 - **Preview** means the guide or configuration contract can still change.
 
 Maturity does not mean that a connector JAR is bundled with every tapstate
-release or that every listed role and mode has passed an end-to-end release
-test.
-
-## Release-tested marker
-
-The **E2E** marker identifies a connector that participates in a published
-end-to-end release flow. It currently marks MySQL and MongoDB, which are the
-source and target used by the local demo. A missing marker does not
-mean that a connector is unsupported; it means that connector is not part of
-that release-tested flow.
+release or that every listed role and mode is available in the current product
+path.
 
 ## How to read roles and modes
 
@@ -43,4 +65,4 @@ Hover a label or its information icon to see its exact meaning.
 - **Target** writes data to the listed system.
 - **Snapshot** reads the selected data once. **CDC** starts with existing data,
   then captures later committed changes.
-- A dash means the current catalog does not report that role or read mode.
+- A dash means a read mode does not apply to the published target role.

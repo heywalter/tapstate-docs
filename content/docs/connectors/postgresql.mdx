@@ -1,6 +1,6 @@
 ---
 title: PostgreSQL
-description: Connect PostgreSQL to tapstate for an initial full load, WAL-based change data capture (CDC), or target writes.
+description: Prepare PostgreSQL for a planned tapstate source path that captures an initial load and ongoing WAL changes.
 sidebar:
   order: 3
 ai:
@@ -8,9 +8,9 @@ ai:
   id: postgres
   category: databases
   maturity: ga
-  useAs: [source, target]
+  useAs: [source]
   modes: [snapshot, cdc]
-  aliases: [postgresql snapshot, postgresql cdc, postgres wal, postgresql source, postgresql target]
+  aliases: [postgresql snapshot, postgresql cdc, postgres wal, postgresql source]
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
@@ -19,15 +19,15 @@ import { PreparationStep, PreparationSteps, SourceModeTab, SourceModeTabs } from
 <ConnectorProfile
   category="Databases"
   maturity="GA"
-  maturityLabel="Generally available"
-  worksAs="Source, Target"
-  capabilities="Snapshot, CDC, DDL capture, Data write, Target DDL apply"
+  maturityLabel="Stable guide and configuration contract"
+  worksAs="Source"
+  capabilities="Snapshot, CDC, DDL capture"
   compatibility="PostgreSQL 9.4–16 · standalone or replication architecture"
 />
 
-Connect PostgreSQL as a source for an initial full load and WAL-based CDC, or
-as a target for pipeline writes. Complete the database preparation that matches
-the role and read mode you plan to use.
+Use this roadmap guide to prepare PostgreSQL for an initial full load and
+WAL-based CDC. It does not make the PostgreSQL artifact part of the current
+runtime path.
 
 ## Before you begin
 
@@ -203,29 +203,10 @@ Do not leave this test slot behind. A slot retains WAL until it advances or is r
 </SourceModeTab>
 </SourceModeTabs>
 
-### Prepare a target database
-
-Prepare a dedicated writer for the destination database and schema:
-
-```sql
-CREATE USER tapstate WITH PASSWORD 'replace-with-a-secret';
-
-\c database_name
-GRANT CONNECT ON DATABASE database_name TO tapstate;
-GRANT CREATE, USAGE ON SCHEMA schema_name TO tapstate;
-GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE
-  ON ALL TABLES IN SCHEMA schema_name TO tapstate;
-GRANT USAGE, SELECT, UPDATE
-  ON ALL SEQUENCES IN SCHEMA schema_name TO tapstate;
-```
-
-Grant `ALTER` or ownership only if tapstate is expected to evolve existing target tables. If foreign-key checks must be bypassed during a controlled load, review the security impact before setting `session_replication_role`; that setting usually requires elevated privileges.
-
 ## Create a connection
 
-Tapstate stores each PostgreSQL connection as a `.tap.yml` file in the
-workspace. Create a source connection when tapstate reads PostgreSQL; create a
-target connection when a pipeline writes to PostgreSQL.
+tapstate stores a PostgreSQL source connection as a `.tap.yml` file in the
+workspace.
 
 ### Source connection
 
@@ -264,69 +245,14 @@ config:
   user: ${POSTGRES_READER_USER}
   password: ${POSTGRES_READER_PASSWORD}
   logPluginName: pgoutput
-mode: snapshot
+mode: cdc
 tables:
   - orders
 ```
 
-For a CDC-capable source, use `mode: cdc` after completing the WAL, plugin,
-publication, and replication preparation. The mode does not by itself prove
-that those database prerequisites are ready.
-
-### Target connection
-
-A PostgreSQL target is represented by the same `kind: source` connection
-resource, but it has no reader `mode` or `tables`.
-
-```bash
-tapstate new --non-interactive \
-  --kind source \
-  --connector postgres \
-  --id analytics_postgres \
-  --set host=analytics-postgres.internal \
-  --set port=5432 \
-  --set database=analytics \
-  --set schema=public \
-  --set user='${POSTGRES_WRITER_USER}' \
-  --set password='${POSTGRES_WRITER_PASSWORD}' \
-  --workdir tapstate-work
-```
-
-The command creates `tapstate-work/source/analytics_postgres.tap.yml`:
-
-```yaml title="tapstate-work/source/analytics_postgres.tap.yml"
-version: tapstate/v1
-kind: source
-id: analytics_postgres
-connector: postgres
-config:
-  deploymentMode: standalone
-  host: analytics-postgres.internal
-  port: "5432"
-  database: analytics
-  schema: public
-  user: ${POSTGRES_WRITER_USER}
-  password: ${POSTGRES_WRITER_PASSWORD}
-```
-
-Create the pipeline after both connections exist. Keep DDL handling conservative
-until the source trigger path and target schema behavior have passed staging:
-
-```yaml title="tapstate-work/pipeline/orders_to_analytics.tap.yml"
-version: tapstate/v1
-kind: pipeline
-id: orders_to_analytics
-source: orders_postgres
-serve:
-  from: /.*/
-  sync:
-    - id: write_to_analytics
-      source: analytics_postgres
-      write_mode: upsert
-      ddl: fail
-```
-
-`upsert` writes new rows and updates existing rows by key; `append` only inserts. PostgreSQL can capture supported DDL through its logical-decoding and trigger path. Change `ddl` to `apply` only after a staging pipeline proves the exact DDL event and target behavior required by your workload.
+Use `mode: cdc` only after completing the WAL, plugin, publication, and
+replication preparation. The mode does not by itself prove that those database
+prerequisites are ready.
 
 ## Validate the configuration
 
@@ -338,10 +264,11 @@ tapstate validate --workdir tapstate-work
 
 Validation does not resolve the host, credentials, or a PostgreSQL server. A
 syntactically valid resource that uses `postgres.invalid` can therefore pass
-validation. Register the PostgreSQL connector JAR, apply the workspace, and
-run a server-side connection test for both source and target before production.
+validation. When a release publishes this source path, register its official
+artifact and run a server-side connection test before relying on the
+configuration.
 
-Then run a staging check that:
+When the source path becomes available, run a staging check that:
 
 1. discovers a selected table;
 2. completes a small snapshot;
@@ -410,7 +337,5 @@ extension types with representative data before migration.
 | Spatial and network | `geometry`, `point`, `polygon`, `circle`, `path`, `box`, `line`, `lseg`, `inet`, `cidr`, `macaddr` |
 | Structured and other | `uuid`, `xml`, `json`, `jsonb`, arrays, OID and reg* identifier types, `tsvector`, `tsquery` |
 
-For target writes, the `wal2json` path does not support the `tsvector`, `tsquery`, `regproc`, `regprocedure`, `regoper`,
-`regoperator`, `regclass`, `regtype`, `regconfig`, or `regdictionary` baseline
-types. The `walminer` baseline also excludes arrays and `oid`. Verify uncommon
-extension types with representative data before migration.
+Verify uncommon extension types with representative data before relying on a
+future runtime path.

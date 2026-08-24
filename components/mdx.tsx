@@ -1,15 +1,13 @@
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import { Popover, PopoverContent, PopoverTrigger } from 'fumadocs-ui/components/ui/popover';
 import Link from 'next/link';
-import { ArrowRight, BadgeCheck, Bot, Braces, Cable, CircleAlert, CircleCheck, Database, FileText, GitBranch, Info, Layers3, RadioTower, Store, TableProperties, Wrench } from 'lucide-react';
+import { ArrowRight, BadgeCheck, Bot, Braces, Cable, CircleAlert, CircleCheck, Database, FileText, GitBranch, Info, KeyRound, Layers3, RadioTower, Server, TerminalSquare } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { MDXComponents } from 'mdx/types';
 import {
-  connectorCategories,
   connectorMaturityCounts,
-  connectorReleaseTestedCount,
-  getConnectorsByCategory,
-  type ConnectorCategoryId,
+  getConnectorProductProfile,
+  getConnectorsByDocumentationStatus,
   type ConnectorMaturity,
 } from '@/lib/connector-directory';
 
@@ -84,7 +82,7 @@ export function ProductOverviewHero() {
             Build and maintain live operational state.
           </h1>
           <p className="mb-0 mt-5 max-w-3xl text-pretty text-base leading-8 text-fd-muted-foreground md:text-lg">
-            Tapstate is an open-source operational data engine in preview. The v0.1.0 local demo explores a MySQL-to-MongoDB snapshot and CDC workflow.
+            Tapstate is an open-source unified operational data engine in preview. It builds and maintains live operational state—an Operational State Layer—for applications, APIs, automation, and AI agents. The v0.2.0 local playground explores a MySQL-to-MongoDB snapshot and CDC workflow.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link href="/docs/overview/quickstart-online" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-fd-primary px-4 text-sm font-semibold text-fd-primary-foreground no-underline transition-colors hover:bg-fd-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
@@ -151,6 +149,49 @@ function ArchitectureNode({
   );
 }
 
+/** Shows the one end-to-end path available in the current local preview. */
+export function PreviewArchitecture() {
+  return (
+    <figure className="not-prose my-8 overflow-hidden rounded-2xl border border-fd-border bg-fd-card shadow-sm shadow-black/[0.03] dark:shadow-none">
+      <figcaption className="border-b border-fd-border px-5 py-4">
+        <p className="m-0 text-sm font-semibold text-fd-foreground">Current preview architecture</p>
+        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">One runnable, single-node MySQL-to-MongoDB path in the local playground.</p>
+      </figcaption>
+      <section aria-label="Current preview control and data paths" className="grid gap-2 rounded-xl border border-fd-border bg-fd-muted/20 p-4 sm:grid-cols-[minmax(0,1fr)_2rem_minmax(17rem,1.25fr)_2rem_minmax(0,1fr)] sm:grid-rows-[auto_auto_auto_auto_auto_auto_auto] sm:gap-x-2 sm:gap-y-2 sm:p-5">
+        <p className="order-1 mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary sm:col-start-1 sm:row-start-1 sm:mb-0">Control path</p>
+        <div className="order-2 sm:col-start-3 sm:row-start-2">
+          <WorkflowNode title=".tap.yml workspace" description="Source and pipeline resources." icon={FileText} />
+        </div>
+        <div className="order-3 sm:col-start-3 sm:row-start-3">
+          <WorkflowVerticalArrow label="validate / apply" />
+        </div>
+        <div className="order-4 sm:col-start-3 sm:row-start-4">
+          <WorkflowNode title="tapstate CLI" description="Offline authoring and authenticated control requests." icon={TerminalSquare} accent />
+        </div>
+        <div className="order-5 sm:col-start-3 sm:row-start-5">
+          <WorkflowVerticalArrow label="Submit (HTTP)" />
+        </div>
+        <p className="order-6 mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary sm:col-start-1 sm:row-start-6 sm:mb-0 sm:self-start">Data path</p>
+        <div className="order-7 sm:col-start-1 sm:row-start-7">
+          <WorkflowNode title="MySQL" description="Initial snapshot and later CDC." icon={Database} />
+        </div>
+        <div className="order-8 sm:col-start-2 sm:row-start-7">
+          <WorkflowArrow />
+        </div>
+        <div className="order-9 sm:col-start-3 sm:row-start-7">
+          <WorkflowNode title="Single-node server" subtitle="Capture & transform" description="Registers artifacts, runs pipelines, and reports status." icon={Server} accent />
+        </div>
+        <div className="order-10 sm:col-start-4 sm:row-start-7">
+          <WorkflowArrow />
+        </div>
+        <div className="order-11 sm:col-start-5 sm:row-start-7">
+          <WorkflowNode title="MongoDB" description="Current operational-state materialization target." icon={Layers3} />
+        </div>
+      </section>
+    </figure>
+  );
+}
+
 /** Responsive, semantic representation of the target tapstate architecture. */
 export function TapStateArchitecture() {
   return (
@@ -183,7 +224,7 @@ export function TapStateArchitecture() {
           <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
             <ArchitectureNode title="Sources" description="Databases, brokers, files, and APIs." icon={Database} />
             <ArchitectureNode title="Capture" description="Initial data and later changes." icon={RadioTower} accent />
-            <ArchitectureNode title="Transform" description="Stateless transforms now; stateful composition is a target." icon={GitBranch} accent />
+            <ArchitectureNode title="Transform" description="Filter, map, script, union, and assemble related records with nest." icon={GitBranch} accent />
             <ArchitectureNode title="Materialize" description="Maintain destination-ready current state." icon={Layers3} accent />
             <ArchitectureNode title="Deliver" description="Write targets or publish streams." icon={Cable} accent />
             <ArchitectureNode title="Consumers" description="Applications, APIs, and agents." icon={Bot} />
@@ -289,23 +330,117 @@ export function DataPathComparison() {
   );
 }
 
+function WorkflowNode({
+  title,
+  subtitle,
+  description,
+  icon: Icon,
+  accent = false,
+}: {
+  title: string;
+  subtitle?: string;
+  description: string;
+  icon: typeof Database;
+  accent?: boolean;
+}) {
+  return (
+    <div className={`min-w-0 flex-1 rounded-xl border p-4 ${accent ? 'border-fd-primary/25 bg-fd-primary/[0.07]' : 'border-fd-border bg-fd-background'}`}>
+      <div className="flex items-center gap-2">
+        <Icon aria-hidden="true" className={`size-4 ${accent ? 'text-fd-primary' : 'text-fd-muted-foreground'}`} />
+        <p className="m-0 text-sm font-semibold text-fd-foreground">{title}</p>
+      </div>
+      {subtitle ? <p className="mb-0 mt-1.5 text-xs font-semibold leading-5 text-fd-primary">{subtitle}</p> : null}
+      <p className={`mb-0 text-xs leading-5 text-fd-muted-foreground ${subtitle ? 'mt-1' : 'mt-2'}`}>{description}</p>
+    </div>
+  );
+}
+
+function WorkflowArrow({ label }: { label?: string }) {
+  return (
+    <span className="flex shrink-0 flex-col items-center justify-center gap-1 py-1 text-[0.65rem] font-medium text-fd-muted-foreground sm:px-1">
+      {label ? <span>{label}</span> : null}
+      <ArrowRight aria-hidden="true" className="size-4 rotate-90 sm:rotate-0" />
+    </span>
+  );
+}
+
+function WorkflowVerticalArrow({ label }: { label: string }) {
+  return (
+    <span className="flex shrink-0 flex-col items-center justify-center gap-1 py-1 text-[0.65rem] font-medium text-fd-muted-foreground">
+      <span>{label}</span>
+      <ArrowRight aria-hidden="true" className="size-4 rotate-90" />
+    </span>
+  );
+}
+
+/** Shows which CLI work is local and which work requires a running server. */
+export function CliServerWorkflow() {
+  return (
+    <figure className="not-prose my-8 overflow-hidden rounded-2xl border border-fd-border bg-fd-card shadow-sm shadow-black/[0.03] dark:shadow-none">
+      <figcaption className="border-b border-fd-border px-5 py-4">
+        <p className="m-0 text-sm font-semibold text-fd-foreground">CLI and server responsibilities</p>
+        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">Author locally; connect to a server only when an operation needs the control plane or runtime.</p>
+      </figcaption>
+      <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-2">
+        <section className="rounded-xl border border-fd-border bg-fd-muted/20 p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="m-0 text-sm font-semibold text-fd-foreground">Offline authoring</h3>
+            <span className="rounded-full border border-fd-border bg-fd-background px-2.5 py-1 text-[0.65rem] font-semibold text-fd-muted-foreground">No server</span>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+            <WorkflowNode title="CLI" description="Create and inspect resources." icon={TerminalSquare} />
+            <WorkflowArrow />
+            <WorkflowNode title="Local workspace" description="Run new, validate, explain, ls, and desc." icon={FileText} accent />
+          </div>
+        </section>
+        <section className="rounded-xl border border-fd-primary/20 bg-fd-primary/[0.04] p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h3 className="m-0 text-sm font-semibold text-fd-foreground">Connected operation</h3>
+            <span className="rounded-full border border-fd-primary/20 bg-fd-primary/[0.07] px-2.5 py-1 text-[0.65rem] font-semibold text-fd-primary">Server required</span>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+            <WorkflowNode title="CLI" description="Send authenticated control requests." icon={TerminalSquare} />
+            <WorkflowArrow />
+            <WorkflowNode title="tapstate server" description="Apply, test, discover, run, and observe." icon={Server} accent />
+          </div>
+        </section>
+      </div>
+    </figure>
+  );
+}
+
+/** Shows the local stdio gateway between an MCP host and a tapstate server. */
+export function McpConnectionFlow() {
+  return (
+    <figure className="not-prose my-8 overflow-hidden rounded-2xl border border-fd-border bg-fd-card shadow-sm shadow-black/[0.03] dark:shadow-none">
+      <figcaption className="border-b border-fd-border px-5 py-4">
+        <p className="m-0 text-sm font-semibold text-fd-foreground">MCP connection path</p>
+        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">The host starts a local gateway; the server authenticates every control-plane request.</p>
+      </figcaption>
+      <div className="p-4 sm:p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+          <WorkflowNode title="MCP host" description="Codex, Claude Code, or another MCP client." icon={Bot} />
+          <WorkflowArrow label="stdio" />
+          <WorkflowNode title="tapstate mcp" description="Local gateway from the complete CLI bundle." icon={TerminalSquare} accent />
+          <WorkflowArrow label="HTTP(S)" />
+          <WorkflowNode title="tapstate server" description="Checks the token, exposes tools, and performs operations." icon={Server} />
+        </div>
+        <div className="mt-4 flex items-start gap-3 rounded-xl border border-fd-border bg-fd-muted/25 px-4 py-3">
+          <KeyRound aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fd-primary" />
+          <p className="m-0 text-xs leading-5 text-fd-muted-foreground">The MCP host receives a scoped machine token through <code className="text-[0.7rem]">TAPSTATE_TOKEN</code>. It never needs the tapstate administrator password.</p>
+        </div>
+      </div>
+    </figure>
+  );
+}
+
 type ConnectorProfileProps = {
   category: string;
   maturity: string;
   maturityLabel: string;
-  releaseTested?: string;
   worksAs?: string;
   capabilities?: string;
   compatibility: string;
-};
-
-const connectorCategoryAnchors: Record<string, ConnectorCategoryId> = {
-  Databases: 'databases',
-  'Warehouses & analytics': 'warehouses-analytics',
-  'Streaming & messaging': 'streaming-messaging',
-  Files: 'files',
-  'SaaS, business & commerce APIs': 'saas-business-commerce-apis',
-  'Custom & development': 'custom-development',
 };
 
 function connectorMaturityTone(maturity: string) {
@@ -394,7 +529,6 @@ export function ConnectorProfile({
   category,
   maturity,
   maturityLabel,
-  releaseTested,
   worksAs,
   capabilities,
   compatibility,
@@ -409,15 +543,11 @@ export function ConnectorProfile({
       <h2 className="sr-only">Connector profile</h2>
       <dl className="divide-y divide-fd-border">
         <ConnectorProfileRow label="Category">
-          <Link
-            href={`/docs/connectors#connector-category-${connectorCategoryAnchors[category] ?? 'databases'}`}
-            className="group inline-flex items-center gap-1.5 rounded-md border border-fd-border bg-fd-muted/55 px-2 py-0.5 text-xs font-medium leading-5 text-fd-foreground no-underline transition-colors hover:border-fd-primary/40 hover:text-fd-primary"
-          >
-            <span>{category}</span>
-            <ArrowRight aria-hidden="true" className="size-3 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
-          </Link>
+          <span className="inline-flex rounded-md border border-fd-border bg-fd-muted/55 px-2 py-0.5 text-xs font-medium leading-5 text-fd-foreground">
+            {category}
+          </span>
         </ConnectorProfileRow>
-        <ConnectorProfileRow label="Maturity">
+        <ConnectorProfileRow label="Guide maturity">
           <span className="flex flex-wrap items-center gap-2.5">
             <span className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-semibold leading-5 ${maturityTone.badge}`}>
               <BadgeCheck aria-hidden="true" className="size-3.5" strokeWidth={2.25} />
@@ -426,19 +556,8 @@ export function ConnectorProfile({
             <span className={maturityTone.label}>{maturityLabel}</span>
           </span>
         </ConnectorProfileRow>
-        {releaseTested ? (
-          <ConnectorProfileRow label="Release-tested">
-            <span className="flex flex-wrap items-center gap-2.5">
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs font-semibold leading-5 text-sky-800 dark:border-sky-800 dark:bg-sky-950/45 dark:text-sky-200">
-                <BadgeCheck aria-hidden="true" className="size-3.5" strokeWidth={2.25} />
-                E2E
-              </span>
-              <span className="text-fd-card-foreground">{releaseTested}</span>
-            </span>
-          </ConnectorProfileRow>
-        ) : null}
         {worksAs ? (
-          <ConnectorProfileRow label="Works as">
+          <ConnectorProfileRow label="Role in this guide">
             <ConnectorProfileTags value={worksAs} />
           </ConnectorProfileRow>
         ) : null}
@@ -495,36 +614,6 @@ Unknown field 'unexpected' at unexpected.`}
     </div>
   );
 }
-
-const categoryPresentation: Record<
-  ConnectorCategoryId,
-  { icon: typeof Database; iconClassName: string }
-> = {
-  databases: {
-    icon: Database,
-    iconClassName: 'bg-sky-50 text-sky-700 dark:bg-sky-950/45 dark:text-sky-300',
-  },
-  'warehouses-analytics': {
-    icon: TableProperties,
-    iconClassName: 'bg-violet-50 text-violet-700 dark:bg-violet-950/45 dark:text-violet-300',
-  },
-  'streaming-messaging': {
-    icon: RadioTower,
-    iconClassName: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/45 dark:text-cyan-300',
-  },
-  files: {
-    icon: FileText,
-    iconClassName: 'bg-amber-50 text-amber-800 dark:bg-amber-950/45 dark:text-amber-200',
-  },
-  'saas-business-commerce-apis': {
-    icon: Store,
-    iconClassName: 'bg-rose-50 text-rose-700 dark:bg-rose-950/45 dark:text-rose-300',
-  },
-  'custom-development': {
-    icon: Wrench,
-    iconClassName: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
-  },
-};
 
 function DirectoryMaturity({ maturity }: { maturity: ConnectorMaturity }) {
   const presentation = maturity === 'ga'
@@ -593,27 +682,6 @@ function ConnectorDirectoryTerm({
   );
 }
 
-function ReleaseTestedMarker() {
-  return (
-    <Popover>
-      <PopoverTrigger
-        aria-label="E2E tested: This connector participates in a published end-to-end release flow."
-        closeDelay={100}
-        delay={120}
-        openOnHover
-        className="group inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[0.65rem] font-semibold tracking-wide text-sky-800 transition-colors hover:border-sky-300 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring dark:border-sky-800 dark:bg-sky-950/45 dark:text-sky-200 dark:hover:bg-sky-900/55"
-      >
-        <BadgeCheck aria-hidden="true" className="size-3" strokeWidth={2.25} />
-        <span>E2E</span>
-      </PopoverTrigger>
-      <PopoverContent role="tooltip" sideOffset={8} className="w-64 border-fd-border bg-fd-popover p-3 shadow-xl">
-        <p className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-fd-muted-foreground">Release-tested</p>
-        <p className="mb-0 mt-1.5 text-sm leading-5 text-fd-popover-foreground">This connector participates in a published end-to-end release flow. A missing marker does not mean that the connector is unsupported.</p>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 function ConnectorDirectoryTerms({
   terms,
   separator,
@@ -649,38 +717,55 @@ function ConnectorDirectoryTerms({
 
 /** A compact connector maturity index. The canonical data lives in connector-directory.ts. */
 export function ConnectorDirectoryMatrix() {
-  const maturityCounts = connectorMaturityCounts();
-  const releaseTestedCount = connectorReleaseTestedCount();
+  const currentConnectors = getConnectorsByDocumentationStatus('current');
+  const maturityCounts = connectorMaturityCounts(currentConnectors);
+  const sections = [
+    {
+      status: 'current' as const,
+      title: 'Current connector path',
+      description: 'Connector roles published for the current MySQL-to-MongoDB operational-state path.',
+      icon: CircleCheck,
+      iconClassName: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-300',
+    },
+    {
+      status: 'roadmap' as const,
+      title: 'Roadmap',
+      description: 'Planned connector directions without a committed release date. These rows are not current product contracts.',
+      icon: RadioTower,
+      iconClassName: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/45 dark:text-cyan-300',
+    },
+  ];
 
   return (
     <section aria-label="Connector guide directory" className="not-prose my-8">
       <div className="mb-8 flex flex-wrap items-center gap-2 text-sm text-fd-muted-foreground">
-        <span className="font-medium text-fd-foreground">{maturityCounts.ga + maturityCounts.preview + maturityCounts.deprecated} connectors</span>
+        <span className="font-medium text-fd-foreground">{maturityCounts.ga + maturityCounts.preview + maturityCounts.deprecated} current connectors</span>
         <span aria-hidden="true">·</span>
         <span className="inline-flex items-center gap-1.5"><DirectoryMaturity maturity="ga" /> {maturityCounts.ga}</span>
-        <span className="inline-flex items-center gap-1.5"><DirectoryMaturity maturity="preview" /> {maturityCounts.preview}</span>
-        <span className="inline-flex items-center gap-1.5 text-sky-800 dark:text-sky-200"><BadgeCheck aria-hidden="true" className="size-4" strokeWidth={2.25} /> {releaseTestedCount} E2E-tested</span>
+        {maturityCounts.preview > 0 ? (
+          <span className="inline-flex items-center gap-1.5"><DirectoryMaturity maturity="preview" /> {maturityCounts.preview}</span>
+        ) : null}
         {maturityCounts.deprecated > 0 ? (
           <span className="inline-flex items-center gap-1.5"><DirectoryMaturity maturity="deprecated" /> {maturityCounts.deprecated}</span>
         ) : null}
       </div>
 
       <div className="space-y-9">
-        {connectorCategories.map((category) => {
-          const Icon = categoryPresentation[category.id].icon;
-          const connectors = getConnectorsByCategory(category.id);
+        {sections.map((section) => {
+          const Icon = section.icon;
+          const connectors = getConnectorsByDocumentationStatus(section.status);
 
           return (
-            <section key={category.id} aria-labelledby={`connector-category-${category.id}`} className="border-t border-fd-border pt-5">
+            <section key={section.status} aria-labelledby={`connector-status-${section.status}`} className="border-t border-fd-border pt-5">
               <header className="mb-3 flex items-start gap-3">
-                <span className={`mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-lg ${categoryPresentation[category.id].iconClassName}`}>
+                <span className={`mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-lg ${section.iconClassName}`}>
                   <Icon aria-hidden="true" className="size-4" strokeWidth={2} />
                 </span>
                 <div>
-                  <h2 id={`connector-category-${category.id}`} className="m-0 text-base font-semibold tracking-tight text-fd-foreground">
-                    {category.label}
+                  <h2 id={`connector-status-${section.status}`} className="m-0 text-base font-semibold tracking-tight text-fd-foreground">
+                    {section.title}
                   </h2>
-                  <p className="mb-0 mt-1 text-sm leading-6 text-fd-muted-foreground">{category.description}</p>
+                  <p className="mb-0 mt-1 text-sm leading-6 text-fd-muted-foreground">{section.description}</p>
                 </div>
               </header>
               <div className="overflow-x-auto">
@@ -688,38 +773,40 @@ export function ConnectorDirectoryMatrix() {
                   <thead className="border-b border-fd-border text-xs font-medium uppercase tracking-[0.08em] text-fd-muted-foreground">
                     <tr>
                       <th className="px-0 py-2.5 font-medium">Connector</th>
-                      <th className="px-3 py-2.5 font-medium">Maturity</th>
-                      <th className="px-3 py-2.5 font-medium">Works as</th>
-                      <th className="px-3 py-2.5 font-medium">Read mode</th>
+                      <th className="px-3 py-2.5 font-medium">Guide maturity</th>
+                      <th className="px-3 py-2.5 font-medium">{section.status === 'current' ? 'Published role' : 'Planned role'}</th>
+                      <th className="px-3 py-2.5 font-medium">{section.status === 'current' ? 'Read mode' : 'Planned read mode'}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-fd-border/80">
-                    {connectors.map((connector) => (
-                      <tr key={connector.slug} className="transition-colors hover:bg-fd-accent/40">
-                        <th className="px-0 py-2.5 font-medium text-fd-foreground">
-                          <Link href={`/docs/connectors/${connector.slug}`} className="group inline-flex items-center gap-1.5 text-fd-primary underline decoration-fd-primary/25 underline-offset-4 transition-colors hover:decoration-fd-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
-                            <span>{connector.title}</span>
-                            <ArrowRight aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
-                          </Link>
-                          {connector.releaseTestedE2E ? <span className="ml-2 inline-flex align-middle"><ReleaseTestedMarker /></span> : null}
-                        </th>
-                        <td className="px-3 py-2.5"><DirectoryMaturity maturity={connector.maturity} /></td>
-                        <td className="px-3 py-2.5 text-fd-muted-foreground">
-                          <ConnectorDirectoryTerms
-                            terms={connector.useAs}
-                            separator="+"
-                            emptyHelp="The current catalog does not report a role. The guide may still cover external-system preparation; verify the registered runtime before relying on a source or target path."
-                          />
-                        </td>
-                        <td className="px-3 py-2.5 text-fd-muted-foreground">
-                          <ConnectorDirectoryTerms
-                            terms={connector.modes}
-                            separator="·"
-                            emptyHelp="The current catalog does not report a source read mode. The guide may still cover external-system preparation; verify the registered runtime before relying on a read path."
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                    {connectors.map((connector) => {
+                      const profile = getConnectorProductProfile(connector.slug);
+                      return (
+                        <tr key={connector.slug} className="transition-colors hover:bg-fd-accent/40">
+                          <th className="px-0 py-2.5 font-medium text-fd-foreground">
+                            <Link href={`/docs/connectors/${connector.slug}`} className="group inline-flex items-center gap-1.5 text-fd-primary underline decoration-fd-primary/25 underline-offset-4 transition-colors hover:decoration-fd-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
+                              <span>{profile?.displayTitle ?? connector.title}</span>
+                              <ArrowRight aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
+                            </Link>
+                          </th>
+                          <td className="px-3 py-2.5"><DirectoryMaturity maturity={connector.maturity} /></td>
+                          <td className="px-3 py-2.5 text-fd-muted-foreground">
+                            <ConnectorDirectoryTerms
+                              terms={profile?.useAs ?? []}
+                              separator="+"
+                              emptyHelp="No role is published for this connector."
+                            />
+                          </td>
+                          <td className="px-3 py-2.5 text-fd-muted-foreground">
+                            <ConnectorDirectoryTerms
+                              terms={profile?.modes ?? []}
+                              separator="·"
+                              emptyHelp="Read modes do not apply to this published target role."
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -740,8 +827,11 @@ export function getMDXComponents(components?: MDXComponents) {
     LinkCard,
     Badge,
     ProductOverviewHero,
+    PreviewArchitecture,
     TapStateArchitecture,
     DataPathComparison,
+    CliServerWorkflow,
+    McpConnectionFlow,
     ConnectorProfile,
     ValidationStatusGuide,
     ConnectorDirectoryMatrix,

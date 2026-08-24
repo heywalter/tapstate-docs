@@ -1,10 +1,14 @@
 {
   "title": "Reference",
   "pages": [
+    "---Interfaces---",
     "cli",
+    "mcp",
     "rest-api",
+    "---Workspace format---",
     "dsl-grammar",
     "dsl-fields",
+    "---Resource definitions---",
     "source",
     "pipeline",
     "transforms",

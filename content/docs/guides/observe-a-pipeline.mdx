@@ -8,9 +8,9 @@ ai:
   aliases: [tapstate status, tapstate metrics, tapstate logs, tapstate snapshot]
 ---
 
-tapstate exposes four observation faces. They answer different questions and should be read together with source and destination data.
+tapstate exposes four observation surfaces. They answer different questions and should be read together with source and destination data.
 
-| Face | Question | Storage boundary |
+| Surface | Question | Storage boundary |
 |---|---|---|
 | Status | What lifecycle state is currently observed? | Latest store-backed observation |
 | Metrics | What numeric run statistics and per-table positions are available? | Latest store-backed observation |
@@ -20,8 +20,8 @@ tapstate exposes four observation faces. They answer different questions and sho
 ## Read status
 
 ```text
-status orders_to_analytics
-status orders_to_analytics --watch
+status orders_to_operational_state
+status orders_to_operational_state --watch
 ```
 
 States include:
@@ -35,38 +35,50 @@ States include:
 
 Status is observed state, not merely the last command issued. It is eventually consistent and can lag a lifecycle write briefly.
 
-`status --watch` uses an authenticated WebSocket that polls the same observation and emits only state changes. Press <kbd>Ctrl</kbd>+<kbd>C</kbd> to stop watching without stopping the pipeline.
+When a job fails, the CLI status output includes `failureCode` and
+`failureMessage` with the `FAILED` state. `failureCode` is the stable machine
+key; `failureMessage` is the reader-facing explanation. Healthy states omit
+these fields.
+
+`status --watch` uses an authenticated WebSocket that polls the same observation and emits only state changes. A failure frame carries the same failure fields. A normal connection drop may be re-attached, but when the server closes the stream with a coded refusal, the CLI reports that code and terminates instead of reconnecting indefinitely. Press <kbd>Ctrl</kbd>+<kbd>C</kbd> to stop watching without stopping the pipeline.
 
 ## Read metrics
 
 ```text
-metrics orders_to_analytics
+metrics orders_to_operational_state
 ```
 
 Metrics are an open map rather than a fixed schema. Depending on the active runtime path, the response can include numeric counters and a `perTableOffset` map of table names to opaque source positions.
+
+For a pipeline that uses `nest`, the runtime reports one
+`nestDeadLettered.<namespace>` entry for each namespace that could not place
+changes into a document. The entry is absent when that namespace has no
+discarded changes; the runtime does not emit one aggregate `dead_lettered` key.
+Check the pipeline logs for the failure code and affected key. If you need a
+pipeline-wide total, sum the namespace entries in your client.
 
 An absent metric is unavailable, not zero. Do not build a strict parser that rejects new metric keys.
 
 ## Read snapshot progress
 
 ```text
-snapshot orders_to_analytics
+snapshot orders_to_operational_state
 ```
 
 Snapshot progress is per table and can be empty outside an initial-load phase or when the publisher has no progress to report. A missing total must not be interpreted as 0% or 100%.
 
-In `v0.1.0`, use target row counts and representative keyed samples as the primary snapshot proof. An empty `snapshot` result alone does not establish success or failure.
+In `v0.2.0`, use target row counts and representative keyed samples as the primary snapshot proof. An empty `snapshot` result alone does not establish success or failure.
 
 ## Read and follow logs
 
 ```text
-logs orders_to_analytics
-logs orders_to_analytics --follow
+logs orders_to_operational_state
+logs orders_to_operational_state --follow
 ```
 
 Logs are a bounded tail from the node serving the request. They are not a durable audit history or an aggregated multi-node log. An empty log result is valid when the pipeline has not logged on that node.
 
-`logs --follow` opens an authenticated WebSocket and sends newly observed lines. Under a burst, a bounded tail can re-send a line when it re-tails after eviction; consumers should tolerate duplicates.
+`logs --follow` opens an authenticated WebSocket and sends newly observed lines. Under a burst, a bounded tail can re-send a line when it re-tails after eviction; consumers should tolerate duplicates. A normal connection drop may be re-attached, but a server close carrying a coded refusal terminates the follow operation and reports the code instead of reconnecting indefinitely.
 
 ## Build an evidence set
 

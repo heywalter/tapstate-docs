@@ -7,6 +7,8 @@ ai:
   aliases: [tapstate offline quickstart, tapstate workspace, create tapstate yml, validate workspace]
 ---
 
+import { CardGrid, LinkCard } from '@/components/mdx';
+
 Use the offline CLI to learn how tapstate resources fit together without connecting to a server. You will define a MySQL Snapshot source, a MongoDB target connection, and a pipeline that references both.
 
 ## What you will create
@@ -102,7 +104,7 @@ data.
 
 ## 5. Inspect the resources
 
-If your CLI version provides these inspection commands, use them to review the workspace and field grammar:
+Use these commands to review the workspace and field grammar:
 
 ```bash
 tapstate ls --workdir tapstate-work
@@ -110,13 +112,46 @@ tapstate desc orders_to_customer_view --workdir tapstate-work
 tapstate explain source.mode
 ```
 
-Use structured output only when your tapstate CLI supports it. Do not infer runtime success from an authoring or inspection command.
+Do not infer runtime success from an authoring or inspection command.
+
+## Extend the pipeline
+
+This tutorial creates a direct source-to-target sync. Use the same workspace as
+the starting point for the next capability you need:
+
+<CardGrid>
+  <LinkCard
+    title="Review resource definitions"
+    description="Look up the exact source, pipeline, transform, view, and serve fields."
+    href="/docs/reference/dsl-grammar"
+  />
+  <LinkCard
+    title="Transform records"
+    description="Add a filter, map, script, union, or another supported transform."
+    href="/docs/reference/transforms"
+  />
+  <LinkCard
+    title="Assemble documents with nest"
+    description="Maintain one MongoDB document from related MySQL tables."
+    href="/docs/guides/assemble-documents-with-nest"
+  />
+  <LinkCard
+    title="Run and observe a pipeline"
+    description="Apply resources to a server, control the lifecycle, and inspect data movement."
+    href="/docs/guides/apply-and-run"
+  />
+</CardGrid>
+
+For runtime signals after a pipeline starts, use [Observe a pipeline](/docs/guides/observe-a-pipeline).
 
 ## Next steps
 
-- [Try tapstate locally](/docs/overview/quickstart-online) with the disposable MySQL-to-MongoDB demo.
+- [Try tapstate locally](/docs/overview/quickstart-online) with the disposable MySQL-to-MongoDB playground.
 - Learn how [connections and connectors](/docs/concepts/connections-and-connectors) differ.
 - [Register and test connectors](/docs/guides/register-connectors) from the server environment.
+- [Apply and run a pipeline](/docs/guides/apply-and-run), then [observe a pipeline](/docs/guides/observe-a-pipeline).
+- Look up exact [resource fields](/docs/reference/dsl-fields) before changing generated YAML.
+- [Assemble documents with nest](/docs/guides/assemble-documents-with-nest) when related source tables must become one target document.
 - Choose the right [capture mode](/docs/concepts/capture-modes).
 - Use [Troubleshooting](/docs/guides/troubleshooting) to isolate authoring, deployment, and data problems.
 - Continue with the selected source and target connector guides before using the same pattern with production data.

@@ -1,6 +1,6 @@
 ---
 title: REST API preview
-description: Call the authenticated tapstate v0.1.0 control-plane endpoints and interpret preview responses
+description: Call the authenticated tapstate v0.2.0 control-plane endpoints and interpret preview responses
 ai:
   kind: reference
   id: rest-api
@@ -8,7 +8,7 @@ ai:
   aliases: [tapstate REST API, tapstate control plane API, tapstate HTTP API]
 ---
 
-The `v0.1.0` server exposes a preview HTTP control plane. This API exists only
+The `v0.2.0` server exposes a preview HTTP control plane. This API exists only
 after a separate tapstate server is running; installing the CLI does not start
 the server or expose an HTTP port. The server is headless and has no built-in
 web UI in this release.
@@ -42,8 +42,32 @@ See [Bootstrap and authenticate](/docs/guides/bootstrap-and-auth) for the reques
 | Method | Path | Purpose |
 |---|---|---|
 | `POST` | `/api/artifacts:apply` | Parse, validate, and apply a batch of raw YAML drafts. |
+| `POST` | `/api/artifacts:validate` | Parse and validate a batch of raw YAML drafts without storing them. |
 | `GET` | `/api/artifacts` | List stored artifacts; optional `kind` query parameter. |
 | `GET` | `/api/artifacts/{id}` | Read one stored artifact. |
+| `DELETE` | `/api/artifacts/{id}` | Permanently remove one stored artifact; requires `If-Match` with the current content hash. |
+
+Artifact deletion requires a quoted 64-character content hash from the artifact's current representation:
+
+```http
+If-Match: "<64-hex-content-hash>"
+```
+
+Read the artifact first to obtain the hash. The `contentHash` field is the
+unquoted 64-character value returned by `GET /api/artifacts/{id}` (and by the
+artifact list); wrap that value in quotes only when forming the `If-Match`
+header:
+
+```json
+{
+  "id": "orders_source",
+  "kind": "source",
+  "canonicalForm": "...",
+  "contentHash": "<64-hex-content-hash>"
+}
+```
+
+The server returns `428` when the header is missing or malformed, `412` when the hash is stale, and `204` after the artifact is removed.
 
 Apply request:
 
@@ -98,15 +122,64 @@ Connection test and discovery execute synchronously and can take longer than ord
 
 | Method | Path | Purpose |
 |---|---|---|
+| `POST` | `/api/sources:draft` | Validate a structured Source draft and render canonical YAML without storing it. |
 | `POST` | `/api/sources` | Create one structured source. |
 | `GET` | `/api/sources` | List structured sources. |
 | `GET` | `/api/sources/{id}` | Read a secret-redacted source and its `ETag`. |
 | `PUT` | `/api/sources/{id}` | Replace a source using `If-Match`. |
 | `DELETE` | `/api/sources/{id}` | Delete a source using `If-Match`. |
 
+`POST /api/sources:draft` is an authoring check, not a create operation. It
+returns a redacted Source view and canonical YAML only when the live connector
+catalog can supply the complete connector contract; it creates no artifact or
+audit record.
+
 Update and delete require the quoted 64-character content hash returned in `ETag`. Missing or stale preconditions return HTTP `428` or `412`. Secret values are not returned; use the structured secret-clearing contract deliberately when replacing a source.
 
-For resource authoring and pipeline batches, prefer `/api/artifacts:apply`; do not mix the two write styles casually.
+Use one write model consistently. Prefer `/api/artifacts:apply` for resource
+authoring and pipeline batches. Use the structured source endpoints when a
+client needs source-specific draft and `ETag` workflows.
+
+## Machine-token endpoints
+
+These endpoints require an administrator credential:
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/tokens` | Create a machine token with `read`, `write`, or `admin` scope. |
+| `GET` | `/api/tokens` | List secret-free token descriptors. |
+| `POST` | `/api/tokens/{id}:revoke` | Revoke a machine token immediately. |
+
+The create response returns the bearer value exactly once. Store it in a secret
+manager or process environment; later list responses do not return it. Scope is
+ordered `read` < `write` < `admin`, and a token can call operations at or below
+its own grade.
+
+Create a write-scoped token with an administrator credential:
+
+```bash
+curl --fail-with-body --silent --show-error \
+  -X POST "$TAPSTATE_URL/api/tokens" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data '{"scope":"write"}'
+```
+
+The response has this shape. The `token` value is returned only in this create
+response:
+
+```json
+{
+  "tokenId": "<token-id>",
+  "scope": "WRITE",
+  "token": "<one-time-bearer-value>",
+  "createdAt": "<timestamp>"
+}
+```
+
+List secret-free token metadata with `GET /api/tokens`. Revoke a token with
+`POST /api/tokens/<token-id>:revoke`; revocation returns HTTP `204` and takes
+effect immediately.
 
 ## Pipeline lifecycle endpoints
 
@@ -121,7 +194,7 @@ Each response is desired state:
 
 ```json
 {
-  "pipelineId": "orders_to_analytics",
+  "pipelineId": "orders_to_operational_state",
   "targetState": "RUNNING",
   "revision": "<content-hash>"
 }
@@ -138,6 +211,11 @@ The response proves that the intent was accepted. Read observed status and desti
 | `GET` | `/api/pipelines/{id}/snapshot` | Per-table initial-load progress when available |
 | `GET` | `/api/pipelines/{id}/logs` | Bounded node-local log tail |
 
+The status response includes `pipelineId` and `state`. When the observed state
+records a job failure, it also includes a `failure` object with `code`,
+`params`, and a reader-facing `message`. The same shape is used in status watch
+frames. The failure object is omitted when there is no failure to report.
+
 WebSocket endpoints:
 
 | Path | Behavior |
@@ -151,7 +229,7 @@ Cluster endpoint:
 
 | Method | Path | Boundary |
 |---|---|---|
-| `GET` | `/api/cluster/members` | Present but returns HTTP `501` in `v0.1.0` |
+| `GET` | `/api/cluster/members` | Present but returns HTTP `501` in `v0.2.0` |
 
 ## Error responses
 
@@ -170,6 +248,11 @@ Coded failures use:
 
 Treat `code` as the stable machine key. `message` is reader-facing and can change.
 
+`engine.job-failed` is a pipeline failure code, not a request-level HTTP error.
+When it appears as `failure.code` in a status response or status watch frame, it
+means that the pipeline stopped because its job failed. Inspect
+`failure.message` and the pipeline logs for the underlying cause.
+
 Common status mappings:
 
 | HTTP status | Typical meaning |
@@ -178,17 +261,38 @@ Common status mappings:
 | `401` | Missing, invalid, expired, or rejected credential |
 | `403` | Authenticated but insufficient scope |
 | `404` | Artifact, source, connector, pipeline, test result, schema, or observation not found |
-| `409` | Closed bootstrap or illegal/incompatible lifecycle state |
-| `412` | Source `If-Match` content hash is stale |
-| `428` | Source update/delete omitted a valid `If-Match` |
+| `409` | Closed bootstrap, an illegal/incompatible lifecycle state, or an artifact refusal such as `artifact.in-use` |
+| `412` | Source or artifact `If-Match` content hash is stale |
+| `428` | Source or artifact update/delete omitted a valid precondition |
 | `500` | Coded server or connector failure without a client-attributable mapping |
 | `501` | Endpoint is present but not implemented |
 
-Bare programmer errors can still return a framework-level HTTP `500` without the coded envelope. Preserve the status, response body, method, path, and tapstate version when diagnosing one.
+### Artifact errors
+
+Artifact edits and deletions use a shared `artifact.*` error domain:
+
+The v0.2.0 `GET /api/artifacts/{id}` read path currently returns HTTP `404`
+without a structured error body when the ID is absent. Handle the HTTP status
+first and do not require an `artifact.not-found` JSON envelope for that read;
+the coded error is used by artifact mutation/precondition paths.
+
+| Code | Meaning |
+|---|---|
+| `artifact.not-found` | The requested artifact does not exist. A delete that already succeeded returns this code if it is attempted again. |
+| `artifact.precondition-required` | The request did not provide a valid version precondition (`428`). |
+| `artifact.version-conflict` | The supplied content hash is stale (`412`). |
+| `artifact.in-use` | Another resource still refers to the artifact (`409`). |
+| `artifact.pipeline-not-stopped` | The artifact's pipeline is not stopped, so removal is refused (`409`). |
+| `artifact.reclaim-incomplete` | The deletion succeeded, but dependent cleanup did not finish. Do not retry the deletion. Record the `reason` and `residue` parameters and contact the server operator; a retry returns `artifact.not-found`. |
+
+Unexpected server errors can return HTTP `500` without the coded envelope.
+Preserve the status, response body, method, path, and tapstate version when
+reporting one.
 
 ## Version boundary
 
-- `v0.1.0` connected CLI workflows use the interactive REPL.
+- `v0.2.0` supports both interactive connected sessions and one-shot connected
+  commands seeded with `-c` and `-u`.
 - No `v1` API prefix or compatibility guarantee exists yet.
 
 ## Related pages

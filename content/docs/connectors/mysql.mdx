@@ -1,6 +1,6 @@
 ---
 title: MySQL
-description: Connect MySQL to tapstate for an initial full load, ongoing change data capture (CDC), or target writes.
+description: Capture an initial MySQL load and ongoing changes into tapstate, then maintain application-ready operational state in MongoDB.
 sidebar:
   order: 2
 ai:
@@ -8,9 +8,9 @@ ai:
   id: mysql
   category: databases
   maturity: ga
-  useAs: [source, target]
+  useAs: [source]
   modes: [snapshot, cdc]
-  aliases: [mysql snapshot, mysql full load, mysql cdc, mysql binlog, mysql source, mysql target]
+  aliases: [mysql snapshot, mysql full load, mysql cdc, mysql binlog, mysql source]
 ---
 
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
@@ -19,10 +19,9 @@ import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
 <ConnectorProfile
   category="Databases"
   maturity="GA"
-  maturityLabel="Generally available"
-  releaseTested="Source in the published MySQL → MongoDB Snapshot + CDC flow"
-  worksAs="Source, Target"
-  capabilities="Snapshot, CDC, DDL capture, Data write, Target DDL apply"
+  maturityLabel="Stable guide and configuration contract"
+  worksAs="Source"
+  capabilities="Snapshot, CDC, Schema discovery, DDL capture"
   compatibility="MySQL 5.0–9.x · Single node and primary-replica"
 />
 
@@ -112,31 +111,9 @@ Confirm `log_bin = ON`, `binlog_format = ROW`, and `binlog_row_image = FULL`. Al
 </SourceModeTab>
 </SourceModeTabs>
 
-### Target
-
-Create a separate least-privilege writer. The target needs DML privileges for replicated row changes. Add schema privileges only when the pipeline is explicitly approved to create or evolve destination tables.
-
-```sql
-CREATE USER 'tapstate_writer'@'%' IDENTIFIED BY 'your_password';
-
--- Replicate inserts, updates, and deletes.
-GRANT SELECT, INSERT, UPDATE, DELETE
-  ON `analytics`.* TO 'tapstate_writer'@'%';
-
--- Add only when an approved pipeline may create or evolve target tables.
-GRANT CREATE, ALTER, DROP, CREATE ROUTINE, CREATE TEMPORARY TABLES
-  ON `analytics`.* TO 'tapstate_writer'@'%';
-
-FLUSH PRIVILEGES;
-```
-
-Do not grant `CREATE ROUTINE` or `CREATE TEMPORARY TABLES` unless the approved deployment or workload requires them. Write behavior and DDL handling belong to the pipeline, not to the connection; configure and stage-test them in [Create a pipeline](#create-a-pipeline).
-
 ## Create a connection
 
-Tapstate stores each MySQL connection as a `.tap.yml` file in the workspace. Create a source connection when tapstate reads MySQL; create a target connection when a pipeline writes to MySQL.
-
-### Source connection
+Tapstate stores the MySQL source as a `.tap.yml` file in the workspace.
 
 The example below creates a CDC-capable source connection. The connection's `mode` controls its read capability.
 
@@ -180,38 +157,11 @@ tables:
 
 For a one-time full load, use `mode: snapshot`. For a CDC-capable source, use `mode: cdc` after completing the Binlog preparation. Before production, validate the intended full-load and CDC behavior in a staging pipeline.
 
-### Create a pipeline
-
-Create a pipeline after both connections exist:
-
-```bash
-tapstate new --non-interactive \
-  --kind pipeline \
-  --id orders_to_analytics \
-  --source orders_source \
-  --sync-to analytics_mysql \
-  --workdir tapstate-work
-```
-
-The generated pipeline connects the source to the target. The following is the supported sync shape, with the conservative DDL default made explicit:
-
-```yaml title="tapstate-work/pipeline/orders_to_analytics.tap.yml"
-version: tapstate/v1
-kind: pipeline
-id: orders_to_analytics
-source: orders_source
-serve:
-  from: /.*/
-  sync:
-    - id: write_to_analytics
-      source: analytics_mysql
-      write_mode: upsert
-      ddl: fail
-```
-
-`upsert` is the default write mode: it writes new rows and updates existing rows by primary key; deletes remove the matching target row. `append` always inserts and does not apply updates or deletes. The `ddl` policy defaults to `fail`; choose `apply` or `ignore` only after staging has shown that the source delivers the needed schema-change events and that the target schema behavior is acceptable.
-
-Use a literal item such as `orders` for a fixed table. Use a `/regex/` item to discover matching tables; keep patterns narrow so a newly created table is not included accidentally.
+Use a literal item such as `orders` for a fixed table. Use a `/regex/` item to
+discover matching tables; keep patterns narrow so a newly created table is not
+included accidentally. Continue with the [MongoDB target guide](/docs/connectors/mongodb) and
+[pipeline reference](/docs/reference/pipeline) to complete the current product
+path.
 
 #### Use a primary-replica topology
 
@@ -232,40 +182,6 @@ config:
 
 For CDC from a replica, make sure it writes replicated events to its own binlog (`log_slave_updates = 1`). Check `SHOW REPLICA STATUS` (or `SHOW SLAVE STATUS` on older MySQL) and resolve replication lag before using it as a source.
 
-### Target connection
-
-A MySQL target is represented by the same `kind: source` connection resource, but it has no reader `mode` or `tables`. This lets a pipeline refer to it as an output connection.
-
-```bash
-tapstate new --non-interactive \
-  --kind source \
-  --connector mysql \
-  --id analytics_mysql \
-  --set host=warehouse.internal \
-  --set port=3306 \
-  --set database=analytics \
-  --set username='${MYSQL_WRITER}' \
-  --set password='${MYSQL_WRITER_PASSWORD}' \
-  --workdir tapstate-work
-```
-
-The command creates `tapstate-work/source/analytics_mysql.tap.yml`:
-
-```yaml title="tapstate-work/source/analytics_mysql.tap.yml"
-version: tapstate/v1
-kind: source
-id: analytics_mysql
-connector: mysql
-config:
-  host: warehouse.internal
-  port: "3306"
-  database: analytics
-  username: ${MYSQL_WRITER}
-  password: ${MYSQL_WRITER_PASSWORD}
-```
-
-This target connection deliberately omits `mode` and `tables`: in the tapstate resource model it supplies the destination connector and configuration for a pipeline sync. Before using `upsert`, confirm that the target tables have the keys and column types needed to identify an existing row. If existing target tables must be preserved, verify column order and types against the source in a staging run.
-
 ## Validate the configuration
 
 Run validation after creating or editing the connection files:
@@ -283,7 +199,7 @@ keys, resolve secrets, or contact MySQL. A syntactically valid resource that
 uses `mysql.invalid` can therefore pass validation.
 
 To check the connection, register the MySQL connector JAR, apply the workspace,
-and run the test from an authenticated `v0.1.0` REPL:
+and run the test from an authenticated REPL:
 
 ```bash
 tapstate -w tapstate-work
@@ -314,18 +230,8 @@ for the full sequence.
 - In MySQL 5.6 and earlier, normalize negative `TIME` values before CDC testing.
 - MySQL-compatible databases can add non-native schemas or functions that the MySQL parser does not understand. Test those variants before production use.
 
-### Target limitations
-
-- If a target table already exists, keep its column order and data types compatible with the source or writes can fail.
-- Indexes are applied during initial table creation. Later source index changes are not automatically propagated.
-- Initial creation supports standard, unique, primary-key, and composite indexes. Treat full-text indexes as limited and create them explicitly when required.
-- In heterogeneous pipelines, spatial, custom, `ENUM`, and `SET` values may be represented as strings. Verify the generated target schema before loading production data.
-- Lower-to-higher MySQL version movement is generally safer. Higher-to-lower movement can fail on unsupported features, relaxed time formats, or invalid date values.
-- Treat `ADD COLUMN`, `CHANGE COLUMN`, `DROP COLUMN`, and `RENAME COLUMN` as staging-test cases. Keep `ddl: fail` until you have verified the exact source event and target behavior your pipeline requires.
-
 ### Consistency and conflicts
 
-- Source and target support does not imply active-active conflict resolution. Do not update the same business keys from both sides unless the pipeline defines an external conflict policy.
 - Writes made outside the replication path can cause source-target differences.
 - Avoid DDL on participating source tables during a snapshot. Schema changes can invalidate the snapshot or cause it to fail.
 - Validate row counts and keyed samples after a snapshot, then test `INSERT`, `UPDATE`, and `DELETE` events before opening the target to consumers.
@@ -358,6 +264,9 @@ for the full sequence.
 | Spatial | `POINT`, `LINESTRING`, `POLYGON`, `GEOMETRY`, `MULTIPOINT`, `MULTILINESTRING`, `MULTIPOLYGON`, `GEOMCOLLECTION` |
 | Other | `BIT`, `ENUM`, `SET`, `JSON` |
 
+- **Current MySQL → MongoDB path:** `TIMESTAMP(3)` → BSON `Date` at millisecond
+  precision. Preserves the instant; does not preserve the source time-zone or
+  offset representation.
 - Replicated row changes include `INSERT`, `UPDATE`, and `DELETE`.
-- Adding, changing, renaming, and dropping columns remain a pipeline-level staging check; see [Target limitations](#target-limitations).
+- Adding, changing, renaming, and dropping columns remain pipeline-level staging checks.
 - Test heterogeneous pipelines with spatial, custom, `ENUM`, and `SET` values because downstream systems commonly represent them as strings.

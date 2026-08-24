@@ -20,7 +20,7 @@ Tapstate connects operational systems through one governed Captureâ€“Transformâ€
     href="/docs/overview/what-is-tapstate"
   />
   <LinkCard
-    title="Local demo"
+    title="Local playground"
     description="Explore the MySQL-to-MongoDB snapshot and CDC workflow in a disposable Docker environment."
     href="/docs/overview/quickstart-online"
   />
@@ -35,6 +35,25 @@ Tapstate connects operational systems through one governed Captureâ€“Transformâ€
     href="/docs/concepts/capture-modes"
   />
 </CardGrid>
+
+## Current preview
+
+The public preview demonstrates one concrete operational data path:
+
+- MySQL initial load plus continuous change data capture (CDC)
+- an in-flight `map` transform
+- continuous materialization to MongoDB
+
+The local MongoDB instance is the preview's published materialization target.
+Do not infer another store, query API, or push surface from the broader product
+model. Start with the [local playground](/docs/overview/quickstart-online) to
+run the current path locally.
+
+On this MySQL-to-MongoDB reference path, a MySQL `TIMESTAMP` value is written as
+a MongoDB BSON date with millisecond precision. The instant is preserved; the
+source time-zone or offset representation is not preserved. The server-backed
+preview is supplied through the disposable Docker playground; this release
+does not publish a standalone server installer.
 
 ## Complete a task
 

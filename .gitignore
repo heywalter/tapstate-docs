@@ -24,3 +24,14 @@ yarn-error.log*
 # deployment / local env
 .env*.local
 .vercel
+
+# local runtime validation (may contain credentials, URLs, raw responses, and reports)
+/.tapstate-validation/
+/scripts/private/
+/scripts/validate-runtime-surfaces.sh
+
+# local release review artifacts
+/.review/
+/release-*-install-playground-validation*.html
+/release-*-pr-doc-map*.html
+/release-*-review*.html

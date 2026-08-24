@@ -5,6 +5,8 @@ import { llms } from 'fumadocs-core/source';
 import {
   connectorCategories,
   connectorDirectory,
+  getConnectorDocumentationStatus,
+  getConnectorProductProfile,
   renderConnectorDirectoryForLLM,
 } from './connector-directory';
 import {
@@ -25,6 +27,7 @@ function groupConnectorNavigation(node: Folder, folderPath: string): Folder {
   const groupedUrls = new Set<string>();
   const groups: Folder[] = connectorCategories.map((category) => {
     const children = connectorDirectory.flatMap((connector) => {
+      if (getConnectorDocumentationStatus(connector.slug) !== 'current') return [];
       if (connector.category !== category.id) return [];
       const url = `${docsRoute}/connectors/${connector.slug}`;
       const page = pages.get(url);
@@ -49,9 +52,13 @@ function groupConnectorNavigation(node: Folder, folderPath: string): Folder {
   );
   const remainingNodes = node.children.filter((child) => child.type !== 'page') as Node[];
 
+  const children = groups.length === 1
+    ? [...directPages, ...groups[0].children, ...remainingNodes]
+    : [...directPages, ...groups, ...remainingNodes];
+
   return {
     ...node,
-    children: [...directPages, ...groups, ...remainingNodes],
+    children,
   };
 }
 
@@ -83,6 +90,42 @@ export function getPageMarkdownUrl(page: (typeof source)['$inferPage']) {
   };
 }
 
+/**
+ * Public documentation policy for generated pages and machine-readable
+ * surfaces. Connector pages without a product profile are preparation
+ * material only; they stay in the source tree for history and future review,
+ * but must not be emitted as public documentation.
+ */
+export function isPublicDocPage(page: (typeof source)['$inferPage']) {
+  if (page.slugs[0] !== 'connectors' || page.slugs.length < 2) return true;
+  return getConnectorDocumentationStatus(page.slugs[1]) !== 'unlisted';
+}
+
+export function getPublicDocPages() {
+  return source.getPages().filter(isPublicDocPage);
+}
+
+function isPublicPageTreeItem(item: Item) {
+  const page = source.getNodePage(item);
+  return !page || isPublicDocPage(page);
+}
+
+function filterPublicPageTreeNode(node: Node): Node | null {
+  if (node.type === 'page') return isPublicPageTreeItem(node) ? node : null;
+  if (node.type !== 'folder') return node;
+
+  const index = node.index && isPublicPageTreeItem(node.index)
+    ? node.index
+    : undefined;
+  const children = node.children.flatMap((child) => {
+    const publicChild = filterPublicPageTreeNode(child);
+    return publicChild ? [publicChild] : [];
+  });
+
+  if (!index && children.length === 0) return null;
+  return { ...node, index, children };
+}
+
 function readAttribute(attrs: string, name: string) {
   return attrs.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1];
 }
@@ -91,9 +134,8 @@ function renderConnectorProfileForLLM(attrs: string) {
   const field = (name: string) => readAttribute(attrs, name);
   const rows = [
     `| Category | ${field('category') ?? 'Not specified'} |`,
-    `| Maturity | ${field('maturity') ?? 'Not specified'} — ${field('maturityLabel') ?? 'Not specified'} |`,
-    field('releaseTested') ? `| Release-tested | E2E — ${field('releaseTested')} |` : null,
-    field('worksAs') ? `| Works as | ${field('worksAs')} |` : null,
+    `| Guide maturity | ${field('maturity') ?? 'Not specified'} — ${field('maturityLabel') ?? 'Not specified'} |`,
+    field('worksAs') ? `| Role in this guide | ${field('worksAs')} |` : null,
     field('capabilities') ? `| Capabilities | ${field('capabilities')} |` : null,
     `| Compatibility | ${field('compatibility') ?? 'Not specified'} |`,
   ].filter(Boolean);
@@ -174,14 +216,20 @@ Next, run the connection in a non-production environment and confirm credentials
 |---|---|---|
 | The assembled stack | Source systems → Capture → Broker → Processing → Serving store → Apps, automation & agents | Separate tools and operating boundaries. |
 | The tapstate target path | Source systems → tapstate (Capture · Transform · Serve) → Apps, automation & agents | Target Capture–Transform–Serve operating model. |`)
-    .replace(/<ProductOverviewHero\s*\/>/g, `Tapstate is an open-source operational data engine in preview. The v0.1.0 local demo explores a MySQL-to-MongoDB snapshot and CDC workflow.
+    .replace(/<ProductOverviewHero\s*\/>/g, `Tapstate is an open-source unified operational data engine in preview. It builds and maintains live operational state—an Operational State Layer—for applications, APIs, automation, and AI agents. The v0.2.0 local playground explores a MySQL-to-MongoDB snapshot and CDC workflow.
 
 - **Capture:** Load existing data, then follow committed changes.
 - **Transform:** Filter, map, script, and merge data as it moves.
 - **Serve:** Write current state to a downstream system.
 
 [Try tapstate locally](/docs/overview/quickstart-online) or [browse connectors](/docs/connectors).`)
-    .replace(/<TapStateArchitecture\s*\/>/g, `## Target logical architecture
+    .replace(/<PreviewArchitecture\s*\/>/g, `### Current preview architecture diagram
+
+| Path | Components | Current behavior |
+|---|---|---|
+| Control | \`.tap.yml\` workspace → tapstate CLI → single-node server | The CLI validates locally and submits authenticated control requests to the server over HTTP. |
+| Data | MySQL → single-node server (Capture & transform) → MongoDB | The local playground runs an initial snapshot followed by CDC. The runtime wires \`filter\`, \`map\`, \`js\`, \`union\`, and \`nest\`. |`)
+    .replace(/<TapStateArchitecture\s*\/>/g, `### Target architecture diagram
 
 This diagram describes design direction, not the current preview implementation boundary.
 
@@ -192,12 +240,19 @@ This diagram describes design direction, not the current preview implementation 
 | Control | Operate | Apply, observe, and control lifecycle. |
 | Data | Sources | Databases, brokers, files, and APIs. |
 | Data | Capture | Read initial data and later changes. |
-| Data | Transform | Stateless transforms now; stateful composition is a target. |
+| Data | Transform | Filter, map, script, union, and assemble related records with nest. |
 | Data | Materialize | Maintain destination-ready current state. |
 | Data | Deliver | Write targets or publish streams. |
 | Data | Consumers | Applications, APIs, and agents. |
 
 Durable recovery state includes resource versions, checkpoints, schema and mapping state, retries, and operational history.`)
+    .replace(/<CliServerWorkflow\s*\/>/g, `### CLI and server responsibilities
+
+- **Offline authoring (no server):** The CLI works with a local workspace to create and inspect resources, and to run 'new', 'validate', 'explain', 'ls', and 'desc'.
+- **Connected operation (server required):** The CLI sends authenticated requests to a tapstate server for 'apply', 'test', 'discover', 'start', 'status', 'metrics', and 'logs'.`)
+    .replace(/<McpConnectionFlow\s*\/>/g, `### MCP connection path
+
+The MCP host (such as Codex or Claude Code) starts 'tapstate mcp' over **stdio**. The local gateway then calls the tapstate server over **HTTP(S)**, passing the scoped 'TAPSTATE_TOKEN' for authentication. The gateway does not replace or start the server.`)
     .replace(/<ConnectorDirectoryMatrix\s*\/>/g, renderConnectorDirectoryForLLM())
     .replace(/<ConnectorProfile\s+([\s\S]*?)\/>/g, (_match, attrs: string) => {
       return renderConnectorProfileForLLM(attrs);
@@ -229,6 +284,14 @@ function makeDocumentLinksAbsolute(markdown: string) {
   });
 }
 
+const llmProductOverview = [
+  '> tapstate is a unified operational data engine that builds and maintains an Operational State Layer.',
+  '>',
+  '> Its product model captures changes, transforms records in flight, and delivers current operational state to applications, APIs, automation, and AI agents through one governed Capture–Transform–Serve data path. It is intended for teams that would otherwise assemble separate CDC, broker, stream-processing, and serving products for the same path. This describes the product model; it does not mean every surface is available in the current preview.',
+  '>',
+  '> The current preview is a prerelease, single-node, in-memory runtime. The documented end-to-end path is a local MySQL-to-MongoDB snapshot followed by CDC. Use the linked page-level documentation for current maturity, roles, modes, limitations, and setup requirements.',
+].join('\n');
+
 function getAIPageMetadata(page: (typeof source)['$inferPage']) {
   return (page.data as typeof page.data & { ai?: AIPageMetadata }).ai;
 }
@@ -237,13 +300,31 @@ function renderAgentMetadata(page: (typeof source)['$inferPage']) {
   const ai = getAIPageMetadata(page);
   if (!ai) return '';
 
+  const connectorDocumentationStatus = ai.kind === 'connector'
+    ? getConnectorDocumentationStatus(page.slugs.at(-1) ?? '')
+    : undefined;
+  const connectorProductProfile = ai.kind === 'connector'
+    ? getConnectorProductProfile(page.slugs.at(-1) ?? '')
+    : undefined;
+  const connectorCatalogEntry = ai.kind === 'connector'
+    ? connectorDirectory.find((entry) => entry.slug === (page.slugs.at(-1) ?? ''))
+    : undefined;
+  const statusExplanation = connectorDocumentationStatus === 'current'
+    ? 'current connector directory'
+    : connectorDocumentationStatus === 'roadmap'
+      ? 'roadmap reference; not a current product contract'
+      : connectorDocumentationStatus === 'unlisted'
+        ? 'not published in the public connector documentation'
+        : undefined;
   const fields = [
     ['Content type', ai.kind],
     ['Identifier', ai.id],
+    ['Documentation status', statusExplanation],
+    [connectorDocumentationStatus === 'roadmap' ? 'Planned role' : 'Published role', connectorProductProfile?.useAs.join(', ')],
     ['Category', ai.category],
-    ['Maturity', ai.maturity],
-    ['Use as', ai.useAs?.join(', ')],
-    ['Modes', ai.modes?.join(', ')],
+    ['Guide maturity', ai.maturity],
+    ['Catalog metadata roles', connectorCatalogEntry?.useAs.join(', ')],
+    ['Catalog metadata read modes', connectorCatalogEntry?.modes.join(', ')],
     ['Aliases', ai.aliases?.join(', ')],
   ].filter((field): field is [string, string] => Boolean(field[1]));
 
@@ -264,18 +345,18 @@ ${metadata ? `${metadata}\n\n` : ''}${processed}`;
 }
 
 export function getLLMIndex() {
-  const index = makeDocumentLinksAbsolute(llms(source).index());
-  const [, ...content] = index.split('\n');
-  const documentationMap = content.join('\n').trim();
+  const renderer = llms(source);
+  const documentationMap = makeDocumentLinksAbsolute(
+    source.getPageTree().children.flatMap((node) => {
+      const publicNode = filterPublicPageTreeNode(node);
+      return publicNode ? [renderer.indexNode(publicNode)] : [];
+    }).join('\n'),
+  ).trim();
 
   return [
     '# Tapstate documentation',
     '',
-    '> tapstate is a unified operational data engine that builds and maintains an Operational State Layer.',
-    '>',
-    '> Its product model captures changes, transforms records in flight, and delivers current operational state to applications, APIs, automation, and AI agents through one governed Capture–Transform–Serve data path. It is intended for teams that would otherwise assemble separate CDC, broker, stream-processing, and serving products for the same path. This describes the product model; it does not mean every surface is available in the current preview.',
-    '>',
-    '> The current preview is a prerelease, single-node, in-memory runtime. The documented end-to-end path is a local MySQL-to-MongoDB snapshot followed by CDC. Use the linked page-level documentation for current maturity, roles, modes, limitations, and setup requirements.',
+    llmProductOverview,
     '',
     '## When to use tapstate',
     '',
@@ -289,9 +370,16 @@ export function getLLMIndex() {
     '## Start here',
     '',
     `- [What is tapstate?](${absoluteDocsUrl('/docs/overview/what-is-tapstate')})`,
-    `- [Architecture](${absoluteDocsUrl('/docs/overview/architecture')})`,
     `- [Install the CLI](${absoluteDocsUrl('/docs/overview/install')})`,
-    `- [Local demo](${absoluteDocsUrl('/docs/overview/quickstart-online')})`,
+    `- [Local playground](${absoluteDocsUrl('/docs/overview/quickstart-online')})`,
+    `- [Author and validate a workspace](${absoluteDocsUrl('/docs/overview/quickstart')})`,
+    `- [Architecture](${absoluteDocsUrl('/docs/overview/architecture')})`,
+    '',
+    '## Connector status',
+    '',
+    `- Current product path: [MySQL source](${absoluteDocsUrl('/docs/connectors/mysql')}) with Snapshot and CDC into a [MongoDB target](${absoluteDocsUrl('/docs/connectors/mongodb')}).`,
+    `- Roadmap references: [PostgreSQL capture](${absoluteDocsUrl('/docs/connectors/postgresql')}) and [Kafka / Confluent delivery](${absoluteDocsUrl('/docs/connectors/kafka')}). They do not imply a release date or current product contract.`,
+    '- Other connector preparation materials are not published in the public documentation site or combined agent context.',
     '',
     '## Agent guidance',
     '',
@@ -307,10 +395,13 @@ export function getLLMIndex() {
 }
 
 export async function getLLMFullText() {
-  const scanned = await Promise.all(source.getPages().map(getLLMText));
+  const pages = getPublicDocPages();
+  const scanned = await Promise.all(pages.map(getLLMText));
 
   return [
     '# Tapstate documentation — complete agent context',
+    '',
+    llmProductOverview,
     '',
     '> Generated from the canonical documentation source.',
     '',

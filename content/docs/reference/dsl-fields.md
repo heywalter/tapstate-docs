@@ -9,9 +9,15 @@ ai:
   aliases: [tapstate fields, tapstate schema, yaml field reference]
 ---
 
-This lookup is generated from the product `tapstate-v1.schema.json`. Regenerate
-it with the Schema from the same product revision whenever the contract changes.
-Descriptions record declaration semantics, not runtime availability.
+Use this page when you are authoring or reviewing a `.tap.yml` file and need an
+exact field name, type, required flag, default, or accepted value. Start with
+[Resource grammar](/docs/reference/dsl-grammar) to choose a resource kind, then
+use the matching table here to complete or check its YAML.
+
+The tables are generated from the `tapstate-v1.schema.json` shipped with the
+documented release. They describe what that release's YAML contract accepts;
+they do not prove that every declared field or surface is available in the
+current preview runtime. For the execution boundary, see [Resource grammar](/docs/reference/dsl-grammar#declaration-and-execution-are-different-checks).
 
 ## Top-level resources
 
@@ -72,7 +78,7 @@ Descriptions record declaration semantics, not runtime availability.
 | `TableRef.Spec.filter` | string | no | — | — | CEL row expression that filters which rows of the table are included. |
 | `TableRef.Spec.pk` | array<string> | no | — | — | Primary key column names used to identify rows when the source does not declare one. |
 | `TableRef.Spec.options` | object | no | — | — | Connector-owned extension options. |
-| `Srs.key` | string | no | — | — | Shared mining-chain assertion key identifying the replay store. |
+| `Srs.key` | string | no | — | — | Optional identifier that overrides automatic mining-chain derivation. Reuse a value only when compatible CDC sources must share one replay store. |
 | `Srs.retention` | string | no | — | — | How long captured change data is retained in the replay store. |
 | `Srs.schema_evolution` | `SrsSchemaEvolution` | no | — | `track`, `ignore` | Schema-evolution policy applied as upstream table structures change. |
 | `Srs.queryable` | boolean | no | — | — | Whether the replay store can be queried directly. |
@@ -127,7 +133,22 @@ Descriptions record declaration semantics, not runtime availability.
 | `TransformBody.Nest.type` | constant | yes | — | `nest` | Transform type discriminator. |
 | `TransformBody.Nest.primary_key` | string | no | — | — | Primary key used to group child records under their parent document. |
 | `TransformBody.Nest.order` | `NestOrder` | no | — | `main_first`, `sub_first` | Ordering applied to nested child records. |
+| `TransformBody.Nest.entries_in_memory` | integer | no | — | — | Maximum entries kept in memory at each nest level. Additional entries use the configured backing layer. Omit to use the deployment default. |
+| `TransformBody.Nest.max_elements_per_document` | integer | no | — | — | Maximum embedded elements allowed in one assembled document. Exceeding the limit fails the pipeline. Omit to use the deployment default. |
 | `TransformBody.Nest.root` | `NestRoot` | yes | — | — | The root stream whose documents receive the nested children. |
+| `NestRoot.from` | string | yes | — | — | Alias of the parent stream that anchors this nest tree. |
+| `NestRoot.key` | array<string> | no | — | — | Upsert key fields that identify a parent document for updates. |
+| `NestRoot.mode` | string | no | — | — | Write mode for the parent stream, such as append-only or upsert. |
+| `NestRoot.trackKeyChanges` | boolean | no | — | — | When true, moves the assembled document when its root key changes. Requires the source to provide a before image. |
+| `NestRoot.embed` | array<`Embed`> | no | — | — | Child streams embedded under each parent document. |
+| `Embed.from` | string | yes | — | — | Alias of the nest step's from map that supplies this child's rows. |
+| `Embed.on` | object | yes | — | — | Maps this child's join fields to the parent fields they match. |
+| `Embed.as` | `EmbedAs` | yes | — | `array`, `object` | How the matched child rows are shaped under the parent: a single object or an array. |
+| `Embed.path` | string | yes | — | — | Target field path under the parent where the embedded child is placed. |
+| `Embed.arrayKey` | array<string> | no | — | — | Fields that uniquely identify an element within an embedded array. |
+| `Embed.ignoreUpdates` | boolean | no | — | — | When true, updates to the child rows are not propagated into the parent. |
+| `Embed.trackKeyChanges` | boolean | no | — | — | When true, moves an embedded subtree when its array key, parent key, or child-reference key changes. Requires the source to provide a before image. |
+| `Embed.embed` | array<`Embed`> | no | — | — | Further children embedded beneath this one, forming a nested tree. |
 | `TransformBody.Join.type` | constant | yes | — | `join` | Transform type discriminator. |
 | `TransformBody.Join.engine` | string | yes | — | — | The query engine that runs the join, such as duckdb. |
 | `TransformBody.Join.sql` | string | yes | — | — | The SQL query that produces the joined wide table. |
@@ -151,6 +172,10 @@ Descriptions record declaration semantics, not runtime availability.
 | `SyncElement.rename` | `RenameSpec` | no | — | — | Rules for renaming the target table and columns relative to the pipeline output. |
 | `SyncElement.ddl` | `DdlPolicy` | no | fail | `apply`, `ignore`, `fail` | Policy controlling how schema changes are applied to the target store. |
 | `SyncElement.options` | object | no | — | — | Connector-owned extension options. |
+| `RenameSpec.map` | object | no | — | — | Explicit per-table rename map from source name to target name; takes highest priority. |
+| `RenameSpec.case` | `RenameCase` | no | — | `upper`, `lower`, `camel`, `pascal` | Case transform applied to table names before prefix/suffix rules. |
+| `RenameSpec.prefix` | string | no | — | — | Prefix prepended to each target table name. |
+| `RenameSpec.suffix` | string | no | — | — | Suffix appended to each target table name. |
 | `QueryElement.type` | `QueryType` | yes | — | `rest`, `graphql`, `mcp` | The kind of query this element exposes. |
 | `QueryElement.backend` | string | no | — | — | The sync id whose sink serves this query as an API; omit for parallel egress from the view store. |
 | `PushElement.id` | string | no | — | — | Optional id for this push element; defaults to a generated id when omitted. |
