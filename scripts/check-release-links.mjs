@@ -3,12 +3,12 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const releaseVersion = '0.2.0';
+const releaseVersion = '0.2.1';
 const releaseTag = `v${releaseVersion}`;
 const productDir = process.env.TAPSTATE_PRODUCT_DIR;
 const installPath = new URL('../content/docs/overview/install.mdx', import.meta.url);
 const quickstartPath = new URL('../content/docs/overview/quickstart-online.mdx', import.meta.url);
-const releasePath = new URL('../content/docs/releases/v0.2.0.mdx', import.meta.url);
+const releasePath = new URL('../content/docs/releases/v0.2.1.mdx', import.meta.url);
 const install = await readFile(installPath, 'utf8');
 const quickstart = await readFile(quickstartPath, 'utf8');
 const release = await readFile(releasePath, 'utf8');

@@ -21,7 +21,7 @@ tapstate commands use these exit codes:
 | `3` | Unavailable in this context, not connected, or not implemented |
 
 Use `tapstate --help` to inspect the commands in your installed version. In
-`v0.2.0`, use `tapstate help <command>` or `tapstate <command> --help` for a
+`v0.2.1`, use `tapstate help <command>` or `tapstate <command> --help` for a
 command's operands and options.
 
 Text-mode results are written to standard output and usage or diagnostic messages
@@ -96,7 +96,7 @@ after it requests that the pipeline start. A healthy server or a
 as successful only when connector registration and schema discovery complete
 without a refusal and the script prints `the target now holds 5 rows`.
 
-The `v0.2.0` script can continue after a refused command or a lower target
+The `v0.2.1` script can continue after a refused command or a lower target
 count, so inspect the complete output and target data instead of relying on its
 exit code alone.
 
@@ -182,7 +182,7 @@ or the process list.
 ### Connector registration is refused
 
 `connector.not-official` means the server refused the artifact before
-registration. In `v0.2.0`, the released registrar accepts only the published
+registration. In `v0.2.1`, the released registrar accepts only the published
 MySQL and MongoDB preview connector artifacts. A catalog entry or a connector
 JAR does not make another connector runnable. Confirm the artifact ID and use
 `connectors -o json` after a successful registration; see [Register and test

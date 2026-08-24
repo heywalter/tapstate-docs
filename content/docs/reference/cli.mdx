@@ -1,6 +1,6 @@
 ---
 title: CLI reference
-description: Use tapstate v0.2.0 offline workspace commands, connected sessions, and one-shot commands
+description: Use tapstate v0.2.1 offline workspace commands, connected sessions, and one-shot commands
 ai:
   kind: reference
   id: cli
@@ -20,7 +20,7 @@ Run this command to see the command set included with your installed version:
 tapstate --help
 ```
 
-In `v0.2.0`, use `tapstate help <command>` or `tapstate <command> --help` to
+In `v0.2.1`, use `tapstate help <command>` or `tapstate <command> --help` to
 inspect a command without connecting to a server.
 
 ## Launch and help options
@@ -247,10 +247,10 @@ Successful command output is written to standard output. Text-mode usage and dia
 
 Automation should check the exit code instead of matching human-readable output.
 
-## Commands not implemented in v0.2.0
+## Commands not implemented in v0.2.1
 
 The top-level help lists `run`, `export`, `diff`, and `edit` as reserved verbs.
-They return exit code `3` in `v0.2.0`. Do not build a workflow that depends on
+They return exit code `3` in `v0.2.1`. Do not build a workflow that depends on
 them.
 
 ## Related pages
