@@ -6,7 +6,6 @@ import type { ReactNode } from 'react';
 import type { MDXComponents } from 'mdx/types';
 import {
   connectorMaturityCounts,
-  connectorReleaseTestedCount,
   getConnectorProductProfile,
   getConnectorsByDocumentationStatus,
   type ConnectorMaturity,
@@ -83,7 +82,7 @@ export function ProductOverviewHero() {
             Build and maintain live operational state.
           </h1>
           <p className="mb-0 mt-5 max-w-3xl text-pretty text-base leading-8 text-fd-muted-foreground md:text-lg">
-            Tapstate is an open-source operational data engine in preview. The v0.2.0 local playground explores a MySQL-to-MongoDB snapshot and CDC workflow.
+            Tapstate is an open-source unified operational data engine in preview. It builds and maintains live operational state—an Operational State Layer—for applications, APIs, automation, and AI agents. The v0.2.0 local playground explores a MySQL-to-MongoDB snapshot and CDC workflow.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link href="/docs/overview/quickstart-online" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-fd-primary px-4 text-sm font-semibold text-fd-primary-foreground no-underline transition-colors hover:bg-fd-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
@@ -158,28 +157,37 @@ export function PreviewArchitecture() {
         <p className="m-0 text-sm font-semibold text-fd-foreground">Current preview architecture</p>
         <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">One runnable, single-node MySQL-to-MongoDB path in the local playground.</p>
       </figcaption>
-      <div className="grid gap-4 p-4 sm:p-5">
-        <section className="rounded-xl border border-fd-border bg-fd-muted/20 p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary">Control path</p>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-            <WorkflowNode title=".tap.yml workspace" description="Source and pipeline resources." icon={FileText} />
-            <WorkflowArrow label="validate / apply" />
-            <WorkflowNode title="tapstate CLI" description="Offline authoring and authenticated control requests." icon={TerminalSquare} accent />
-            <WorkflowArrow label="HTTP" />
-            <WorkflowNode title="Single-node server" description="Registers artifacts, runs pipelines, and reports status." icon={Server} accent />
-          </div>
-        </section>
-        <section className="rounded-xl border border-fd-primary/20 bg-fd-primary/[0.045] p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary">Data path</p>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-            <WorkflowNode title="MySQL" description="Initial snapshot and later CDC." icon={Database} />
-            <WorkflowArrow />
-            <WorkflowNode title="Capture and transform" description="Current path uses filter or map; the runtime also wires js, union, and nest." icon={GitBranch} accent />
-            <WorkflowArrow />
-            <WorkflowNode title="MongoDB" description="Current operational-state materialization target." icon={Layers3} />
-          </div>
-        </section>
-      </div>
+      <section aria-label="Current preview control and data paths" className="grid gap-2 rounded-xl border border-fd-border bg-fd-muted/20 p-4 sm:grid-cols-[minmax(0,1fr)_2rem_minmax(17rem,1.25fr)_2rem_minmax(0,1fr)] sm:grid-rows-[auto_auto_auto_auto_auto_auto_auto] sm:gap-x-2 sm:gap-y-2 sm:p-5">
+        <p className="order-1 mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary sm:col-start-1 sm:row-start-1 sm:mb-0">Control path</p>
+        <div className="order-2 sm:col-start-3 sm:row-start-2">
+          <WorkflowNode title=".tap.yml workspace" description="Source and pipeline resources." icon={FileText} />
+        </div>
+        <div className="order-3 sm:col-start-3 sm:row-start-3">
+          <WorkflowVerticalArrow label="validate / apply" />
+        </div>
+        <div className="order-4 sm:col-start-3 sm:row-start-4">
+          <WorkflowNode title="tapstate CLI" description="Offline authoring and authenticated control requests." icon={TerminalSquare} accent />
+        </div>
+        <div className="order-5 sm:col-start-3 sm:row-start-5">
+          <WorkflowVerticalArrow label="Submit (HTTP)" />
+        </div>
+        <p className="order-6 mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary sm:col-start-1 sm:row-start-6 sm:mb-0 sm:self-start">Data path</p>
+        <div className="order-7 sm:col-start-1 sm:row-start-7">
+          <WorkflowNode title="MySQL" description="Initial snapshot and later CDC." icon={Database} />
+        </div>
+        <div className="order-8 sm:col-start-2 sm:row-start-7">
+          <WorkflowArrow />
+        </div>
+        <div className="order-9 sm:col-start-3 sm:row-start-7">
+          <WorkflowNode title="Single-node server" subtitle="Capture & transform" description="Registers artifacts, runs pipelines, and reports status." icon={Server} accent />
+        </div>
+        <div className="order-10 sm:col-start-4 sm:row-start-7">
+          <WorkflowArrow />
+        </div>
+        <div className="order-11 sm:col-start-5 sm:row-start-7">
+          <WorkflowNode title="MongoDB" description="Current operational-state materialization target." icon={Layers3} />
+        </div>
+      </section>
     </figure>
   );
 }
@@ -324,11 +332,13 @@ export function DataPathComparison() {
 
 function WorkflowNode({
   title,
+  subtitle,
   description,
   icon: Icon,
   accent = false,
 }: {
   title: string;
+  subtitle?: string;
   description: string;
   icon: typeof Database;
   accent?: boolean;
@@ -339,7 +349,8 @@ function WorkflowNode({
         <Icon aria-hidden="true" className={`size-4 ${accent ? 'text-fd-primary' : 'text-fd-muted-foreground'}`} />
         <p className="m-0 text-sm font-semibold text-fd-foreground">{title}</p>
       </div>
-      <p className="mb-0 mt-2 text-xs leading-5 text-fd-muted-foreground">{description}</p>
+      {subtitle ? <p className="mb-0 mt-1.5 text-xs font-semibold leading-5 text-fd-primary">{subtitle}</p> : null}
+      <p className={`mb-0 text-xs leading-5 text-fd-muted-foreground ${subtitle ? 'mt-1' : 'mt-2'}`}>{description}</p>
     </div>
   );
 }
@@ -349,6 +360,15 @@ function WorkflowArrow({ label }: { label?: string }) {
     <span className="flex shrink-0 flex-col items-center justify-center gap-1 py-1 text-[0.65rem] font-medium text-fd-muted-foreground sm:px-1">
       {label ? <span>{label}</span> : null}
       <ArrowRight aria-hidden="true" className="size-4 rotate-90 sm:rotate-0" />
+    </span>
+  );
+}
+
+function WorkflowVerticalArrow({ label }: { label: string }) {
+  return (
+    <span className="flex shrink-0 flex-col items-center justify-center gap-1 py-1 text-[0.65rem] font-medium text-fd-muted-foreground">
+      <span>{label}</span>
+      <ArrowRight aria-hidden="true" className="size-4 rotate-90" />
     </span>
   );
 }
@@ -418,7 +438,6 @@ type ConnectorProfileProps = {
   category: string;
   maturity: string;
   maturityLabel: string;
-  releaseTested?: string;
   worksAs?: string;
   capabilities?: string;
   compatibility: string;
@@ -510,7 +529,6 @@ export function ConnectorProfile({
   category,
   maturity,
   maturityLabel,
-  releaseTested,
   worksAs,
   capabilities,
   compatibility,
@@ -538,17 +556,6 @@ export function ConnectorProfile({
             <span className={maturityTone.label}>{maturityLabel}</span>
           </span>
         </ConnectorProfileRow>
-        {releaseTested ? (
-          <ConnectorProfileRow label="Release-tested">
-            <span className="flex flex-wrap items-center gap-2.5">
-              <span className="inline-flex items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50 px-2 py-0.5 text-xs font-semibold leading-5 text-sky-800 dark:border-sky-800 dark:bg-sky-950/45 dark:text-sky-200">
-                <BadgeCheck aria-hidden="true" className="size-3.5" strokeWidth={2.25} />
-                E2E
-              </span>
-              <span className="text-fd-card-foreground">{releaseTested}</span>
-            </span>
-          </ConnectorProfileRow>
-        ) : null}
         {worksAs ? (
           <ConnectorProfileRow label="Role in this guide">
             <ConnectorProfileTags value={worksAs} />
@@ -675,27 +682,6 @@ function ConnectorDirectoryTerm({
   );
 }
 
-function ReleaseTestedMarker() {
-  return (
-    <Popover>
-      <PopoverTrigger
-        aria-label="E2E tested: This connector participates in a published end-to-end release flow."
-        closeDelay={100}
-        delay={120}
-        openOnHover
-        className="group inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-1.5 py-0.5 text-[0.65rem] font-semibold tracking-wide text-sky-800 transition-colors hover:border-sky-300 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring dark:border-sky-800 dark:bg-sky-950/45 dark:text-sky-200 dark:hover:bg-sky-900/55"
-      >
-        <BadgeCheck aria-hidden="true" className="size-3" strokeWidth={2.25} />
-        <span>E2E</span>
-      </PopoverTrigger>
-      <PopoverContent role="tooltip" sideOffset={8} className="w-64 border-fd-border bg-fd-popover p-3 shadow-xl">
-        <p className="m-0 text-xs font-semibold uppercase tracking-[0.08em] text-fd-muted-foreground">Release-tested</p>
-        <p className="mb-0 mt-1.5 text-sm leading-5 text-fd-popover-foreground">This connector participates in the published end-to-end path. The marker reports test coverage, not maturity or a broader support contract.</p>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 function ConnectorDirectoryTerms({
   terms,
   separator,
@@ -733,7 +719,6 @@ function ConnectorDirectoryTerms({
 export function ConnectorDirectoryMatrix() {
   const currentConnectors = getConnectorsByDocumentationStatus('current');
   const maturityCounts = connectorMaturityCounts(currentConnectors);
-  const releaseTestedCount = connectorReleaseTestedCount(currentConnectors);
   const sections = [
     {
       status: 'current' as const,
@@ -760,7 +745,6 @@ export function ConnectorDirectoryMatrix() {
         {maturityCounts.preview > 0 ? (
           <span className="inline-flex items-center gap-1.5"><DirectoryMaturity maturity="preview" /> {maturityCounts.preview}</span>
         ) : null}
-        <span className="inline-flex items-center gap-1.5 text-sky-800 dark:text-sky-200"><BadgeCheck aria-hidden="true" className="size-4" strokeWidth={2.25} /> {releaseTestedCount} E2E-tested</span>
         {maturityCounts.deprecated > 0 ? (
           <span className="inline-flex items-center gap-1.5"><DirectoryMaturity maturity="deprecated" /> {maturityCounts.deprecated}</span>
         ) : null}
@@ -804,7 +788,6 @@ export function ConnectorDirectoryMatrix() {
                               <span>{profile?.displayTitle ?? connector.title}</span>
                               <ArrowRight aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
                             </Link>
-                            {connector.releaseTestedE2E ? <span className="ml-2 inline-flex align-middle"><ReleaseTestedMarker /></span> : null}
                           </th>
                           <td className="px-3 py-2.5"><DirectoryMaturity maturity={connector.maturity} /></td>
                           <td className="px-3 py-2.5 text-fd-muted-foreground">

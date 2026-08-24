@@ -44,7 +44,12 @@ Docker Compose. You do not need to install the CLI first.
 | Linux with glibc | `arm64` | glibc 2.34 |
 | Linux with glibc | `x64` | glibc 2.34 |
 
-On macOS, the installer warns but does not stop when the version is older than the recommended minimum. On Linux, verify that your system uses glibc 2.34 or later. Alpine Linux and other musl-based distributions are not supported by the published binaries. On Windows, use WSL 2 or build from source.
+On macOS and glibc-based Linux, the installer checks the release's recommended
+platform version when the release metadata is available. If the machine is
+older, it warns but does not stop the installation. The published Linux builds
+target glibc 2.34 or later; older systems may not launch them. Alpine Linux and
+other musl-based distributions are not supported by the published binaries. On
+Windows, use WSL 2 or build from source.
 
 ## Install the CLI
 
@@ -73,9 +78,10 @@ curl -fsSL https://install.tapstate.dev/cli | sh
 </Tab>
 </Tabs>
 
-The CLI installation has two network requests: the `/cli` endpoint returns the
-installer script, then the script downloads the platform archive and its
-published SHA-256 checksum from the GitHub release. The installer:
+The `/cli` endpoint returns the installer script. The script may fetch the
+release's `platform-minimums.txt` to print a platform notice, then downloads the
+platform archive and its published SHA-256 checksum from the GitHub release.
+The installer:
 
 - selects the archive for your operating system and architecture;
 - downloads the preview release configured by the installer;

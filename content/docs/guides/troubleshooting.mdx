@@ -24,7 +24,10 @@ Use `tapstate --help` to inspect the commands in your installed version. In
 `v0.2.0`, use `tapstate help <command>` or `tapstate <command> --help` for a
 command's operands and options.
 
-Successful data is written to standard output; usage and diagnostics are written to standard error. Preserve both streams and the exit code when collecting evidence.
+Text-mode results are written to standard output and usage or diagnostic messages
+are written to standard error. With `-o json` or `-o yaml`, the structured
+result, including validation diagnostics, is written to standard output.
+Preserve both streams and the exit code when collecting evidence.
 
 ## Identify the failing layer
 

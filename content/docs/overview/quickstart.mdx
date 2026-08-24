@@ -102,6 +102,18 @@ in a non-production environment. Confirm credentials and network access, then
 verify a representative source read or target write before using production
 data.
 
+## 5. Inspect the resources
+
+Use these commands to review the workspace and field grammar:
+
+```bash
+tapstate ls --workdir tapstate-work
+tapstate desc orders_to_customer_view --workdir tapstate-work
+tapstate explain source.mode
+```
+
+Do not infer runtime success from an authoring or inspection command.
+
 ## Extend the pipeline
 
 This tutorial creates a direct source-to-target sync. Use the same workspace as
@@ -131,18 +143,6 @@ the starting point for the next capability you need:
 </CardGrid>
 
 For runtime signals after a pipeline starts, use [Observe a pipeline](/docs/guides/observe-a-pipeline).
-
-## 5. Inspect the resources
-
-If your CLI version provides these inspection commands, use them to review the workspace and field grammar:
-
-```bash
-tapstate ls --workdir tapstate-work
-tapstate desc orders_to_customer_view --workdir tapstate-work
-tapstate explain source.mode
-```
-
-Use structured output only when your tapstate CLI supports it. Do not infer runtime success from an authoring or inspection command.
 
 ## Next steps
 

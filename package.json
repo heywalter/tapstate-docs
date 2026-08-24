@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && node scripts/check-sitemap.mjs",
     "brand:check": "node scripts/check-brand.mjs",
     "connectors:coverage": "node scripts/check-connector-page-coverage.mjs",
     "control:coverage": "node scripts/check-control-plane-docs.mjs",
@@ -14,6 +14,7 @@
     "examples:check": "node scripts/check-doc-resource-examples.mjs",
     "links:check": "node scripts/check-internal-links.mjs",
     "release:links:check": "node scripts/check-release-links.mjs",
+    "sitemap:check": "node scripts/check-sitemap.mjs",
     "product:check": "pnpm dsl:fields:check && pnpm connectors:coverage && pnpm examples:check && pnpm links:check && pnpm control:coverage && pnpm release:links:check",
     "preview": "serve out",
     "start": "serve out",

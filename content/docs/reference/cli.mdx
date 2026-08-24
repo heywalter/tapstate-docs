@@ -29,7 +29,7 @@ inspect a command without connecting to a server.
 |---|---|
 | `-w`, `--workdir <dir>` | Select the workspace for an interactive session. For an offline one-shot command, place this option after the command. The default is `tap-work`, or `$TAPSTATE_WORKDIR` when set. |
 | `-c`, `--connect <url>` | Connect to a server before opening a session or running a one-shot command. |
-| `-u`, `--user <name>` | Log in as this user after connecting. Requires `-c`. |
+| `-u`, `--user <name>` | Log in as this user during launch when `-c` is also supplied. Without `-c`, the CLI stays in an offline session. |
 | `-p`, `--password <password>` | Supply the password inline. Prefer `TAPSTATE_PASSWORD` or the prompt because command-line values are visible in shell history and process listings. |
 | `--version` | Print the CLI version and exit. |
 | `--help` | Print top-level help and exit. |
@@ -54,7 +54,7 @@ When `path` is omitted, the command validates the selected workspace.
 
 ### `new`
 
-Create a source or pipeline resource:
+Create a source, pipeline, transform, view, or serve resource:
 
 ```bash
 tapstate new --kind source \
@@ -70,7 +70,8 @@ Frequently used options:
 
 | Option | Purpose |
 |---|---|
-| `--kind source\|pipeline` | Select the resource kind. |
+| `--kind source\|pipeline\|transform\|view\|serve` | Select the resource kind. |
+| `--type <type>` | Set a transform type: `filter`, `map`, `js`, `union`, `nest`, or `join`. Use with `--kind transform`. |
 | `--id <id>` | Set the resource ID. |
 | `--connector <id>` | Set the connector for a source resource. |
 | `--mode <mode>` | Set a source read mode. |
@@ -80,7 +81,7 @@ Frequently used options:
 | `--non-interactive`, `-y` | Refuse missing required answers instead of prompting. |
 | `--dry-run` | Print the generated resource without writing it. |
 | `--force` | Replace an existing generated target. |
-| `--out <path>` | Select the output path. |
+| `--out <dir>` | Write the generated artifact flat into this directory instead of the workspace's kind directory. |
 
 The command also accepts `-c` for `--connector`, `-m` for `--mode`, and `-w` for `--workdir`.
 
@@ -89,7 +90,7 @@ The command also accepts `-c` for `--connector`, `-m` for `--mode`, and `-w` for
 List resources in the selected workspace:
 
 ```bash
-tapstate ls [-w DIR] [-o text|json|yaml] [source|pipeline]
+tapstate ls [-w DIR] [-o text|json|yaml] [source|pipeline|transform|view|serve]
 ```
 
 ### `desc`
@@ -168,7 +169,7 @@ for host configuration, authentication, tools, and troubleshooting.
 | `apply [path] [--if-match <hash>]` | Interpolate local environment variables and create or update one resource or the whole workspace. For a single existing resource, `--if-match` declares the content hash of the version being edited; it is not a batch-workspace precondition. |
 | `delete <id> [--if-match <hash>] [-o text\|json\|yaml]` | Permanently remove one stored artifact. When supplied, `--if-match` must match the artifact's current content hash. |
 | `get <id>` | Read one stored resource. |
-| `ls [kind]` | List stored resources, optionally by kind. |
+| `ls [kind]` | List stored resources, optionally by kind: `source`, `pipeline`, `transform`, `view`, or `serve`. |
 | `connectors [-o text\|json\|yaml]` | List registered connectors. |
 | `register <path> [-o text\|json\|yaml]` | Upload one connector JAR, or all direct `*.jar` children of a directory. |
 
@@ -223,7 +224,7 @@ Status and metrics report observed state and can lag a lifecycle command briefly
 
 ## Structured output
 
-The offline commands `validate`, `ls`, `desc`, and `explain` support:
+The offline commands `validate`, `new`, `ls`, `desc`, and `explain` support:
 
 ```text
 -o text
@@ -231,9 +232,9 @@ The offline commands `validate`, `ls`, `desc`, and `explain` support:
 -o yaml
 ```
 
-In a connected session, structured output is available for `test`, `test-result`, `discover-schema`, `schema`, `register`, and `connectors`. Lifecycle, status, metrics, logs, and apply commands use their command-specific text output.
+In a connected session, structured output is available for `delete`, `token`, `test`, `test-result`, `discover-schema`, `schema`, `register`, and `connectors`. Lifecycle, status, metrics, logs, and apply commands use their command-specific text output.
 
-Successful command output is written to standard output. Usage and diagnostic messages are written to standard error, which allows automation to keep data separate from failures.
+Successful command output is written to standard output. Text-mode usage and diagnostic messages are written to standard error. When `-o json` or `-o yaml` is selected, the structured result, including validation diagnostics, is written to standard output so automation can parse one stream and use the exit code for success or failure.
 
 ## Exit codes
 

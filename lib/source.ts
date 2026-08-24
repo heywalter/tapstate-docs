@@ -135,7 +135,6 @@ function renderConnectorProfileForLLM(attrs: string) {
   const rows = [
     `| Category | ${field('category') ?? 'Not specified'} |`,
     `| Guide maturity | ${field('maturity') ?? 'Not specified'} — ${field('maturityLabel') ?? 'Not specified'} |`,
-    field('releaseTested') ? `| Release-tested | E2E — ${field('releaseTested')} |` : null,
     field('worksAs') ? `| Role in this guide | ${field('worksAs')} |` : null,
     field('capabilities') ? `| Capabilities | ${field('capabilities')} |` : null,
     `| Compatibility | ${field('compatibility') ?? 'Not specified'} |`,
@@ -217,7 +216,7 @@ Next, run the connection in a non-production environment and confirm credentials
 |---|---|---|
 | The assembled stack | Source systems → Capture → Broker → Processing → Serving store → Apps, automation & agents | Separate tools and operating boundaries. |
 | The tapstate target path | Source systems → tapstate (Capture · Transform · Serve) → Apps, automation & agents | Target Capture–Transform–Serve operating model. |`)
-    .replace(/<ProductOverviewHero\s*\/>/g, `Tapstate is an open-source operational data engine in preview. The v0.2.0 local playground explores a MySQL-to-MongoDB snapshot and CDC workflow.
+    .replace(/<ProductOverviewHero\s*\/>/g, `Tapstate is an open-source unified operational data engine in preview. It builds and maintains live operational state—an Operational State Layer—for applications, APIs, automation, and AI agents. The v0.2.0 local playground explores a MySQL-to-MongoDB snapshot and CDC workflow.
 
 - **Capture:** Load existing data, then follow committed changes.
 - **Transform:** Filter, map, script, and merge data as it moves.
@@ -228,8 +227,8 @@ Next, run the connection in a non-production environment and confirm credentials
 
 | Path | Components | Current behavior |
 |---|---|---|
-| Control | \`.tap.yml\` workspace → tapstate CLI → single-node server | The CLI validates locally and sends authenticated control requests to the server. |
-| Data | MySQL → Capture and transform → MongoDB | The local playground runs an initial snapshot followed by CDC. The runtime wires \`filter\`, \`map\`, \`js\`, \`union\`, and \`nest\`. |`)
+| Control | \`.tap.yml\` workspace → tapstate CLI → single-node server | The CLI validates locally and submits authenticated control requests to the server over HTTP. |
+| Data | MySQL → single-node server (Capture & transform) → MongoDB | The local playground runs an initial snapshot followed by CDC. The runtime wires \`filter\`, \`map\`, \`js\`, \`union\`, and \`nest\`. |`)
     .replace(/<TapStateArchitecture\s*\/>/g, `### Target architecture diagram
 
 This diagram describes design direction, not the current preview implementation boundary.
@@ -284,6 +283,14 @@ function makeDocumentLinksAbsolute(markdown: string) {
     return `](${absoluteDocsUrl(path)})`;
   });
 }
+
+const llmProductOverview = [
+  '> tapstate is a unified operational data engine that builds and maintains an Operational State Layer.',
+  '>',
+  '> Its product model captures changes, transforms records in flight, and delivers current operational state to applications, APIs, automation, and AI agents through one governed Capture–Transform–Serve data path. It is intended for teams that would otherwise assemble separate CDC, broker, stream-processing, and serving products for the same path. This describes the product model; it does not mean every surface is available in the current preview.',
+  '>',
+  '> The current preview is a prerelease, single-node, in-memory runtime. The documented end-to-end path is a local MySQL-to-MongoDB snapshot followed by CDC. Use the linked page-level documentation for current maturity, roles, modes, limitations, and setup requirements.',
+].join('\n');
 
 function getAIPageMetadata(page: (typeof source)['$inferPage']) {
   return (page.data as typeof page.data & { ai?: AIPageMetadata }).ai;
@@ -349,11 +356,7 @@ export function getLLMIndex() {
   return [
     '# Tapstate documentation',
     '',
-    '> tapstate is a unified operational data engine that builds and maintains an Operational State Layer.',
-    '>',
-    '> Its product model captures changes, transforms records in flight, and delivers current operational state to applications, APIs, automation, and AI agents through one governed Capture–Transform–Serve data path. It is intended for teams that would otherwise assemble separate CDC, broker, stream-processing, and serving products for the same path. This describes the product model; it does not mean every surface is available in the current preview.',
-    '>',
-    '> The current preview is a prerelease, single-node, in-memory runtime. The documented end-to-end path is a local MySQL-to-MongoDB snapshot followed by CDC. Use the linked page-level documentation for current maturity, roles, modes, limitations, and setup requirements.',
+    llmProductOverview,
     '',
     '## When to use tapstate',
     '',
@@ -397,6 +400,8 @@ export async function getLLMFullText() {
 
   return [
     '# Tapstate documentation — complete agent context',
+    '',
+    llmProductOverview,
     '',
     '> Generated from the canonical documentation source.',
     '',

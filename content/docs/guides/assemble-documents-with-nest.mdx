@@ -132,24 +132,28 @@ MySQL emits complete row images.
 
 ## 4. Discover the source schema, then apply again
 
-Validate locally, apply the connections, discover both source schemas, and
-apply the pipeline again before starting it:
+Validate locally, apply the source and target connections, discover the source
+schema, and then apply the complete workspace before starting the pipeline:
 
 ```text
 tapstate validate --workdir tapstate-work
 tapstate -w tapstate-work
 connect http://127.0.0.1:8080
 login admin
-apply
+apply source/orders_source.tap.yml
+apply source/operational_state.tap.yml
 discover-schema orders_source
 apply
 start order_documents
 status order_documents
 ```
 
-Discovery lets tapstate estimate the capacity required by each nest level. An
-apply before discovery can report `nest.capacity-estimate-incomplete`; it is a
-floor estimate, not proof that the pipeline has enough capacity.
+The first two `apply` commands store the connections before discovery. The
+final `apply` stores the pipeline after discovery has supplied its source
+field types. Expressions that read `after.<field>` or `before.<field>` follow
+the same order. Discovery also lets tapstate estimate the capacity required by
+each nest level; `nest.capacity-estimate-incomplete` is a floor estimate, not
+proof that the pipeline has enough capacity.
 
 ## 5. Verify initial state and CDC
 
@@ -159,7 +163,7 @@ the following:
 1. `status order_documents` remains `running`.
 2. `logs order_documents` has no unresolved coded failure.
 3. `metrics order_documents` shows processed records and no unexplained
-   `dead_lettered` changes.
+   `nestDeadLettered.<namespace>` changes.
 4. MongoDB contains one document per order and the expected number of embedded
    items.
 5. A representative item insert, update, parent-key change, and delete produces

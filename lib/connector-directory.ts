@@ -23,8 +23,6 @@ export type ConnectorDirectoryItem = {
   title: string;
   category: ConnectorCategoryId;
   maturity: ConnectorMaturity;
-  /** Participates in a published, end-to-end release flow. This is distinct from maturity. */
-  releaseTestedE2E?: boolean;
   /** Server registration is authoritative for roles and modes while catalog metadata catches up. */
   capabilityAuthority?: 'server';
   useAs: Array<'source' | 'target'>;
@@ -49,11 +47,11 @@ export const connectorCategories: Array<{
  * and read modes.
  */
 export const connectorDirectory: ConnectorDirectoryItem[] = [
-  { slug: 'mysql', id: 'mysql', title: 'MySQL', category: 'databases', maturity: 'ga', releaseTestedE2E: true, useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
+  { slug: 'mysql', id: 'mysql', title: 'MySQL', category: 'databases', maturity: 'ga', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'postgresql', id: 'postgres', title: 'PostgreSQL', category: 'databases', maturity: 'ga', capabilityAuthority: 'server', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'oracle', id: 'oracle', title: 'Oracle', category: 'databases', maturity: 'ga', capabilityAuthority: 'server', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'sqlserver', id: 'sqlserver', title: 'SQL Server', category: 'databases', maturity: 'ga', capabilityAuthority: 'server', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
-  { slug: 'mongodb', id: 'mongodb', title: 'MongoDB', category: 'databases', maturity: 'ga', releaseTestedE2E: true, useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
+  { slug: 'mongodb', id: 'mongodb', title: 'MongoDB', category: 'databases', maturity: 'ga', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'mongodb-atlas', id: 'mongodb-atlas', title: 'MongoDB Atlas', category: 'databases', maturity: 'ga', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'tidb', id: 'tidb', title: 'TiDB', category: 'databases', maturity: 'ga', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'aws-rds-mysql', id: 'aws-rds-mysql', title: 'Amazon RDS for MySQL', category: 'databases', maturity: 'preview', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
@@ -148,10 +146,6 @@ export function connectorMaturityCounts(connectors = connectorDirectory) {
   );
 }
 
-export function connectorReleaseTestedCount(connectors = connectorDirectory) {
-  return connectors.filter((connector) => connector.releaseTestedE2E).length;
-}
-
 export function connectorMaturityLabel(maturity: ConnectorMaturity) {
   return maturity === 'ga'
     ? 'GA'
@@ -166,9 +160,8 @@ export function renderConnectorDirectoryForLLM() {
       const profile = connectorProductProfiles[connector.slug];
       const roles = profile.useAs.map((role) => role[0].toUpperCase() + role.slice(1)).join(' + ') || '—';
       const modes = profile.modes.join(', ') || '—';
-      const releaseTested = connector.releaseTestedE2E ? 'E2E' : '—';
       const title = profile.displayTitle ?? connector.title;
-      return `| [${title}](/docs/connectors/${connector.slug}) | ${connectorMaturityLabel(connector.maturity)} | ${releaseTested} | ${roles} | ${modes} |`;
+      return `| [${title}](/docs/connectors/${connector.slug}) | ${connectorMaturityLabel(connector.maturity)} | ${roles} | ${modes} |`;
     })
     .join('\n');
 
@@ -176,15 +169,15 @@ export function renderConnectorDirectoryForLLM() {
 
 The current product directory publishes the connector roles used by the MySQL-to-MongoDB operational-state path.
 
-| Connector | Guide maturity | E2E | Published role | Read modes |
-|---|---|---|---|---|
+| Connector | Guide maturity | Published role | Read modes |
+|---|---|---|---|
 ${renderRows('current')}
 
 ## Roadmap
 
 These guides describe planned directions, not current product contracts. No release date is implied.
 
-| Connector | Guide maturity | E2E | Planned role | Planned read modes |
-|---|---|---|---|---|
+| Connector | Guide maturity | Planned role | Planned read modes |
+|---|---|---|---|
 ${renderRows('roadmap')}`;
 }

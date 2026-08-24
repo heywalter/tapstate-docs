@@ -49,11 +49,11 @@ function quotedList(value) {
 }
 
 const directoryItems = new Map(
-  [...directorySource.matchAll(/\{\s*slug:\s*'([^']+)',\s*id:\s*'([^']+)',\s*title:\s*'[^']+',\s*category:\s*'[^']+',\s*maturity:\s*'([^']+)',\s*((?:(?:releaseTestedE2E:\s*true|capabilityAuthority:\s*'server'),\s*)*)useAs:\s*\[([^\]]*)\],\s*modes:\s*\[([^\]]*)\]\s*\}/g)]
+  [...directorySource.matchAll(/\{\s*slug:\s*'([^']+)',\s*id:\s*'([^']+)',\s*title:\s*'[^']+',\s*category:\s*'[^']+',\s*maturity:\s*'([^']+)',\s*(?:(capabilityAuthority:\s*'server'),\s*)?useAs:\s*\[([^\]]*)\],\s*modes:\s*\[([^\]]*)\]\s*\}/g)]
     .map((match) => [match[1], {
       id: match[2],
       maturity: match[3],
-      capabilityAuthority: match[4].includes("capabilityAuthority: 'server'") ? 'server' : 'catalog',
+      capabilityAuthority: match[4]?.includes("capabilityAuthority: 'server'") ? 'server' : 'catalog',
       roles: quotedList(match[5]),
       modes: quotedList(match[6]),
     }]),

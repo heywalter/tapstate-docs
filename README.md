@@ -94,7 +94,9 @@ The static site publishes the same canonical content in formats designed for age
 
 The site is statically exported to `out/`. The committed [netlify.toml](./netlify.toml) runs `pnpm build` and publishes that directory.
 
-Set `TAPSTATE_SITE_URL` at build time so canonical links, structured data, the sitemap, and AI-readable routes use the deployed origin. All committed Netlify contexts currently set `TAPSTATE_SITE_INDEXABLE=false`; keep previews and pre-release deployments non-indexable. Enable indexing for production only after the release is approved.
+Set `TAPSTATE_SITE_URL` at build time so canonical links, structured data, the sitemap, and AI-readable routes use the deployed origin. A build always generates a sitemap for its public documentation pages. Set `TAPSTATE_SITE_INDEXABLE=true` only for a production deployment that may be indexed; preview deployments remain non-indexable through `robots.txt`.
+
+After a production build, run `pnpm sitemap:check` to confirm that the generated sitemap is valid and contains public documentation URLs.
 
 For another static host, use:
 

@@ -50,12 +50,12 @@ metrics orders_to_operational_state
 
 Metrics are an open map rather than a fixed schema. Depending on the active runtime path, the response can include numeric counters and a `perTableOffset` map of table names to opaque source positions.
 
-For a pipeline that uses `nest`, `dead_lettered` is the number of changes that
-the nest could not place into a document, summed across its namespaces. A
-nonzero value means those changes were retained in the dead-letter store rather
-than assembled into output documents. Check the pipeline logs for the failure
-code and affected key; a rising value means new unplaceable changes are still
-arriving.
+For a pipeline that uses `nest`, the runtime reports one
+`nestDeadLettered.<namespace>` entry for each namespace that could not place
+changes into a document. The entry is absent when that namespace has no
+discarded changes; the runtime does not emit one aggregate `dead_lettered` key.
+Check the pipeline logs for the failure code and affected key. If you need a
+pipeline-wide total, sum the namespace entries in your client.
 
 An absent metric is unavailable, not zero. Do not build a strict parser that rejects new metric keys.
 

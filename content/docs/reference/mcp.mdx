@@ -91,6 +91,13 @@ configuration. The host presents this token to the tapstate server on every
 request, and the server verifies its scope. The host does not repeat the
 administrator-password login.
 
+When an MCP tool accepts connector settings, you can use environment references
+in those settings. `${VAR}` requires `VAR` to be set; `${var:NAME:default}`
+uses `default` when `NAME` is not set. The local gateway expands these references
+before it sends the request. A missing required variable returns
+`mcp.environment-missing`; keep the values in the host or process environment
+instead of putting secrets in tool arguments.
+
 See [Manage machine tokens](/docs/reference/cli#manage-machine-tokens) for list
 and revoke commands, or the [REST API machine-token endpoints](/docs/reference/rest-api#machine-token-endpoints)
 for the HTTP request and response.
@@ -206,11 +213,13 @@ After reloading the host:
 3. Ask the host to list the connectors visible to tapstate. A successful call
    verifies the local process, MCP handshake, server URL, and machine token.
 
-If the host can list tools but a tool call returns `isError: true`, the MCP
-connection is working and the server rejected the operation. Check the returned
-error code, token scope, and server state. If write tools are needed, create a
-`write` token and add `--allow-write` to the gateway arguments; both controls
-are required.
+If a tool call returns `isError: true`, the MCP layer is reporting a failed tool
+call. The failure can come from the local gateway, an unreachable server, or a
+server-side refusal; a successful handshake or `tools/list` call does not prove
+that every operation will succeed. Inspect the returned `code`, `message`, and
+`params`, then check the server URL, token scope, and server state. If write
+tools are needed, create a `write` token and add `--allow-write` to the gateway
+arguments; both controls are required.
 
 ## Tools and write access
 
@@ -267,7 +276,10 @@ adds, removes, or renames a tool.
 | `cli.mcp-unavailable` (exit code `3`) | The CLI cannot find or start its sidecar, or Java 21 is unavailable. | Use the complete bundle, keep `bin` and `libexec` together, and verify `java -version`. |
 | `TAPSTATE_TOKEN must be set` | The gateway did not receive a token through its environment. | Add `TAPSTATE_TOKEN` to the host environment; do not use `--token`. |
 | `MCP Server URL must use HTTPS unless host is loopback` | A remote server was configured with plain HTTP. | Use an HTTPS URL or test against a loopback server. |
-| MCP tool result has `isError: true` | The server rejected an otherwise valid MCP tool call. | Inspect the returned code and parameters, then check the server state and token scope. |
+| `isError: true` with `control.unreachable` | The gateway could not reach the configured server. | Check the server URL, network path, and server logs. |
+| `isError: true` with `mcp.environment-missing` | A required `${VAR}` reference was not set. | Set the variable in the MCP host environment or use `${var:NAME:default}` when a default is safe. |
+| `isError: true` with `mcp.connector-spec-unavailable` | The gateway could not read the connector contract needed for the operation. | Check the connector ID and the server's connector registry. |
+| `isError: true` with `mcp.server-rejected` | The server returned a refusal without a more specific code. | Inspect the returned status and parameters, then correct the request or server state. |
 | Protocol error `-32602` | The host called an unknown tool or supplied invalid protocol parameters. | Refresh the tool list and use the exact tool name and input schema returned by the server. |
 
 The gateway writes protocol frames to stdout. Do not wrap it in a command that
