@@ -5,7 +5,7 @@ ai:
   kind: reference
   id: cli
   maturity: preview
-  aliases: [tapstate CLI, tapstate commands, tapstate REPL, tapstate exit codes]
+  aliases: [tapstate CLI, tapstate commands, tapstate REPL, tapstate exit codes, tapstate data browser, tapstate watch, tapstate tail]
 ---
 
 The tapstate CLI has three operating forms:
@@ -154,6 +154,129 @@ TAPSTATE_PASSWORD="<server-password>" \
 The process connects, signs in, runs `status`, and exits. Without `-c`, a
 connected verb exits with code `3`. `connect`, `login`, `logout`, and `cd` remain
 session commands; they are not one-shot verbs.
+
+## Read data from a declared source
+
+Use a connected, authenticated session to inspect the data behind a declared
+source. Each read uses that source's configured connection. You do not provide a
+database URI or a database query language in the command.
+
+In `v0.2.1`, row previews and live reads require a source that uses the
+`mongodb` connector. Collection listing and statistics can still be available
+for other connectors.
+
+### Read a collection
+
+| Syntax | Use |
+|---|---|
+| `show collections [<source>]` | List the collections held by one declared source, or by every declared source when the argument is omitted. This lists the database's collections, not only resources declared in the workspace. |
+| `<source>.<collection>.stats()` | Report the collection metadata the connector provides. A row count is an estimate, and any size value can be unavailable. |
+| `<source>.<collection>.find([<filter>])` | Preview rows from one collection. |
+
+For example:
+
+```text
+tapstate(admin@127.0.0.1:8080)> show collections warehouse
+tapstate(admin@127.0.0.1:8080)> warehouse.orders.stats()
+tapstate(admin@127.0.0.1:8080)> warehouse.orders.find({status: 'paid'}).sort({field: 'total', dir: 'desc'}).limit(25)
+```
+
+You can chain `sort` and `limit` onto `find` in either order:
+
+```text
+<source>.<collection>.find([<filter>]) [.sort({field: '<field>', dir: 'asc'|'desc'})] [.limit(<rows>)]
+```
+
+`find` is a one-shot preview, not a paginated query. It returns 10 rows by
+default and accepts from 1 through 200 rows. It has no cursor or next-page
+token. When more rows remain, the CLI says so in the result footer. Without an
+explicit sort, the connector's natural order is not stable and is not a newest-
+first order.
+
+For a connected one-shot command, quote the read expression and pass it to
+`data-browser`. Set `TAPSTATE_PASSWORD` in the environment when you do not want
+the CLI to prompt for it:
+
+```bash
+tapstate -c http://127.0.0.1:8080 -u admin data-browser \
+  'warehouse.orders.find({status: "paid"}).limit(25)'
+```
+
+### Filter rows
+
+The CLI accepts a small, Mongo-shell-shaped filter syntax, then translates it
+to tapstate's own filter vocabulary. It does not forward a database query to
+the source.
+
+| Operator | Meaning |
+|---|---|
+| Bare value or `$eq` | Equal to a value. For example, `{status: 'paid'}`. |
+| `$ne`, `$gt`, `$gte`, `$lt`, `$lte` | Compare a field with a value. |
+| `$in` | Match one of a non-empty list of values. |
+| `$exists` | Test whether a field exists; the value must be `true` or `false`. |
+| `$contains` | Find a literal substring in a text field. |
+| `$and`, `$or` | Combine a non-empty list of conditions. Each `$or` item must be one condition. |
+
+Strings must be quoted. To apply more than one operator to the same field, use
+separate conditions inside `$and`.
+
+Do not use `{}` to read every row; omit the filter instead. `$regex`, `$where`,
+`$expr`, `$function`, and `$accumulator` are not supported. Use `$contains` for
+a literal text search. Arbitrary nested Boolean groups are also not supported.
+
+REST and MCP reads use structured `field`, `op`, and `value` objects rather
+than this CLI syntax. See the [REST API preview](/docs/reference/rest-api) or
+[MCP integration](/docs/reference/mcp) when you are automating a read.
+
+### Address fields that contain dots
+
+A dot normally selects a nested field. Quote and escape a dot that is part of a
+literal field name:
+
+```text
+warehouse.orders.find({"price\.usd": {$gt: 10}})
+```
+
+For REST or MCP JSON, escape the backslash for JSON as well:
+
+```json
+{
+  "filter": {
+    "field": "price\\.usd",
+    "op": "gt",
+    "value": 10
+  }
+}
+```
+
+You can filter a literal dotted field, but the read evaluates every row. You
+cannot sort by one; the server returns `data-browser.unorderable-field`.
+
+### Watch one row or tail collection changes
+
+Use `watch` for an in-place view of the first matching row, or `tail` for an
+append-only stream of collection changes:
+
+| Command | Behavior |
+|---|---|
+| `watch <source>.<collection> [<filter>]` | Refreshes one row in place about once per second. It requires an interactive terminal. |
+| `tail <source>.<collection> [<filter>]` | Writes inserts, updates, and deletes as they reach the source store. It works in a pipe or redirected output. |
+
+For example:
+
+```text
+tapstate(admin@127.0.0.1:8080)> watch warehouse.orders {status: 'paid'}
+tapstate(admin@127.0.0.1:8080)> tail warehouse.orders {status: 'paid'}
+```
+
+Press <kbd>Ctrl</kbd>+<kbd>C</kbd> to stop either command. `watch` returns
+`cli.watch-needs-a-terminal` with exit code `3` when its output is not a
+terminal; use `tail` for a pipeable stream or `find` for a one-shot read.
+
+`tail` shows changes written to the store, so rapid intermediate updates might
+not appear separately. A follow that has no displayed change for 10 minutes is
+closed; run `tail` again to resume watching. A filter limits the events shown by
+the command. It does not modify the source or pipeline.
 
 ## MCP integration
 
