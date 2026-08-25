@@ -12,6 +12,10 @@ ai:
 `view` and `serve` are reusable definition resources. They do not declare their
 own input wiring; a pipeline supplies `from`.
 
+A `view` materializes pipeline output into tapstate's managed state store. A
+`serve` surface delivers output to systems outside tapstate. A pipeline can use
+either one or both; declaring a view does not require a serve block.
+
 ## `kind: view`
 
 ```yaml title="view/customer-state.tap.yml"
@@ -20,13 +24,9 @@ kind: view
 id: customer-state
 primary_key: customer_id
 storage:
-  hot:
-    ttl: 15m
   warm:
     collection: customers
     indexes: [email]
-  cold:
-    partition_by: [region]
 schema:
   enforce: true
   evolution: additive
@@ -42,6 +42,11 @@ view:
 
 An inline view uses the same `primary_key`, `storage`, and `schema` fields and
 also requires `id` and `from`.
+
+For runtime materialization, `primary_key` is required and must be one column
+that matches the identity of the stream feeding the view. The current preview
+materializes the warm database layer. The Schema also describes `hot` and
+`cold`, but this release refuses those tiers instead of materializing them.
 
 ## `kind: serve`
 
@@ -120,7 +125,10 @@ Each element requires a target connection ID in `source` and can include `id`,
 
 ## Runtime boundary
 
-These shapes come from the v1 Schema. The released preview's local playground declares
-inline `serve.sync` for MySQL to MongoDB. Schema acceptance alone does not prove
-that reusable views, query endpoints, or push delivery are executable in your
-runtime version.
+These shapes come from the v1 Schema. The released preview's local playground
+declares an inline `view` for MySQL to MongoDB; the rows are written to the
+managed state store without a serve block. A separate `serve.sync` can deliver
+the same pipeline output to an external target, and both outputs can coexist.
+Reusable view and serve references are resolved before the runtime builds the
+pipeline. Schema acceptance alone does not prove that query endpoints or push
+delivery are executable in the current public preview.

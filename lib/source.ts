@@ -228,7 +228,7 @@ Next, run the connection in a non-production environment and confirm credentials
 | Path | Components | Current behavior |
 |---|---|---|
 | Control | \`.tap.yml\` workspace → tapstate CLI → single-node server | The CLI validates locally and submits authenticated control requests to the server over HTTP. |
-| Data | MySQL → single-node server (Capture & transform) → MongoDB | The local playground runs an initial snapshot followed by CDC. The runtime wires \`filter\`, \`map\`, \`js\`, \`union\`, and \`nest\`. |`)
+| Data | MySQL → single-node server (Capture & transform) → declared view → MongoDB managed state store | The local playground materializes an initial snapshot followed by CDC. A separate \`serve.sync\` can deliver the same pipeline output to an external target. The runtime wires \`filter\`, \`map\`, \`js\`, \`union\`, and \`nest\`. |`)
     .replace(/<TapStateArchitecture\s*\/>/g, `### Target architecture diagram
 
 This diagram describes design direction, not the current preview implementation boundary.
@@ -372,7 +372,7 @@ export function getLLMIndex() {
     `- [What is tapstate?](${absoluteDocsUrl('/docs/overview/what-is-tapstate')})`,
     `- [Install the CLI](${absoluteDocsUrl('/docs/overview/install')})`,
     `- [Local playground](${absoluteDocsUrl('/docs/overview/quickstart-online')})`,
-    `- [Author and validate a workspace](${absoluteDocsUrl('/docs/overview/quickstart')})`,
+    `- [Quickstart](${absoluteDocsUrl('/docs/overview/quickstart')})`,
     `- [Architecture](${absoluteDocsUrl('/docs/overview/architecture')})`,
     '',
     '## Connector status',

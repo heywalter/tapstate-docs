@@ -30,8 +30,10 @@ The `v0.2.1` local playground provides one end-to-end path:
 - The pipeline DAG wires `filter`, `map`, `js`, `union`, and `nest`.
 - `nest` maintains a document assembled from related source tables. The v1
   Schema also declares `join`, but the current DAG builder refuses it.
-- The Schema can declare `sync`, `query`, and `push`; the local playground exercises
-  inline `serve.sync`.
+- The local playground exercises an inline `view` that materializes the
+  MySQL-to-MongoDB result in the managed state store. A separate `serve.sync`
+  can deliver the same pipeline output to an external target; query and push
+  are not part of the current public preview path.
 
 ### Recovery and scale limits
 

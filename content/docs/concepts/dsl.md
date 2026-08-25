@@ -18,15 +18,15 @@ If this is your first runnable pipeline, begin with the
 - `source` owns connector configuration. A read source has `mode`; a target
   connection omits it.
 - `transform` holds reusable, input-independent logic.
-- `view` holds reusable materialization settings.
-- `serve` holds reusable sync, query, and push declarations.
-- `pipeline` wires sources, transforms, a view, and a serve surface into a task.
+- `view` holds reusable materialization settings for tapstate's managed state store.
+- `serve` holds reusable external sync, query, and push declarations.
+- `pipeline` wires sources and transforms to a view, a serve surface, or both.
 
 ```text
-source ──→ pipeline ──→ serve.sync ──→ target connection
+source ──→ pipeline ──→ view ──→ managed state store
               │
               ├── transform (inline or reusable)
-              └── view (inline or reusable)
+              └── serve.sync ──→ external target connection
 ```
 
 ## Example relationship
@@ -43,15 +43,21 @@ transforms:
     from: [users]
     type: filter
     expr: "after.status == 'active'"
-serve:
+view:
+  id: profile-state
   from: filter-active
-  sync:
-    - source: profile-store
-      write_mode: upsert
+  primary_key: id
 ```
 
-`mysql-prod` and `profile-store` are both `kind: source` resources.
-`mysql-prod` includes a read `mode`; `profile-store` does not.
+`mysql-prod` is the read source in this example. The view consumes the
+`filter-active` transform; if you add `serve.sync`, its `source` names the
+external target connection that receives the same pipeline result.
+
+Declaring `view` is the complete instruction to materialize the current
+pipeline result; no `serve` block is required. Add `serve.sync` when the same
+result must also be delivered to a system outside tapstate. If both are
+declared, the view and the external serve output are independent consumers of
+the pipeline result.
 
 ## Why use resource files
 

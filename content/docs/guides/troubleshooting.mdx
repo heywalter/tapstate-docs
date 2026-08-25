@@ -90,14 +90,14 @@ reads it.
 
 ## Troubleshoot the local playground
 
-The [local playground](/docs/overview/quickstart-online) prints the MongoDB row count
-after it requests that the pipeline start. A healthy server or a
+The [local playground](/docs/overview/quickstart-online) prints the MongoDB-backed
+view row count after it requests that the pipeline start. A healthy server or a
 `sync_orders running` line does not establish that data moved. Treat the playground
 as successful only when connector registration and schema discovery complete
-without a refusal and the script prints `the target now holds 5 rows`.
+without a refusal and the script prints `the view now holds 5 rows`.
 
-The `v0.2.1` script can continue after a refused command or a lower target
-count, so inspect the complete output and target data instead of relying on its
+The `v0.2.1` script can continue after a refused command or a lower view
+count, so inspect the complete output and view data instead of relying on its
 exit code alone.
 
 The preview script has two additional repeatability limits:
@@ -131,7 +131,7 @@ docker compose logs --tail=200 mysql mongo server
 
 Fix port conflicts or local resource pressure before rerunning. Keep passwords and tokens out of shared log bundles.
 
-### The five-row result does not appear
+### The five-row view result does not appear
 
 Check the source and target independently:
 
@@ -141,7 +141,7 @@ docker compose exec mysql mysql -uroot -psecret appdb \
 
 docker compose exec mongo mongosh --quiet \
   'mongodb://mongo:27017/warehouse?directConnection=true' \
-  --eval 'db.orders.countDocuments({})'
+  --eval 'db.order_state.countDocuments({})'
 ```
 
 If MySQL has five rows and MongoDB does not, enter the CLI REPL and collect pipeline evidence:
