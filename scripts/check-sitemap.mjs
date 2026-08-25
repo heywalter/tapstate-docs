@@ -14,6 +14,7 @@ try {
 }
 
 const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
+const expectedOrigin = new URL(process.env.TAPSTATE_SITE_URL ?? 'https://tapstate.dev').origin;
 
 if (!sitemap.startsWith('<?xml version="1.0" encoding="UTF-8"?>')) {
   throw new Error('out/sitemap.xml is missing the XML declaration.');
@@ -31,4 +32,11 @@ if (!locations.some((location) => new URL(location).pathname.startsWith('/docs')
   throw new Error('out/sitemap.xml does not contain a documentation URL.');
 }
 
-console.log(`Sitemap check passed: ${locations.length} URLs in out/sitemap.xml.`);
+const unexpectedOrigin = locations.find((location) => new URL(location).origin !== expectedOrigin);
+if (unexpectedOrigin) {
+  throw new Error(
+    `out/sitemap.xml contains ${new URL(unexpectedOrigin).origin}, expected every URL to use ${expectedOrigin}.`,
+  );
+}
+
+console.log(`Sitemap check passed: ${locations.length} URLs use ${expectedOrigin}.`);

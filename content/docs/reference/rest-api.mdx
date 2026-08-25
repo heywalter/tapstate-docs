@@ -1,6 +1,6 @@
 ---
 title: REST API preview
-description: Call the authenticated tapstate v0.2.0 control-plane endpoints and interpret preview responses
+description: Call the authenticated tapstate v0.2.1 control-plane endpoints and interpret preview responses
 ai:
   kind: reference
   id: rest-api
@@ -8,7 +8,7 @@ ai:
   aliases: [tapstate REST API, tapstate control plane API, tapstate HTTP API]
 ---
 
-The `v0.2.0` server exposes a preview HTTP control plane. This API exists only
+The `v0.2.1` server exposes a preview HTTP control plane. This API exists only
 after a separate tapstate server is running; installing the CLI does not start
 the server or expose an HTTP port. The server is headless and has no built-in
 web UI in this release.
@@ -229,7 +229,7 @@ Cluster endpoint:
 
 | Method | Path | Boundary |
 |---|---|---|
-| `GET` | `/api/cluster/members` | Present but returns HTTP `501` in `v0.2.0` |
+| `GET` | `/api/cluster/members` | Present but returns HTTP `501` in `v0.2.1` |
 
 ## Error responses
 
@@ -271,7 +271,7 @@ Common status mappings:
 
 Artifact edits and deletions use a shared `artifact.*` error domain:
 
-The v0.2.0 `GET /api/artifacts/{id}` read path currently returns HTTP `404`
+The v0.2.1 `GET /api/artifacts/{id}` read path currently returns HTTP `404`
 without a structured error body when the ID is absent. Handle the HTTP status
 first and do not require an `artifact.not-found` JSON envelope for that read;
 the coded error is used by artifact mutation/precondition paths.
@@ -291,7 +291,7 @@ reporting one.
 
 ## Version boundary
 
-- `v0.2.0` supports both interactive connected sessions and one-shot connected
+- `v0.2.1` supports both interactive connected sessions and one-shot connected
   commands seeded with `-c` and `-u`.
 - No `v1` API prefix or compatibility guarantee exists yet.
 

@@ -180,7 +180,7 @@ export default function HomePage() {
             <p className="m-0 text-xs font-semibold uppercase tracking-[0.15em] text-fd-primary">Connector guides</p>
             <h2 className="mb-0 mt-3 text-3xl font-semibold tracking-[-0.035em]">Start with the current data path.</h2>
             <p className="mb-0 mt-3 max-w-2xl text-base leading-7 text-fd-muted-foreground">
-              The v0.2.0 preview captures MySQL changes and maintains operational state in MongoDB. Roadmap guides describe planned directions, not current runtime support.
+              The v0.2.1 preview captures MySQL changes and maintains operational state in MongoDB. Roadmap guides describe planned directions, not current runtime support.
             </p>
           </div>
           <ArrowLink href="/docs/connectors">View all connectors</ArrowLink>

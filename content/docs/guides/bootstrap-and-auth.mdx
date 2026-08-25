@@ -17,7 +17,7 @@ docs.
 
 ## Before you begin
 
-- Start a `v0.2.0` server with its control port bound to loopback or another protected interface.
+- Start a `v0.2.1` server with its control port bound to loopback or another protected interface.
 - Confirm `GET /healthz` returns `ok`.
 - Install `curl` and `jq` for the HTTP examples.
 - Choose a strong first-administrator password and keep it out of shell history.
@@ -75,7 +75,7 @@ The CLI asks for the password with masked input. A successful login keeps the se
 The REPL does not expand `$TAPSTATE_URL`. Type the actual server URL in its
 `connect` command, including the port exposed by your running environment.
 
-In `v0.2.0`, connected verbs can run inside this interactive session or as
+In `v0.2.1`, connected verbs can run inside this interactive session or as
 one-shot commands seeded with `-c` and `-u`. Prefer the session for a sequence
 that shares one login.
 

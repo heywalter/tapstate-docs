@@ -1,0 +1,58 @@
+---
+title: v0.2.1
+description: Fix the local tapstate playground setup sequence and update the preview CLI release
+ai:
+  kind: reference
+  id: release-v0_2_1
+  maturity: preview
+  aliases: [tapstate v0.2.1, tapstate release notes, tapstate preview release]
+---
+
+Released August 19, 2026 · Preview
+
+`v0.2.1` fixes the setup sequence in the local tapstate playground and updates
+the released CLI and playground version pins. The runtime remains single-node
+and in-memory, for evaluation rather than production use. See the
+[GitHub release](https://github.com/tapstate/tapstate/releases/tag/v0.2.1) for
+the published assets and checksums.
+
+## What changed
+
+- The local playground now creates and discovers the MySQL source before it
+  applies the pipeline that reads its rows. This lets the reference
+  MySQL-to-MongoDB flow complete its initial snapshot instead of failing before
+  the pipeline is created.
+- `tapstate --version` reports `tapstate 0.2.1`, and the CLI installer defaults
+  to this release.
+- The disposable local playground downloads the `0.2.1` CLI and uses the pinned
+  `ghcr.io/tapstate/tapstate:0.2.1` server image.
+
+## Release components
+
+The CLI release includes native macOS and glibc-based Linux bundles for `arm64`
+and `x64`. Each archive has a SHA-256 file, and `checksums.txt` covers all four.
+
+The recommended minimums for this build are macOS 15.0 and glibc 2.34. The
+installer reports these values but does not block an older system from trying
+the binary.
+
+The playground continues to use the separate [connector preview assets](https://github.com/tapstate/tapstate/releases/tag/connectors-preview)
+for its MySQL and MongoDB connector JARs. The server image and connector
+artifacts support the disposable reference path; they are not a production
+deployment method or a general connector support contract.
+
+## Known limitations
+
+This patch does not change the preview boundary or CDC limitations documented
+in [v0.2.0](/docs/releases/v0.2.0#known-limitations). Use non-production
+systems and data for evaluation.
+
+## Get started
+
+- [Install the CLI](/docs/overview/install) for offline authoring or to connect
+  to an existing server.
+- [Try tapstate locally](/docs/overview/quickstart-online) to run the disposable
+  MySQL-to-MongoDB playground.
+- Use the [CLI reference](/docs/reference/cli) and
+  [Troubleshooting](/docs/guides/troubleshooting) for command and diagnostic
+  details.
