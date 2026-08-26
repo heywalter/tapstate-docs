@@ -115,10 +115,11 @@ preview path.
 ### `view` and `serve` together
 
 When a pipeline declares both blocks, they are independent outputs of the same
-pipeline. The view materializes its records into the managed state store, while
-each `serve.sync` writes those records to its external target. Adding a serve
-block does not replace the view, and a view does not make external delivery
-implicit.
+pipeline. The view materializes the output selected by `view.from` into the
+managed state store, while each `serve.sync` delivers the output selected by
+`serve.from` to its external target. The two blocks use the same output only
+when their `from` values resolve to the same pipeline node. Adding a serve block
+does not replace the view, and a view does not make external delivery implicit.
 
 ### `settings`
 

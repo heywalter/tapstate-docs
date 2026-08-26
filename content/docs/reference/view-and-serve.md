@@ -128,7 +128,8 @@ Each element requires a target connection ID in `source` and can include `id`,
 These shapes come from the v1 Schema. The released preview's local playground
 declares an inline `view` for MySQL to MongoDB; the rows are written to the
 managed state store without a serve block. A separate `serve.sync` can deliver
-the same pipeline output to an external target, and both outputs can coexist.
+the output selected by `serve.from` to an external target, and both outputs can
+coexist.
 Reusable view and serve references are resolved before the runtime builds the
 pipeline. Schema acceptance alone does not prove that query endpoints or push
 delivery are executable in the current public preview.

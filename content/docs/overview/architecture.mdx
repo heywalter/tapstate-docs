@@ -32,8 +32,8 @@ The `v0.2.1` local playground provides one end-to-end path:
   Schema also declares `join`, but the current DAG builder refuses it.
 - The local playground exercises an inline `view` that materializes the
   MySQL-to-MongoDB result in the managed state store. A separate `serve.sync`
-  can deliver the same pipeline output to an external target; query and push
-  are not part of the current public preview path.
+  can deliver the output selected by `serve.from` to an external target; query
+  and push are not part of the current public preview path.
 
 ### Recovery and scale limits
 
