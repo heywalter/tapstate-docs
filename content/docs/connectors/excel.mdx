@@ -77,13 +77,15 @@ tapstate validate --workdir tapstate-work
 
 | Protocol | Fields |
 |---|---|
-| Common | `protocol`, `encoding`, `filePathString` |
+| Common | `protocol`, `encoding`, `filePathString`, `streamReadReconnectInterval` |
 | FTP | `ftpHost`, `ftpPort`, `ftpUsername`, `ftpPassword`, `ftpPassiveMode`, `ftpConnectTimeout`, `ftpDataTimeout` |
 | SFTP | `sftpHost`, `sftpPort`, `sftpUsername`, `sftpPassword` |
 | SMB | `smbHost`, `smbUsername`, `smbPassword`, `smbShareDir` |
 | S3FS / OSS | `accessKey`, `secretKey`, `endpoint`, `region`, `bucket` |
 
-`protocol` accepts `local`, `ftp`, `sftp`, `smb`, `s3fs`, and `oss`; `encoding` defaults to `UTF-8`.
+`protocol` accepts `local`, `ftp`, `sftp`, `smb`, `s3fs`, and `oss`; `encoding`
+defaults to `UTF-8`. `streamReadReconnectInterval` sets the incremental-reader
+reconnect interval in minutes and defaults to `120`.
 
 ### Data compatibility
 

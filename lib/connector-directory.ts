@@ -111,9 +111,8 @@ export const connectorDirectory: ConnectorDirectoryItem[] = [
  */
 export const connectorProductProfiles: Record<string, ConnectorProductProfile> = {
   mysql: { status: 'current', useAs: ['source'], modes: ['snapshot', 'cdc'] },
+  postgresql: { status: 'current', useAs: ['source'], modes: ['snapshot', 'cdc'] },
   mongodb: { status: 'current', useAs: ['target'], modes: [] },
-  postgresql: { status: 'roadmap', useAs: ['source'], modes: ['snapshot', 'cdc'] },
-  kafka: { status: 'roadmap', displayTitle: 'Kafka / Confluent', useAs: ['target'], modes: [] },
 };
 
 export function getConnectorDocumentationStatus(slug: string): ConnectorDocumentationStatus {
@@ -155,7 +154,7 @@ export function connectorMaturityLabel(maturity: ConnectorMaturity) {
 }
 
 export function renderConnectorDirectoryForLLM() {
-  const renderRows = (status: 'current' | 'roadmap') => getConnectorsByDocumentationStatus(status)
+  const renderRows = () => getConnectorsByDocumentationStatus('current')
     .map((connector) => {
       const profile = connectorProductProfiles[connector.slug];
       const roles = profile.useAs.map((role) => role[0].toUpperCase() + role.slice(1)).join(' + ') || '—';
@@ -167,17 +166,9 @@ export function renderConnectorDirectoryForLLM() {
 
   return `## Current connector path
 
-The current product directory publishes the connector roles used by the MySQL-to-MongoDB operational-state path.
+The current product directory publishes MySQL and PostgreSQL as Snapshot and CDC sources, with MongoDB as the operational-state target. The Quickstart demonstrates one cross-source path: MySQL orders and PostgreSQL shipments assembled into a MongoDB document.
 
 | Connector | Guide maturity | Published role | Read modes |
 |---|---|---|---|
-${renderRows('current')}
-
-## Roadmap
-
-These guides describe planned directions, not current product contracts. No release date is implied.
-
-| Connector | Guide maturity | Planned role | Planned read modes |
-|---|---|---|---|
-${renderRows('roadmap')}`;
+${renderRows()}`;
 }
