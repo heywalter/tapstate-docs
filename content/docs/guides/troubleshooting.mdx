@@ -21,7 +21,7 @@ tapstate commands use these exit codes:
 | `3` | Unavailable in this context, not connected, or not implemented |
 
 Use `tapstate --help` to inspect the commands in your installed version. In
-`v0.2.1`, use `tapstate help <command>` or `tapstate <command> --help` for a
+`v0.3.0`, use `tapstate help <command>` or `tapstate <command> --help` for a
 command's operands and options.
 
 Text-mode results are written to standard output and usage or diagnostic messages
@@ -49,6 +49,27 @@ tapstate validate --workdir tapstate-work
 ```
 
 Review the filename, location, diagnostic code, message, and suggested fix. Correct one layer at a time, then validate again.
+
+### Demo workspace already exists or cannot be written
+
+`tapstate demo` protects existing files by default:
+
+- `cli.demo-workspace-exists` means the target already contains a generated
+  demo. Choose an empty work directory, or inspect the existing files before
+  retrying with `--force`.
+- `cli.workspace-not-writable` includes the failing `path` and filesystem
+  `reason`. Correct the permission or choose a writable directory. The command
+  restores replaced files and removes files it created, although empty
+  directories from the failed attempt can remain.
+
+### The `tap` alias is unavailable
+
+The optional alias never replaces another command. `cli.alias-name-taken`
+means the target path belongs to something else. Continue using `tapstate`, or
+remove the conflicting command yourself before running `tapstate alias
+install`. `cli.alias-install-dir-unknown` means the selected installation
+directory has no `tapstate` entry; set `TAPSTATE_INSTALL_DIR` to the directory
+used by the installer and retry.
 
 ### Unknown field or invalid value
 
@@ -88,30 +109,31 @@ These diagnostics restrict computation, not pass-through. A column that cannot
 be computed losslessly can still flow through a `map` when no computed rule
 reads it.
 
-## Troubleshoot the local playground
+### Upsert source has no discovered primary key
 
-The [local playground](/docs/overview/quickstart-online) prints the MongoDB-backed
-view row count after it requests that the pipeline start. A healthy server or a
-`sync_orders running` line does not establish that data moved. Treat the playground
-as successful only when connector registration and schema discovery complete
-without a refusal and the script prints `the view now holds 5 rows`.
+`dsl.upsert-needs-key` is a server-side apply diagnostic. It means a selected
+source table is being written with `upsert`, but its discovered schema has no
+primary key. The diagnostic identifies the affected `source`, `table`, and
+resource `path`.
 
-The `v0.2.1` script can continue after a refused command or a lower view
-count, so inspect the complete output and view data instead of relying on its
-exit code alone.
+Discover the source again and select a table with a primary key. A unique index,
+a target-side key, or `tables[].pk` does not satisfy this runtime check. Use
+`append` only when the delivery is insert-only and source updates and deletes do
+not need keyed handling.
 
-The preview script has two additional repeatability limits:
+## Troubleshoot the Quickstart
 
-- Its default inner directory is `tapstate-demo`, so Compose may reuse named
-  volumes from another run. Set a unique `COMPOSE_PROJECT_NAME` for a
-  disposable rerun, or explicitly reset the known disposable project with
-  `docker compose -p tapstate-demo down -v`.
-- A pipeline expression that reads `after.<field>` needs a discovered source
-  schema. If the script reports `dsl.row-expression-needs-discovery`, apply
-  the source and target resources, run `discover-schema <source-id>`, then
-  apply the pipeline/workspace again before starting it. Treat any refusal or
-  schema/lifecycle error as a failed playground even if a later row-count message
-  looks successful.
+The [Quickstart](/docs/overview/quickstart) assembles five MySQL orders
+and six PostgreSQL shipments into MongoDB. Treat the run as successful only
+when it prints this complete result:
+
+```text
+quickstart: 5 orders from MySQL, each carrying its shipments from PostgreSQL -- 6 of them, in one object per order
+```
+
+A healthy server or `order_pipeline running` line does not establish that the
+assembled state is correct. Inspect the generated document when the success
+line is missing.
 
 ### Docker is unavailable
 
@@ -120,18 +142,19 @@ docker info
 docker compose version
 ```
 
-Start Docker and confirm the Compose plugin is available. The playground needs to pull and run MySQL 8.0, MongoDB 7.0, and the tapstate server.
+Start Docker and confirm the Compose plugin is available. The Quickstart needs
+to pull and run MySQL, PostgreSQL, MongoDB, and the tapstate server.
 
 ### A container is unhealthy or stopped
 
 ```bash
 docker compose ps
-docker compose logs --tail=200 mysql mongo server
+docker compose logs --tail=200 mysql postgres mongo server
 ```
 
 Fix port conflicts or local resource pressure before rerunning. Keep passwords and tokens out of shared log bundles.
 
-### The five-row view result does not appear
+### The assembled result does not appear
 
 Check the source and target independently:
 
@@ -139,9 +162,12 @@ Check the source and target independently:
 docker compose exec mysql mysql -uroot -psecret appdb \
   -e "SELECT COUNT(*) AS source_rows FROM orders;"
 
+docker compose exec postgres psql -U postgres -d appdb \
+  -c "SELECT COUNT(*) AS source_rows FROM shipments;"
+
 docker compose exec mongo mongosh --quiet \
-  'mongodb://mongo:27017/warehouse?directConnection=true' \
-  --eval 'db.order_state.countDocuments({})'
+  'mongodb://mongo:27017/views?directConnection=true' \
+  --eval 'printjson({orders: db.order_state.countDocuments({}), shipments: db.order_state.aggregate([{$unwind:"$shipments"},{$count:"count"}]).toArray()})'
 ```
 
 If MySQL has five rows and MongoDB does not, enter the CLI REPL and collect pipeline evidence:
@@ -153,9 +179,9 @@ If MySQL has five rows and MongoDB does not, enter the CLI REPL and collect pipe
 ```text
 connect http://127.0.0.1:8080
 login admin
-status sync_orders
-metrics sync_orders
-logs sync_orders
+status order_pipeline
+metrics order_pipeline
+logs order_pipeline
 ```
 
 Enter the password stored in the local `.env` file. Do not paste it into a shell command or diagnostic bundle.
@@ -169,7 +195,16 @@ docker compose down -v
 sh quickstart.sh
 ```
 
-`down -v` permanently removes the playground's local MySQL and MongoDB volumes. It does not remove files in the playground directory.
+`down -v` permanently removes the Quickstart's local MySQL, PostgreSQL, and
+MongoDB volumes. It does not remove files in the playground directory.
+
+### The managed view store is unreachable
+
+`actuation.view-store-unreachable` means the server cannot reach the managed
+MongoDB store used for an inline `view`. Check the server's view-store
+configuration and MongoDB health, then start the pipeline again. The
+Quickstart's unauthenticated sample store is disposable and is not a production
+security model.
 
 ### A connected command returns exit code 3
 
@@ -182,8 +217,8 @@ or the process list.
 ### Connector registration is refused
 
 `connector.not-official` means the server refused the artifact before
-registration. In `v0.2.1`, the released registrar accepts only the published
-MySQL and MongoDB preview connector artifacts. A catalog entry or a connector
+registration. In `v0.3.0`, the released registrar accepts the published MySQL,
+PostgreSQL, and MongoDB preview connector artifacts. A catalog entry or a connector
 JAR does not make another connector runnable. Confirm the artifact ID and use
 `connectors -o json` after a successful registration; see [Register and test
 connectors](/docs/guides/register-connectors) for the complete boundary.

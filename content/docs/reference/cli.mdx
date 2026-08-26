@@ -1,6 +1,6 @@
 ---
 title: CLI reference
-description: Use tapstate v0.2.1 offline workspace commands, connected sessions, and one-shot commands
+description: Use tapstate v0.3.0 offline workspace commands, connected sessions, and one-shot commands
 ai:
   kind: reference
   id: cli
@@ -20,7 +20,7 @@ Run this command to see the command set included with your installed version:
 tapstate --help
 ```
 
-In `v0.2.1`, use `tapstate help <command>` or `tapstate <command> --help` to
+In `v0.3.0`, use `tapstate help <command>` or `tapstate <command> --help` to
 inspect a command without connecting to a server.
 
 ## Launch and help options
@@ -41,6 +41,34 @@ tapstate -w work
 ```
 
 ## Offline workspace commands
+
+### `demo`
+
+Create a complete three-file order-state workspace:
+
+```bash
+tapstate demo [-w DIR] [--print-steps] [--force] [-o text|json|yaml]
+```
+
+The command writes:
+
+```text
+source/orders_db.tap.yml
+source/fulfillment_db.tap.yml
+pipeline/order_pipeline.tap.yml
+```
+
+It generates local files only. It does not start Docker, connect to a server,
+test either database, or run the pipeline. Use `--print-steps` to print the
+commands that apply and run the workspace after you configure its connection
+values.
+
+By default, `demo` refuses to overwrite an existing demo workspace and returns
+`cli.demo-workspace-exists`. Use a new directory, or review the files before
+running with `--force`. If the directory cannot be written, the command returns
+`cli.workspace-not-writable` with `path` and `reason`, restores files it
+replaced, and removes files it created. Empty directories created during the
+attempt can remain.
 
 ### `validate`
 
@@ -115,6 +143,21 @@ For example:
 tapstate explain source.mode
 ```
 
+### `alias`
+
+The installed command is `tapstate`. A release bundle can also provide the
+shorter `tap` alias when that name is available:
+
+```bash
+tapstate alias install
+tapstate alias uninstall
+```
+
+Installing or removing the alias does not replace the canonical `tapstate`
+command. The CLI refuses to overwrite an unrelated file named `tap`. For a
+non-default installation, set `TAPSTATE_INSTALL_DIR` to the directory that
+contains `tapstate` before running the alias command.
+
 ## Start a connected session
 
 Start the REPL, connect to a server, and log in:
@@ -161,7 +204,7 @@ Use a connected, authenticated session to inspect the data behind a declared
 source. Each read uses that source's configured connection. You do not provide a
 database URI or a database query language in the command.
 
-In `v0.2.1`, row previews and live reads require a source that uses the
+In `v0.3.0`, row previews and live reads require a source that uses the
 `mongodb` connector. Collection listing and statistics can still be available
 for other connectors.
 
@@ -298,6 +341,12 @@ for host configuration, authentication, tools, and troubleshooting.
 
 `apply` reports each resource as created, updated, or unchanged. Connector registration is idempotent for the same artifact.
 
+Apply can run checks that need discovered source metadata. For example,
+`dsl.upsert-needs-key` means a selected source table written with `upsert` has
+no primary key in its discovered schema. Discover the source again and select a
+keyed table, or choose `append` only for insert-only delivery. See
+[Choose a write mode](/docs/reference/view-and-serve#choose-a-write-mode).
+
 For `delete`, omitting `--if-match` makes the CLI read the current artifact and use that version for the removal. Supplying a hash pins a version already held by the caller; a stale hash is refused instead of overwriting a newer version. Deletion is irreversible. The CLI `get` command prints the artifact content, not its hash; use the REST or MCP representation when you need to supply an explicit hash.
 
 ## Manage machine tokens
@@ -370,14 +419,15 @@ Successful command output is written to standard output. Text-mode usage and dia
 
 Automation should check the exit code instead of matching human-readable output.
 
-## Commands not implemented in v0.2.1
+## Commands not implemented in v0.3.0
 
 The top-level help lists `run`, `export`, `diff`, and `edit` as reserved verbs.
-They return exit code `3` in `v0.2.1`. Do not build a workflow that depends on
+They return exit code `3` in `v0.3.0`. Do not build a workflow that depends on
 them.
 
 ## Related pages
 
-- [Author and validate a workspace](/docs/overview/quickstart)
-- [Try tapstate locally](/docs/overview/quickstart-online)
+- [Quickstart](/docs/overview/quickstart)
+- [Explore the order-state demo](/docs/overview/order-state-demo)
+- [Create your own workspace](/docs/overview/create-workspace)
 - [Troubleshooting](/docs/guides/troubleshooting)

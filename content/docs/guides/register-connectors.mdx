@@ -26,16 +26,16 @@ are unresolved. It never opens a network connection.
 
 ## When registration is required
 
-- **Local playground:** no action is required. `quickstart.sh` downloads and
-  registers the official MySQL and MongoDB JARs before it applies the sample
-  workspace.
+- **Quickstart:** no action is required. `quickstart.sh` downloads and
+  registers the official MySQL, PostgreSQL, and MongoDB JARs before it applies
+  the sample workspace.
 - **A server started with connector artifacts in its seed directory:** no manual
   registration is required. The server registers those artifacts at startup.
 - **Any other connected server:** register an artifact only when the connector
   you need is not already available to that server.
 
 After you connect and sign in, run `connectors -o json` to inspect the server's
-catalog. If the MySQL or MongoDB artifact you need is already available, skip
+catalog. If the MySQL, PostgreSQL, or MongoDB artifact you need is already available, skip
 the registration step and continue with [Apply the connections](#apply-the-connections).
 
 ## Before you begin
@@ -45,17 +45,18 @@ the registration step and continue with [Apply the connections](#apply-the-conne
 
 ## Get the current preview connector JARs
 
-The current preview accepts only the official MySQL and MongoDB artifacts from
-the [connector preview release](https://github.com/tapstate/tapstate/releases/tag/connectors-preview).
-Download `mysql-connector.jar` or `mongodb-connector.jar` from that release to
-a local directory that the CLI can read. Do not use a catalog entry, roadmap
-page, or third-party JAR as evidence that the current server will accept it.
+The current preview publishes the official MySQL, PostgreSQL, and MongoDB
+artifacts through the [connector preview release](https://github.com/tapstate/tapstate/releases/tag/connectors-preview).
+Download `mysql-connector.jar`, `postgres-connector.jar`, or
+`mongodb-connector.jar` to a local directory that the CLI can read. Do not use
+a catalog entry, roadmap page, or unlisted JAR as evidence that the current
+server will accept it.
 
 ## Current preview registration boundary
 
-The `v0.2.1` release accepts only the published MySQL and MongoDB preview
-connector artifacts. A connector catalog entry, a roadmap page, or a JAR by
-itself does not expand that runtime boundary.
+The `v0.3.0` preview documents MySQL and PostgreSQL as source artifacts and
+MongoDB as the operational-state target artifact. A connector catalog entry, a
+roadmap page, or a JAR by itself does not expand that public runtime boundary.
 
 Registering an artifact with another connector ID returns
 `connector.not-official`; the server does not register it. The same boundary
@@ -84,6 +85,7 @@ tapstate -w work
 connect http://127.0.0.1:8080
 login admin
 register ../connector-artifacts/mysql-connector.jar -o json
+register ../connector-artifacts/postgres-connector.jar -o json
 register ../connector-artifacts/mongodb-connector.jar -o json
 connectors -o json
 ```
@@ -130,11 +132,14 @@ Read the most recently stored report without testing again:
 test-result orders_source -o json
 ```
 
-In the interactive `v0.2.1` REPL, a failed line does not end the session. Inspect the report's `outcome`; do not treat the session's eventual exit as the connection-test result.
+In the interactive `v0.3.0` REPL, a failed line does not end the session. Inspect the report's `outcome`; do not treat the session's eventual exit as the connection-test result.
 
 ## What to expect with a placeholder address
 
-A resource using `mysql.invalid` or `mongo.invalid` can pass offline validation because the YAML, mode, and provided field types are valid. After the connector is registered and the resource is applied, `test` should either:
+A resource using `mysql.invalid`, `postgres.invalid`, or `mongo.invalid` can
+pass offline validation because the YAML, mode, and provided field types are
+valid. After the connector is registered and the resource is applied, `test`
+should either:
 
 - return a normal report with `outcome: FAILED`; or
 - return a coded connector test error if the connector cannot produce a report.
@@ -158,7 +163,7 @@ schema orders_source orders -o json
 | Symptom | Check |
 |---|---|
 | Connector not found | Download the matching official JAR, register it, then confirm availability with `connectors`. |
-| `connector.not-official` | This v0.2.1 server accepts only the published MySQL and MongoDB preview artifacts. Confirm the artifact ID and use the current release assets. |
+| `connector.not-official` | The artifact is outside the published MySQL, PostgreSQL, and MongoDB preview path. Confirm its connector ID and use the current release assets. |
 | API-level incompatibility | Use an artifact built for a compatible PDK API level. |
 | `FAILED` connection report | Read every failed check; verify DNS, port, TLS, credentials, database, and permissions from the server host. |
 | No stored test result | Run `test` before `test-result`. |
@@ -168,5 +173,6 @@ schema orders_source orders -o json
 ## Next steps
 
 - [MySQL connector](/docs/connectors/mysql)
+- [PostgreSQL connector](/docs/connectors/postgresql)
 - [MongoDB connector](/docs/connectors/mongodb)
 - [Apply and run a pipeline](/docs/guides/apply-and-run)

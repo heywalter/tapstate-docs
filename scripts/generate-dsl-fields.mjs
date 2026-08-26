@@ -56,11 +56,13 @@ const sections = [
 ];
 
 const descriptionOverrides = {
+  'TableRef.Spec.pk': 'Primary-key override accepted by the grammar. The current runtime does not execute this field; an upsert still requires a primary key in the discovered source schema.',
   'Srs.key': 'Optional identifier that overrides automatic mining-chain derivation. Reuse a value only when compatible CDC sources must share one replay store.',
   'TransformBody.Nest.entries_in_memory': 'Maximum entries kept in memory at each nest level. Additional entries use the configured backing layer. Omit to use the deployment default.',
   'TransformBody.Nest.max_elements_per_document': 'Maximum embedded elements allowed in one assembled document. Exceeding the limit fails the pipeline. Omit to use the deployment default.',
   'NestRoot.trackKeyChanges': 'When true, moves the assembled document when its root key changes. Requires the source to provide a before image.',
   'Embed.trackKeyChanges': 'When true, moves an embedded subtree when its array key, parent key, or child-reference key changes. Requires the source to provide a before image.',
+  'SyncElement.write_mode': 'How rows are written to the target. Upsert requires a primary key in each selected source table\'s discovered schema; append is for insert-only delivery.',
 };
 
 function refName(ref) {

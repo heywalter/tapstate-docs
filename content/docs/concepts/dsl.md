@@ -10,7 +10,7 @@ ai:
 Tapstate uses declarative `*.tap.yml` files with `version: tapstate/v1`.
 
 If this is your first runnable pipeline, begin with the
-[offline workspace walkthrough](/docs/overview/quickstart). For exact field shapes, use the
+[offline workspace walkthrough](/docs/overview/create-workspace). For exact field shapes, use the
 [resource grammar](/docs/reference/dsl-grammar).
 
 ## Five resource kinds

@@ -46,8 +46,10 @@ metadata:
 ### `source`
 
 A source resource ID or an array of IDs. Every referenced resource must exist
-in the validated workspace. A source can select multiple tables; that selection
-lives in the referenced source's `tables` field, not in `pipeline.source`.
+in the validated workspace. The sources can use different connectors; for
+example, one pipeline can read MySQL orders and PostgreSQL shipments. A source
+can select multiple tables; that selection lives in the referenced source's
+`tables` field, not in `pipeline.source`.
 
 When a source omits `tables`, tapstate selects every table in its latest
 discovered schema. Discover the source before applying or starting a pipeline
@@ -109,6 +111,9 @@ state store used by a view. An inline block can also contain `query` and `push`
 declarations, although those surfaces are not part of the current public
 preview path.
 
+For sync write modes and their source-key requirements, see
+[view and serve](/docs/reference/view-and-serve#choose-a-write-mode).
+
 `sync` and `push` are not top-level pipeline fields. They belong inside
 `pipeline.serve` or a reusable `serve` resource.
 
@@ -143,8 +148,8 @@ validation still needs runtime and connector verification.
 
 ## Runtime boundary
 
-The current preview's local playground declares an inline `view` for the
-MySQL-to-MongoDB path. The runtime also executes `nest` document assembly and
-can deliver a separate external `serve.sync` output. Schema acceptance of
-`query`, `push`, or `join` does not by itself prove that the current public
-preview executes that surface.
+The current preview's Quickstart reads MySQL and PostgreSQL sources,
+executes `nest` document assembly, and materializes an inline `view` in its
+managed store. `serve.sync` is the separate surface for delivery to an external
+target. Schema acceptance of reusable views, `query`, `push`, or `join` does
+not by itself prove that the current runtime executes that surface.

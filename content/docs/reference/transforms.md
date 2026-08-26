@@ -145,7 +145,8 @@ scripts with representative insert, update, delete, and non-row events.
 ```
 
 `nest` assembles related streams into documents and keeps them updated as source
-records change. Set `trackKeyChanges: true` on the root to move a whole document
+records change. Its aliases can refer to tables from different pipeline sources,
+such as a MySQL root table and a PostgreSQL child table. Set `trackKeyChanges: true` on the root to move a whole document
 when its root key changes. Set it on a child to move embedded data when its array
 key, parent key, or child-pointer key changes. Both forms require the source
 connector to provide a before image.
@@ -153,7 +154,7 @@ connector to provide a before image.
 ### Related guides
 
 - [Assemble documents with nest](/docs/guides/assemble-documents-with-nest) for
-  a complete MySQL-to-MongoDB authoring and verification sequence.
+  a complete MySQL-and-PostgreSQL authoring and verification sequence.
 - [Handle structural key changes with nest](/docs/guides/nest-structural-key-changes)
   before enabling `trackKeyChanges`.
 - [Plan nest capacity and delivery behavior](/docs/guides/nest-throughput) for

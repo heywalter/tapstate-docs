@@ -26,7 +26,7 @@ preparation guide alone does not mean a current tapstate runtime supports CDC.
 
 - Choose **Full load** for a one-time migration, test dataset, or periodic replacement where later changes are not required.
 - Choose **Full load + CDC** when the destination must begin complete and then remain current.
-- Choose **Stream** for Kafka, a message queue, or another source that already produces an ordered stream of records.
+- Choose **Stream** for a message broker or another source that already produces an ordered stream of records.
 - Choose **API** for SaaS and business systems where the connector reads through a vendor API.
 
 ## Full load (Snapshot)
@@ -53,7 +53,9 @@ Prepare and verify:
 1. The account can complete the initial read.
 2. The source emits the change records required by the connector.
 3. The change log is retained long enough for planned outages and restarts.
-4. The target has stable keys for updates and deletes.
+4. Each source table written with `upsert` has a primary key in its discovered
+   schema. A unique index is not enough. Use `append` only for insert-only
+   delivery.
 5. A staging run covers insert, update, delete, stop, and resume behavior.
 
 ## Stream and API sources

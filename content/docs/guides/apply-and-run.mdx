@@ -45,6 +45,13 @@ The server reparses and validates each draft. The result reports:
 - `UPDATED` when canonical content changed;
 - `UNCHANGED` when the stored content hash already matches.
 
+Some checks require the source's discovered schema and therefore run only on
+the server. If apply returns `dsl.upsert-needs-key`, every selected source table
+written with the default `upsert` mode needs a discovered primary key. Discover
+the source again and select keyed tables, or use `append` only when the delivery
+is insert-only. A unique index or `tables[].pk` does not satisfy this runtime
+check.
+
 Confirm the server-held resources:
 
 ```text
@@ -101,4 +108,4 @@ The preview is single-node and does not persist a resumable runtime offset acros
 
 - [Observe a pipeline](/docs/guides/observe-a-pipeline)
 - [Troubleshooting](/docs/guides/troubleshooting)
-- [Current preview limitations](/docs/releases/v0.2.0#known-limitations)
+- [Current preview boundaries](/docs/releases/v0.3.0#preview-boundaries)

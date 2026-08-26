@@ -1,23 +1,24 @@
 ---
 title: Assemble documents with nest
-description: Build and maintain one MongoDB document from related MySQL tables
+description: Build and maintain one document from related MySQL and PostgreSQL tables
 ai:
   kind: guide
   id: assemble-documents-with-nest
   maturity: preview
-  aliases: [tapstate nest tutorial, document assembly, nested mongodb document, mysql table assembly]
+  aliases: [tapstate nest tutorial, document assembly, nested mongodb document, cross-source assembly, mysql postgresql assembly]
 ---
 
 import { CardGrid, LinkCard } from '@/components/mdx';
 
-Use `nest` when an application needs one current document but the source stores
-that entity across related tables. The transform builds the document during the
-initial load and updates it as MySQL emits later changes.
+Use `nest` when an application needs one current document but the source data is
+split across related tables, including tables in different database engines. The
+transform builds the document during the initial load and updates it as either
+source emits later changes.
 
-This guide uses an `orders` root table and an `order_items` child table. It
-assumes the v0.2 playground or another non-production server is running, the
-MySQL and MongoDB connector artifacts are registered, and both connections pass
-a server-side test.
+This guide uses a MySQL `orders` root table and a PostgreSQL `shipments` child
+table. It assumes the Quickstart or another non-production server is
+running, the MySQL, PostgreSQL, and MongoDB connector artifacts are registered,
+and both source connections pass a server-side test.
 
 <CardGrid>
 <LinkCard
@@ -35,11 +36,11 @@ a server-side test.
 ## 1. Choose the document root
 
 Start with the entity that should produce one output document. In this example,
-each `orders.id` becomes one MongoDB document. Every item carries the parent
-identity in `order_items.order_id`:
+each `orders.id` becomes one materialized document. Every shipment carries the
+parent identity in `shipments.order_id`:
 
 ```text
-orders.id  1 ─────< order_items.order_id  1
+orders.id  1 ─────< shipments.order_id  1
 ```
 
 `nest` follows parent identity. It is not a general lookup or SQL join. If a
@@ -48,130 +49,129 @@ shape or choose a different document root.
 
 ## 2. Select the source tables
 
-Use one CDC-capable MySQL connection and select both tables:
+Create one CDC-capable source connection for each database engine:
 
-```yaml title="tapstate-work/source/orders_source.tap.yml"
+```yaml title="tapstate-work/source/orders_db.tap.yml"
 version: tapstate/v1
 kind: source
-id: orders_source
+id: orders_db
 connector: mysql
 config:
-  host: db.internal
+  host: mysql.internal
   port: "3306"
   database: shop
   username: ${MYSQL_USER}
   password: ${MYSQL_PASSWORD}
 mode: cdc
-tables: [orders, order_items]
+tables: [orders]
 ```
 
-The MongoDB connection is the materialization target, so it has no `mode` or
-`tables`:
+The PostgreSQL source uses its own field names and selects the shipment table:
 
-```yaml title="tapstate-work/source/operational_state.tap.yml"
+```yaml title="tapstate-work/source/fulfillment_db.tap.yml"
 version: tapstate/v1
 kind: source
-id: operational_state
-connector: mongodb
+id: fulfillment_db
+connector: postgres
 config:
-  isUri: true
-  uri: "mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo.internal:27017/shop?authSource=admin"
+  host: postgres.internal
+  port: "5432"
+  database: fulfillment
+  schema: public
+  user: ${POSTGRES_READER_USER}
+  password: ${POSTGRES_READER_PASSWORD}
+  logPluginName: pgoutput
+mode: cdc
+tables: [shipments]
 ```
 
 Keep credentials out of committed files. See the [MySQL](/docs/connectors/mysql)
-and [MongoDB](/docs/connectors/mongodb) guides for permissions and connection
-fields.
+and [PostgreSQL](/docs/connectors/postgresql) guides for permissions and
+connection fields. For a PostgreSQL child table that can be updated or deleted,
+configure `REPLICA IDENTITY FULL` before starting CDC.
 
 ## 3. Define the document tree
 
 Map short aliases to the source table streams, choose the root key, and describe
 where each child belongs:
 
-```yaml title="tapstate-work/pipeline/order_documents.tap.yml"
+```yaml title="tapstate-work/pipeline/order_pipeline.tap.yml"
 version: tapstate/v1
 kind: pipeline
-id: order_documents
-source: orders_source
+id: order_pipeline
+source: [orders_db, fulfillment_db]
 settings:
   read_mode: snapshot_and_cdc
 transforms:
-  - id: document
+  - id: assemble
     type: nest
     from:
       order: orders
-      item: order_items
+      shipment: shipments
     root:
       from: order
       key: [id]
       embed:
-        - from: item
+        - from: shipment
           on:
             order_id: id
           as: array
-          path: items
+          path: shipments
           arrayKey: [id]
-          trackKeyChanges: true
-serve:
-  from: document
-  sync:
-    - id: write_documents
-      source: operational_state
-      write_mode: upsert
-      ddl: fail
+view:
+  id: order_state
+  from: assemble
+  primary_key: id
 ```
 
-Here, `on` means `order_items.order_id` must equal `orders.id`. `as: array`
-creates `items: []` when an order has no children. Use `as: object` only when
-the relationship has at most one child.
+Here, `on` means `shipments.order_id` must equal `orders.id`. `as: array`
+creates `shipments: []` when an order has no children. Use `as: object` only
+when the relationship has at most one child.
 
-`trackKeyChanges: true` moves an embedded row when its item key or parent key
-changes. It requires the source connector to provide a before image. Leave it
-off when those keys are immutable. Before enabling it, read [Handle structural
-key changes with nest](/docs/guides/nest-structural-key-changes) and verify that
-MySQL emits complete row images.
+The `view` materializes `order_state` in the preview's managed store. No `serve`
+block or MongoDB target connection is required for this path.
 
-## 4. Discover the source schema, then apply again
+## 4. Discover both source schemas, then apply the pipeline
 
-Validate locally, apply the source and target connections, discover the source
-schema, and then apply the complete workspace before starting the pipeline:
+Validate locally, apply each source, discover its schema, and then apply the
+complete workspace before starting the pipeline:
 
 ```text
 tapstate validate --workdir tapstate-work
 tapstate -w tapstate-work
 connect http://127.0.0.1:8080
 login admin
-apply source/orders_source.tap.yml
-apply source/operational_state.tap.yml
-discover-schema orders_source
+apply source/orders_db.tap.yml
+apply source/fulfillment_db.tap.yml
+discover-schema orders_db
+discover-schema fulfillment_db
 apply
-start order_documents
-status order_documents
+start order_pipeline
+status order_pipeline
 ```
 
 The first two `apply` commands store the connections before discovery. The
-final `apply` stores the pipeline after discovery has supplied its source
+final `apply` stores the pipeline after discovery has supplied both sources'
 field types. Expressions that read `after.<field>` or `before.<field>` follow
-the same order. Discovery also lets tapstate estimate the capacity required by
-each nest level; `nest.capacity-estimate-incomplete` is a floor estimate, not
-proof that the pipeline has enough capacity.
+the same order.
 
 ## 5. Verify initial state and CDC
 
 Do not treat an accepted `start` command as proof that data moved. Verify all of
 the following:
 
-1. `status order_documents` remains `running`.
-2. `logs order_documents` has no unresolved coded failure.
-3. `metrics order_documents` shows processed records and no unexplained
+1. `status order_pipeline` remains `running`.
+2. `logs order_pipeline` has no unresolved coded failure.
+3. `metrics order_pipeline` shows processed records and no unexplained
    `nestDeadLettered.<namespace>` changes.
-4. MongoDB contains one document per order and the expected number of embedded
-   items.
-5. A representative item insert, update, parent-key change, and delete produces
-   the expected whole document in MongoDB.
+4. The materialized `order_state` contains one document per order and the
+   expected number of embedded shipments.
+5. A PostgreSQL shipment insert, update, and delete updates the expected MySQL
+   order document. A MySQL order update keeps its embedded shipments.
 
-A nest emits and writes the assembled document as a unit. Include a document
-near the expected maximum size in capacity and latency tests; a backing state
-layer cannot make one oversized document fit.
+A nest writes the assembled document as a unit. Include a document near the
+expected maximum size in capacity and latency tests; a backing state layer
+cannot make one oversized document fit.
 
 For whole-document delivery behavior, peak-change planning, and a practical
 test matrix, see [Plan nest capacity and delivery behavior](/docs/guides/nest-throughput).
@@ -182,8 +182,7 @@ test matrix, see [Plan nest capacity and delivery behavior](/docs/guides/nest-th
 - Sibling branches at the same level must agree on the parent identity.
 - `nest` does not perform arbitrary lookups; the separately declared `join`
   transform remains refused by the current runtime.
-- Key-change tracking depends on complete before images.
-- The v0.2 runtime is single-node and does not provide production recovery
+- The current preview is single-node and does not provide production recovery
   guarantees.
 
 Continue with [Observe a pipeline](/docs/guides/observe-a-pipeline) and the

@@ -46,7 +46,8 @@ workspace and cannot contain `.`.
 
 ## Minimal runnable shape
 
-The released preview path uses two connection resources and one pipeline:
+The released preview path uses MySQL and PostgreSQL source connections and one
+pipeline:
 
 ```yaml title="source/orders.tap.yml"
 version: tapstate/v1
@@ -63,30 +64,52 @@ config:
 tables: [orders]
 ```
 
-```yaml title="source/warehouse.tap.yml"
+```yaml title="source/shipments.tap.yml"
 version: tapstate/v1
 kind: source
-id: warehouse
-connector: mongodb
+id: shipments
+connector: postgres
+mode: cdc
 config:
-  isUri: true
-  uri: ${MONGODB_URI}
+  host: postgres
+  port: "5432"
+  database: appdb
+  schema: public
+  user: ${POSTGRES_USER}
+  password: ${POSTGRES_PASSWORD}
+tables: [shipments]
 ```
 
 ```yaml title="pipeline/orders-sync.tap.yml"
 version: tapstate/v1
 kind: pipeline
 id: orders-sync
-source: orders
+source: [orders, shipments]
 settings:
   read_mode: snapshot_and_cdc
+transforms:
+  - id: order-document
+    type: nest
+    from:
+      order: orders
+      shipment: shipments
+    root:
+      from: order
+      key: [id]
+      embed:
+        - from: shipment
+          on:
+            order_id: id
+          as: array
+          path: shipments
+          arrayKey: [id]
 view:
   id: order_state
-  from: orders
+  from: order-document
   primary_key: id
 ```
 
-Apply the two connection resources first, run `discover-schema orders`, then
+Apply the source connections first, run `discover-schema` for each source, then
 apply the complete workspace and start the pipeline. Add expressions that read
 `after.<field>` or `before.<field>` only after discovery has supplied the field
 types used during server-side validation.
@@ -103,10 +126,10 @@ both; a view-only pipeline still materializes records and does not need `serve`.
 
 | Surface | Schema/validator | Current preview runtime |
 |---|---|---|
-| Resource kinds | `source`, `pipeline`, `transform`, `view`, `serve` | The local playground declares `source` + `pipeline` with an inline `view` that materializes to the managed state store. |
+| Resource kinds | `source`, `pipeline`, `transform`, `view`, `serve` | The Quickstart declares `source` + `pipeline` with an inline `view`. |
 | Transforms | `filter`, `map`, `js`, `union`, `nest`, `join` | `filter`, `map`, `js`, `union`, and `nest` are wired. The runtime refuses `join`. |
-| Serve declarations | `sync`, `query`, `push` | `serve.sync` is the external delivery surface; query and push remain outside the current public preview path. Do not infer an executable surface from Schema acceptance alone. |
-| Connector fields | Connector-specific keys are allowed structurally; known catalog fields can receive additional checks. | A catalog entry does not prove that a connector artifact is installed, registered, or release-verified. |
+| Serve declarations | `sync`, `query`, `push` | `serve.sync` delivers to an external target; the Quickstart's managed view does not need a `serve` block. Do not infer an executable runtime surface from Schema acceptance alone. |
+| Connector fields | Connector-specific keys are allowed structurally; known catalog fields can receive additional checks. | A catalog entry does not prove that a connector artifact is installed, registered, or available in the current release. |
 
 ## Validation model
 
@@ -145,6 +168,6 @@ patterns, even if a YAML parser happens to accept the input form.
 - `experimental` fields do not carry the v1 compatibility guarantee.
 - Use the Schema and catalog from the same release as the runtime you deploy.
 
-To explore a running example, [try tapstate locally](/docs/overview/quickstart-online).
+To explore a running example, [run the Quickstart](/docs/overview/quickstart).
 For connector metadata and external-system preparation, use the
 [connector directory](/docs/connectors).
