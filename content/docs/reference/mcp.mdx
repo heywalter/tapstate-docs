@@ -7,7 +7,7 @@ ai:
   kind: reference
   id: mcp
   maturity: preview
-  aliases: [tapstate MCP, Model Context Protocol, MCP host, AI tool integration]
+  aliases: [tapstate MCP, Model Context Protocol, MCP host, AI tool integration, tapstate data browser MCP]
 ---
 
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
@@ -85,11 +85,10 @@ Create a read token for read-only tools:
 token create --scope read -o json
 ```
 
-Create a `write` token instead only when the host must run write tools. The
-bearer value is displayed once; copy it into the host's protected local secret
-configuration. The host presents this token to the tapstate server on every
-request, and the server verifies its scope. The host does not repeat the
-administrator-password login.
+Use a dedicated read token for each MCP host. The bearer value is displayed
+once; copy it into the host's protected local secret configuration. The host
+presents this token to the tapstate server on every request, and the server
+verifies its scope. The host does not repeat the administrator-password login.
 
 When an MCP tool accepts connector settings, you can use environment references
 in those settings. `${VAR}` requires `VAR` to be set; `${var:NAME:default}`
@@ -217,11 +216,11 @@ If a tool call returns `isError: true`, the MCP layer is reporting a failed tool
 call. The failure can come from the local gateway, an unreachable server, or a
 server-side refusal; a successful handshake or `tools/list` call does not prove
 that every operation will succeed. Inspect the returned `code`, `message`, and
-`params`, then check the server URL, token scope, and server state. If write
-tools are needed, create a `write` token and add `--allow-write` to the gateway
-arguments; both controls are required.
+`params`, then check the server URL, token scope, and server state.
 
-## Tools and write access
+## Tools
+
+### Read-only tools
 
 By default, the gateway exposes read-only tools:
 
@@ -234,37 +233,57 @@ By default, the gateway exposes read-only tools:
 | `connection_schema` | Read the latest discovered source schema. |
 | `connector_list` | List connectors visible to the online server. |
 | `connector_get` | Read a connector's live specification and availability. |
+| `data_browser_collections` | List the collections held by a declared source's database. |
+| `data_browser_find` | Read a bounded preview of rows from one collection. |
+| `data_browser_stats` | Read the collection metadata reported by its connector. |
 | `pipeline_status` | Read a pipeline's current lifecycle status. |
 | `pipeline_metrics` | Read the latest bounded pipeline metrics. |
 | `pipeline_snapshot` | Read the latest per-table snapshot progress. |
 | `pipeline_logs` | Read a bounded, secret-redacted pipeline log tail. |
 
-Add `--allow-write` to the host arguments only when the server token is
-authorized for write operations:
+### Browse data
+
+The data-browser tools read through a declared source's configured connection.
+They do not accept a database URI or a database query language. The source and
+collection name are required; `data_browser_find` also accepts optional
+`filter`, `sort`, and `limit` values:
+
+> **Data access boundary:** Data-browser tools are read-only, but they can
+> return source records to the MCP host. In this preview, data-browser access
+> does not have a separate permission and these reads do not create audit
+> events. Give the host a dedicated read-scoped token, restrict who can control
+> the host, and avoid sensitive sources while evaluating the integration.
 
 ```json
 {
-  "args": ["mcp", "--server", "http://127.0.0.1:8080", "--allow-write"]
+  "sourceId": "warehouse",
+  "collection": "orders",
+  "filter": {
+    "field": "status",
+    "op": "eq",
+    "value": "paid"
+  },
+  "sort": {
+    "field": "total",
+    "dir": "desc"
+  },
+  "limit": 25
 }
 ```
 
-This adds the following tools:
+The filter vocabulary is `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `in`, `exists`,
+and `contains`. You can combine terms with one level of `all` or `any`. A
+literal dotted field name is written as `price\\.usd` in JSON. The API rejects
+database-native operators and arbitrary nested Boolean groups.
 
-| MCP tool | Purpose |
-|---|---|
-| `artifact_apply` | Validate and apply a complete `tapstate/v1` workspace. |
-| `artifact_delete` | Permanently remove one resource after a content-hash check. |
-| `connection_test` | Test a connector configuration and persist the result. |
-| `connection_discover_schema` | Discover and persist a source schema. |
-| `pipeline_start` | Set a pipeline's desired state to running. |
-| `pipeline_stop` | Set a pipeline's desired state to stopped. |
+`data_browser_find` is a one-shot preview: the default is 10 rows, the maximum
+is 200 rows, and no cursor or next-page token is available. In this preview,
+row previews are available only for sources that use the `mongodb` connector.
+Collection listing and statistics can still be available for other connectors.
 
-`--allow-write` only makes write tools visible. The server still enforces the
-token's authorization scope. The current gateway does not expose source CRUD,
-connector JAR registration, user or token administration, cluster-member
-listing, or pipeline pause/resume operations. Use the authenticated [REST
-API](/docs/reference/rest-api) or [CLI reference](/docs/reference/cli) for
-those operations.
+The gateway does not expose the CLI's live `watch` or `tail` views. Use the
+[CLI reference](/docs/reference/cli#watch-one-row-or-tail-collection-changes)
+when a person needs to follow changes in a terminal.
 
 The host's `tools/list` response is the runtime authority if a later release
 adds, removes, or renames a tool.

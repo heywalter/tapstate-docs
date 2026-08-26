@@ -5,7 +5,7 @@ ai:
   kind: reference
   id: rest-api
   maturity: preview
-  aliases: [tapstate REST API, tapstate control plane API, tapstate HTTP API]
+  aliases: [tapstate REST API, tapstate control plane API, tapstate HTTP API, tapstate data browser API]
 ---
 
 The `v0.2.1` server exposes a preview HTTP control plane. This API exists only
@@ -139,6 +139,89 @@ Update and delete require the quoted 64-character content hash returned in `ETag
 Use one write model consistently. Prefer `/api/artifacts:apply` for resource
 authoring and pipeline batches. Use the structured source endpoints when a
 client needs source-specific draft and `ETag` workflows.
+
+## Read data through a declared source
+
+The data-browser endpoints inspect the data behind an existing source. Each
+request resolves the source's configured connection; callers cannot supply a
+database URI, database name, or database-native query command.
+
+> **Data access boundary:** These endpoints are read-scoped, but they can
+> return source records and do not create audit events in this preview. There
+> is no separate data-browser permission, so any authenticated caller with
+> read access can use them. Keep the REST control plane off untrusted networks,
+> use HTTPS for remote access, and issue a dedicated read-scoped token to each
+> integration.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/sources/{sourceId}/collections` | List collections held by a declared source's database. |
+| `GET` | `/api/sources/{sourceId}/collections/{collection}/stats` | Read connector-reported metadata for one collection. |
+| `POST` | `/api/sources/{sourceId}/collections/{collection}:find` | Read a bounded preview of rows from one collection. |
+
+Collection listing returns the database's actual collections, not only
+resources declared in a workspace. The `stats` response can include
+`numOfRows`, `storageSize`, and `avgObjSize`; unavailable values are not zero.
+`numOfRows` is an estimate from connector metadata rather than a counted total.
+
+The `find` request body is optional. It can contain `filter`, `sort`, and
+`limit`:
+
+```json
+{
+  "filter": {
+    "field": "status",
+    "op": "eq",
+    "value": "paid"
+  },
+  "sort": {
+    "field": "total",
+    "dir": "desc"
+  },
+  "limit": 25
+}
+```
+
+`filter` is either one `{field, op, value}` term or one `all` or `any`
+combination of terms. Supported operators are `eq`, `ne`, `gt`, `gte`, `lt`,
+`lte`, `in`, `exists`, and `contains`. `in` requires a non-empty list,
+`exists` requires a Boolean value, and `contains` requires text. The API rejects
+database-native operators and arbitrary nested Boolean groups.
+
+Use `asc` or `desc` for `sort.dir`. A literal dotted field name must escape the
+dot in the JSON value, for example `"price\\.usd"`. Such a field can be
+filtered but cannot be sorted; the server returns
+`data-browser.unorderable-field`.
+
+`find` is a one-shot preview, not a paginated query. The default is 10 rows and
+the maximum is 200. The response includes `rows`, `approximateTotal`, and
+`moreAvailable`; it has no cursor or next-page token. `approximateTotal` might
+be unavailable for a filtered read.
+
+In this preview, row previews are available only for sources that use the
+`mongodb` connector. Collection listing and statistics can still be available
+for other connectors. A row read against another connector returns
+`data-browser.connector-not-browsable`.
+
+### Stream collection changes
+
+Connect to this WebSocket endpoint to stream changes from one collection:
+
+```text
+/api/data-browser/{source}/{collection}/tail
+```
+
+The WebSocket handshake requires the same bearer credential as other `/api`
+requests. To filter the stream, provide the structured filter as URL-encoded
+JSON in the `filter` query parameter. Each message contains a `kind` of
+`INSERT`, `UPDATE`, or `DELETE`, an `at` timestamp, and any available `before`
+or `after` row.
+
+The stream is supported only for MongoDB sources in this preview. It reports
+changes as they reach the store, so rapid intermediate updates might not appear
+as separate messages. A stream with no displayed change for 10 minutes closes
+with `data-browser.follow-idle`; a deleted source or a connector stream failure
+also ends the connection with a coded reason.
 
 ## Machine-token endpoints
 
