@@ -146,6 +146,13 @@ The data-browser endpoints inspect the data behind an existing source. Each
 request resolves the source's configured connection; callers cannot supply a
 database URI, database name, or database-native query command.
 
+> **Data access boundary:** These endpoints are read-scoped, but they can
+> return source records and do not create audit events in this preview. There
+> is no separate data-browser permission, so any authenticated caller with
+> read access can use them. Keep the REST control plane off untrusted networks,
+> use HTTPS for remote access, and issue a dedicated read-scoped token to each
+> integration.
+
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/api/sources/{sourceId}/collections` | List collections held by a declared source's database. |

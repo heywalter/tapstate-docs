@@ -221,7 +221,9 @@ that every operation will succeed. Inspect the returned `code`, `message`, and
 tools are needed, create a `write` token and add `--allow-write` to the gateway
 arguments; both controls are required.
 
-## Tools and write access
+## Tools
+
+### Read-only tools
 
 By default, the gateway exposes read-only tools:
 
@@ -248,6 +250,12 @@ The data-browser tools read through a declared source's configured connection.
 They do not accept a database URI or a database query language. The source and
 collection name are required; `data_browser_find` also accepts optional
 `filter`, `sort`, and `limit` values:
+
+> **Data access boundary:** Data-browser tools are read-only, but they can
+> return source records to the MCP host. In this preview, data-browser access
+> does not have a separate permission and these reads do not create audit
+> events. Give the host a dedicated read-scoped token, restrict who can control
+> the host, and avoid sensitive sources while evaluating the integration.
 
 ```json
 {
@@ -280,8 +288,11 @@ The gateway does not expose the CLI's live `watch` or `tail` views. Use the
 [CLI reference](/docs/reference/cli#watch-one-row-or-tail-collection-changes)
 when a person needs to follow changes in a terminal.
 
-Add `--allow-write` to the host arguments only when the server token is
-authorized for write operations:
+### Optional write tools
+
+Write tools are separate from the data browser. Do not enable them to browse
+data. Add `--allow-write` only when the host must perform the control-plane
+operations listed below and its server token has write scope:
 
 ```json
 {
