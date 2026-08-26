@@ -85,11 +85,10 @@ Create a read token for read-only tools:
 token create --scope read -o json
 ```
 
-Create a `write` token instead only when the host must run write tools. The
-bearer value is displayed once; copy it into the host's protected local secret
-configuration. The host presents this token to the tapstate server on every
-request, and the server verifies its scope. The host does not repeat the
-administrator-password login.
+Use a dedicated read token for each MCP host. The bearer value is displayed
+once; copy it into the host's protected local secret configuration. The host
+presents this token to the tapstate server on every request, and the server
+verifies its scope. The host does not repeat the administrator-password login.
 
 When an MCP tool accepts connector settings, you can use environment references
 in those settings. `${VAR}` requires `VAR` to be set; `${var:NAME:default}`
@@ -217,9 +216,7 @@ If a tool call returns `isError: true`, the MCP layer is reporting a failed tool
 call. The failure can come from the local gateway, an unreachable server, or a
 server-side refusal; a successful handshake or `tools/list` call does not prove
 that every operation will succeed. Inspect the returned `code`, `message`, and
-`params`, then check the server URL, token scope, and server state. If write
-tools are needed, create a `write` token and add `--allow-write` to the gateway
-arguments; both controls are required.
+`params`, then check the server URL, token scope, and server state.
 
 ## Tools
 
@@ -287,36 +284,6 @@ Collection listing and statistics can still be available for other connectors.
 The gateway does not expose the CLI's live `watch` or `tail` views. Use the
 [CLI reference](/docs/reference/cli#watch-one-row-or-tail-collection-changes)
 when a person needs to follow changes in a terminal.
-
-### Optional write tools
-
-Write tools are separate from the data browser. Do not enable them to browse
-data. Add `--allow-write` only when the host must perform the control-plane
-operations listed below and its server token has write scope:
-
-```json
-{
-  "args": ["mcp", "--server", "http://127.0.0.1:8080", "--allow-write"]
-}
-```
-
-This adds the following tools:
-
-| MCP tool | Purpose |
-|---|---|
-| `artifact_apply` | Validate and apply a complete `tapstate/v1` workspace. |
-| `artifact_delete` | Permanently remove one resource after a content-hash check. |
-| `connection_test` | Test a connector configuration and persist the result. |
-| `connection_discover_schema` | Discover and persist a source schema. |
-| `pipeline_start` | Set a pipeline's desired state to running. |
-| `pipeline_stop` | Set a pipeline's desired state to stopped. |
-
-`--allow-write` only makes write tools visible. The server still enforces the
-token's authorization scope. The current gateway does not expose source CRUD,
-connector JAR registration, user or token administration, cluster-member
-listing, pipeline pause/resume operations, or live `watch` and `tail` streams.
-Use the authenticated [REST API](/docs/reference/rest-api) or [CLI
-reference](/docs/reference/cli) for those operations.
 
 The host's `tools/list` response is the runtime authority if a later release
 adds, removes, or renames a tool.
