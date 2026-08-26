@@ -23,7 +23,7 @@ const sectionInfo: Record<string, { label: string; href: string }> = {
   connectors: { label: 'Connectors', href: '/docs/connectors' },
   guides: { label: 'Build and operate', href: '/docs/guides/bootstrap-and-auth' },
   reference: { label: 'Reference', href: '/docs/reference/dsl-grammar' },
-  releases: { label: 'Release notes', href: '/docs/releases/v0.2.1' },
+  releases: { label: 'Release notes', href: '/docs/releases/v0.3.0' },
   'for-ai': { label: 'AI-ready docs', href: '/docs/for-ai/llms' },
 };
 

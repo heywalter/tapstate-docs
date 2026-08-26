@@ -1,0 +1,90 @@
+---
+title: v0.3.0
+description: Explore cross-source operational state, PostgreSQL capture, managed views, and data inspection in the tapstate preview.
+ai:
+  kind: reference
+  id: release-v0_3_0
+  maturity: preview
+  aliases: [tapstate v0.3.0, tapstate release notes, tapstate preview release]
+---
+
+Released August 25, 2026 · Preview
+
+`v0.3.0` expands the local tapstate preview from one source to a cross-source
+order-state path. The Quickstart captures MySQL orders and PostgreSQL
+shipments, uses `nest` to assemble each order with its shipments, and
+materializes the result as a current document in the managed store. Changes to
+either source are reflected in that document.
+
+See the [GitHub release](https://github.com/tapstate/tapstate/releases/tag/v0.3.0)
+for the published CLI archives and checksums.
+
+## What changed
+
+- Use one pipeline and [`nest`](/docs/guides/assemble-documents-with-nest) to
+  assemble related records from MySQL and PostgreSQL. The
+  [Quickstart](/docs/overview/quickstart) keeps one order document current when
+  an order or shipment changes.
+- PostgreSQL is included in the local Quickstart as a source with an initial
+  snapshot and change data capture (CDC). See [PostgreSQL setup](/docs/connectors/postgresql)
+  for its logical-replication requirements.
+- Declare a [`view`](/docs/reference/view-and-serve) to materialize pipeline
+  output in tapstate's managed store. The Quickstart does not need a `serve`
+  block or an external target.
+- Inspect materialized state with `show collections`, `find`, `stats`, `watch`,
+  and `tail` in the [CLI](/docs/reference/cli). Read-only
+  [MCP tools](/docs/reference/mcp#read-only-tools) provide the same bounded
+  inspection surface for an MCP host.
+- Run [`tapstate demo`](/docs/reference/cli#demo) to generate the cross-source
+  workspace offline.
+  `tapstate demo --print-steps` shows the workflow without running it.
+- [`tap`](/docs/reference/cli#alias) is available as an optional CLI alias.
+  Installation leaves `tapstate` unchanged when `tap` is already in use.
+- When you [apply a workspace](/docs/guides/apply-and-run#apply-the-workspace),
+  tapstate rejects an upsert source table whose discovered schema has no
+  primary key, so the issue is reported before the pipeline starts.
+
+## Release components
+
+The CLI release includes native macOS and glibc-based Linux bundles for `arm64`
+and `x64`. Each archive has an individual SHA-256 file, and `checksums.txt`
+covers all four. The recommended minimums for this build are macOS 15.0 and
+glibc 2.34.
+
+The Quickstart pins the v0.3.0 CLI and server image, starts its managed MongoDB
+store, and registers the official MySQL, PostgreSQL, and MongoDB connector
+artifacts. It is a disposable local evaluation path, not a production deployment
+method or a general connector support contract.
+
+## Known limitations
+
+This remains a single-node, in-memory preview:
+
+- A server restart replays from the source instead of resuming from a durable
+  incremental position.
+- Delivery is at least once, not exactly once. Snapshots across independent
+  databases are not consistent, and a change written while a change stream is
+  positioning around the initial snapshot can be missed.
+- An insert-only target can receive duplicate rows when snapshot and CDC
+  overlap.
+- The managed store has no database authentication and also contains tapstate
+  control-plane data. It is not a tenant or user security boundary.
+- High availability, backup and restore, upgrades, capacity guarantees, push or
+  subscription delivery, and a stable application-facing data API are outside
+  this release.
+
+Use non-production systems and sample data for evaluation.
+
+## Get started
+
+- Run the [Quickstart](/docs/overview/quickstart) to create and inspect the
+  assembled order state.
+- [Explore the order-state demo](/docs/overview/order-state-demo) to change both
+  source databases and watch one object stay current.
+- [Install the CLI](/docs/overview/install) for offline authoring and connected
+  operations.
+- [Create your own workspace](/docs/overview/create-workspace) after installing the
+  CLI.
+- Review [PostgreSQL setup](/docs/connectors/postgresql),
+  [view and serve](/docs/reference/view-and-serve), and the
+  [CLI reference](/docs/reference/cli) for the new surfaces.
