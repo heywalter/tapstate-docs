@@ -185,7 +185,7 @@ export function PreviewArchitecture() {
           <WorkflowArrow />
         </div>
         <div className="order-11 sm:col-start-5 sm:row-start-7">
-          <WorkflowNode title="MongoDB" description="Current operational-state materialization target." icon={Layers3} />
+          <WorkflowNode title="MongoDB" description="Managed state store for the declared view." icon={Layers3} />
         </div>
       </section>
     </figure>

@@ -1,15 +1,17 @@
 ---
-title: Author and validate a workspace
-description: Create source, target, and pipeline resources locally, then validate their structure and references
+title: Quickstart
+description: Create and validate a tapstate workspace with the offline CLI without starting a server
 ai:
   kind: guide
   id: quickstart
-  aliases: [tapstate offline quickstart, tapstate workspace, create tapstate yml, validate workspace]
+  aliases: [tapstate quickstart, tapstate offline quickstart, tapstate workspace, create tapstate yml, validate workspace]
 ---
 
 import { CardGrid, LinkCard } from '@/components/mdx';
 
-Use the offline CLI to learn how tapstate resources fit together without connecting to a server. You will define a MySQL Snapshot source, a MongoDB target connection, and a pipeline that references both.
+Use this quickstart to create and validate a tapstate workspace with the offline
+CLI. It does not start a server or move data. To run the live MySQL-to-MongoDB
+path, use [Try tapstate locally](/docs/overview/quickstart-online).
 
 ## What you will create
 

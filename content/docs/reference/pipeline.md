@@ -1,6 +1,6 @@
 ---
 title: pipeline
-description: Define a tapstate pipeline that connects source and target resources, selects data, and applies transforms.
+description: Define a tapstate pipeline that selects source data, applies transforms, and materializes or delivers the result.
 sidebar:
   order: 3
 ai:
@@ -10,8 +10,9 @@ ai:
 ---
 
 `pipeline` is the runnable composition unit. It references one or more `source`
-resources, wires transforms, optionally materializes a view, and declares a
-serve surface.
+resources, wires transforms, and can declare a `view`, a `serve` surface, or
+both. A declared view is the complete instruction to materialize the pipeline
+output into tapstate's managed state store; it does not need a `serve` block.
 
 ```yaml title="pipeline/orders-sync.tap.yml" structure-only
 version: tapstate/v1
@@ -33,7 +34,7 @@ serve:
   from: active-orders
   sync:
     - id: warehouse-write
-      source: warehouse
+      source: reporting-target
       write_mode: upsert
       ddl: fail
 metadata:
@@ -90,15 +91,35 @@ requires `use` and `from`; `id` is optional. See
 ### `view`
 
 Either an inline view or a reference to a reusable `kind: view` resource. Both
-forms include `from`.
+forms include `from`. Declaring the view is the complete materialization
+instruction: tapstate writes the selected pipeline output to the managed state
+store, so a view-only pipeline does not need a `serve` block.
+
+The view's `primary_key` identifies one materialized record. It is required by
+the current runtime and must match the identity of the stream that feeds the
+view. The current preview materializes the warm database layer; see
+[view and serve](/docs/reference/view-and-serve) for storage and key limits.
 
 ### `serve`
 
 Either an inline publish surface or a reference to a reusable `kind: serve`
-resource. An inline block can contain `sync`, `query`, and `push`.
+resource. `serve.sync` delivers the pipeline output to a system outside
+tapstate through the named target connection. It is separate from the managed
+state store used by a view. An inline block can also contain `query` and `push`
+declarations, although those surfaces are not part of the current public
+preview path.
 
 `sync` and `push` are not top-level pipeline fields. They belong inside
 `pipeline.serve` or a reusable `serve` resource.
+
+### `view` and `serve` together
+
+When a pipeline declares both blocks, they are independent outputs of the same
+pipeline. The view materializes the output selected by `view.from` into the
+managed state store, while each `serve.sync` delivers the output selected by
+`serve.from` to its external target. The two blocks use the same output only
+when their `from` values resolve to the same pipeline node. Adding a serve block
+does not replace the view, and a view does not make external delivery implicit.
 
 ### `settings`
 
@@ -122,7 +143,8 @@ validation still needs runtime and connector verification.
 
 ## Runtime boundary
 
-The current preview's local playground declares an inline `serve.sync` pipeline
-from MySQL to MongoDB. The runtime also executes `nest` document assembly.
-Schema acceptance of reusable views, `query`, `push`, or `join` does not by
-itself prove that the current runtime executes that surface.
+The current preview's local playground declares an inline `view` for the
+MySQL-to-MongoDB path. The runtime also executes `nest` document assembly and
+can deliver a separate external `serve.sync` output. Schema acceptance of
+`query`, `push`, or `join` does not by itself prove that the current public
+preview executes that surface.

@@ -36,7 +36,7 @@ accepts a workspace directory or one resource file.
 | Kind | Declares |
 |---|---|
 | [`source`](/docs/reference/source) | A connector connection. A read source includes `mode`; a target connection omits it. |
-| [`pipeline`](/docs/reference/pipeline) | Source references, ordered transform steps, an optional view, a serve surface, and task settings. |
+| [`pipeline`](/docs/reference/pipeline) | Source references, ordered transform steps, and optional view and serve surfaces. A declared view materializes to managed state; serve delivers externally. |
 | [`transform`](/docs/reference/transforms) | Reusable transform logic without input wiring. |
 | [`view`](/docs/reference/view-and-serve) | Reusable materialization settings without input wiring. |
 | [`serve`](/docs/reference/view-and-serve) | Reusable `sync`, `query`, and `push` declarations without input wiring. |
@@ -80,10 +80,10 @@ id: orders-sync
 source: orders
 settings:
   read_mode: snapshot_and_cdc
-serve:
+view:
+  id: order_state
   from: orders
-  sync:
-    - source: warehouse
+  primary_key: id
 ```
 
 Apply the two connection resources first, run `discover-schema orders`, then
@@ -98,13 +98,14 @@ and [view and serve](/docs/reference/view-and-serve).
 ## Declaration and execution are different checks
 
 The v1 Schema describes what can be declared. The current preview runtime
-executes a smaller subset.
+executes a smaller subset. A pipeline may declare a view, a serve surface, or
+both; a view-only pipeline still materializes records and does not need `serve`.
 
 | Surface | Schema/validator | Current preview runtime |
 |---|---|---|
-| Resource kinds | `source`, `pipeline`, `transform`, `view`, `serve` | The local playground declares `source` + `pipeline` with inline `serve.sync`. |
+| Resource kinds | `source`, `pipeline`, `transform`, `view`, `serve` | The local playground declares `source` + `pipeline` with an inline `view` that materializes to the managed state store. |
 | Transforms | `filter`, `map`, `js`, `union`, `nest`, `join` | `filter`, `map`, `js`, `union`, and `nest` are wired. The runtime refuses `join`. |
-| Serve declarations | `sync`, `query`, `push` | The local playground exercises `sync`. Do not infer an executable runtime surface from Schema acceptance alone. |
+| Serve declarations | `sync`, `query`, `push` | `serve.sync` is the external delivery surface; query and push remain outside the current public preview path. Do not infer an executable surface from Schema acceptance alone. |
 | Connector fields | Connector-specific keys are allowed structurally; known catalog fields can receive additional checks. | A catalog entry does not prove that a connector artifact is installed, registered, or release-verified. |
 
 ## Validation model

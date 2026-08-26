@@ -23,10 +23,11 @@ The guided flow lets you:
 
 1. Start tapstate and two sample databases.
 2. Use the CLI to connect, sign in, and register connectors.
-3. Apply a MySQL source, a MongoDB target, and a pipeline.
-4. Load the initial MySQL rows into MongoDB.
+3. Apply a MySQL source, a MongoDB-backed managed state store, and a pipeline
+   with a declared view.
+4. Materialize the initial MySQL rows into the MongoDB-backed view.
 5. Watch inserts, updates, and deletes move through CDC.
-6. Inspect pipeline status, metrics, logs, and target data.
+6. Inspect pipeline status, metrics, logs, and view data.
 
 ## Before you begin
 
@@ -67,7 +68,7 @@ sh quickstart.sh
 
 The script creates a local administrator, registers the MySQL and MongoDB
 connectors, applies the MySQL source, discovers its schema, applies the full
-workspace, starts `sync_orders`, and waits for the initial snapshot.
+workspace, starts `sync_orders`, and waits for the initial view materialization.
 
 The published Compose mapping exposes the playground server at
 `http://127.0.0.1:8080`. Use that literal address at the CLI REPL prompt; the
@@ -79,7 +80,7 @@ The script verifies the initial snapshot before it finishes. Confirm this
 result before changing the sample data:
 
 ```text
-quickstart: the target now holds 5 rows (MySQL orders -> MongoDB warehouse.orders)
+quickstart: the view now holds 5 rows (MySQL orders -> MongoDB warehouse.order_state)
 ```
 
 The generated `.env` file contains the local playground password. Keep it local
@@ -115,8 +116,8 @@ logs sync_orders
 
 ## 4. Experiment with CDC
 
-With the five initial rows in MongoDB, open a second terminal in the playground
-directory and change the sample data in MySQL:
+With the five initial rows in the MongoDB-backed view, open a second terminal in
+the playground directory and change the sample data in MySQL:
 
 ```bash
 docker compose exec mysql mysql -uroot -psecret appdb \
@@ -124,14 +125,14 @@ docker compose exec mysql mysql -uroot -psecret appdb \
 
 until docker compose exec -T mongo mongosh --quiet \
   'mongodb://mongo:27017/warehouse?directConnection=true' \
-  --eval 'quit(db.orders.countDocuments({id:6})?0:1)'; do sleep 1; done
+  --eval 'quit(db.order_state.countDocuments({id:6})?0:1)'; do sleep 1; done
 
 docker compose exec mysql mysql -uroot -psecret appdb \
   -e "UPDATE orders SET customer='franky' WHERE id=6;"
 
 until docker compose exec -T mongo mongosh --quiet \
   'mongodb://mongo:27017/warehouse?directConnection=true' \
-  --eval 'quit((db.orders.findOne({id:6})||{}).customer_name=="franky"?0:1)'; do sleep 1; done
+  --eval 'quit((db.order_state.findOne({id:6})||{}).customer_name=="franky"?0:1)'; do sleep 1; done
 ```
 
 Inspect the mapped document:
@@ -139,10 +140,10 @@ Inspect the mapped document:
 ```bash
 docker compose exec mongo mongosh --quiet \
   'mongodb://mongo:27017/warehouse?directConnection=true' \
-  --eval 'db.orders.find({id:6}).pretty()'
+  --eval 'db.order_state.find({id:6}).pretty()'
 ```
 
-Then delete it and wait until the target document is gone:
+Then delete it and wait until the view document is gone:
 
 ```bash
 docker compose exec mysql mysql -uroot -psecret appdb \
@@ -150,7 +151,7 @@ docker compose exec mysql mysql -uroot -psecret appdb \
 
 until docker compose exec -T mongo mongosh --quiet \
   'mongodb://mongo:27017/warehouse?directConnection=true' \
-  --eval 'quit(db.orders.countDocuments({id:6})?1:0)'; do sleep 1; done
+  --eval 'quit(db.order_state.countDocuments({id:6})?1:0)'; do sleep 1; done
 ```
 
 The insert creates the document, the update changes the mapped `customer_name` to `franky`, and the delete removes it.
@@ -174,9 +175,9 @@ tapstate-demo/
 The workspace declares:
 
 - a MySQL source using `mode: cdc`;
-- a MongoDB target connection;
+- a MongoDB-backed managed state store;
 - a pipeline using `settings.read_mode: snapshot_and_cdc` that maps
-  `appdb.orders` to `warehouse.orders`.
+  `appdb.orders` to the declared `order_state` view in `warehouse.order_state`.
 
 The connector JARs come from the separate [connector preview assets](https://github.com/tapstate/tapstate/releases/tag/connectors-preview).
 They are provided for this local playground; the asset bundle is not a general
@@ -208,4 +209,4 @@ Run `sh quickstart.sh` from the playground directory to start the flow again.
   [connector registration and testing](/docs/guides/register-connectors), and
   [pipeline operation](/docs/guides/apply-and-run) procedures.
 - Prepare external systems with the [MySQL](/docs/connectors/mysql) and [MongoDB](/docs/connectors/mongodb) guides.
-- Use [Troubleshooting](/docs/guides/troubleshooting) if the script does not produce the five-row result.
+- Use [Troubleshooting](/docs/guides/troubleshooting) if the script does not produce the five-row view result.

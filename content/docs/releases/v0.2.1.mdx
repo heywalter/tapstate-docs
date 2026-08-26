@@ -26,6 +26,9 @@ the published assets and checksums.
   to this release.
 - The disposable local playground downloads the `0.2.1` CLI and uses the pinned
   `ghcr.io/tapstate/tapstate:0.2.1` server image.
+- A pipeline can now declare a `view` as the complete instruction to materialize
+  rows into the managed state store. `serve.sync` remains the separate path for
+  delivery to an external system, and a pipeline can use either or both.
 
 ## Release components
 
