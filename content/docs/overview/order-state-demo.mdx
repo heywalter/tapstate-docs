@@ -1,0 +1,169 @@
+---
+title: Explore the order-state demo
+description: Change MySQL orders and PostgreSQL shipments, then watch one assembled MongoDB document stay current
+ai:
+  kind: guide
+  id: order-state-demo
+  maturity: preview
+  modes: [snapshot, cdc]
+  aliases: [tapstate demo, order state demo, cross-source assembly demo, views order_state]
+---
+
+Use the running playground to see the problem tapstate solves: one operational
+object can depend on records owned by different databases. The sample combines
+an order in MySQL with its shipments in PostgreSQL and keeps the assembled
+`views.order_state` document current when either source changes.
+
+Complete the [Quickstart](/docs/overview/quickstart) first. Run every
+command on this page from the generated `tapstate-demo` directory.
+
+## Understand the sample
+
+The playground creates this workspace:
+
+```text
+work/
+├── source/
+│   ├── orders_db.tap.yml
+│   └── fulfillment_db.tap.yml
+└── pipeline/
+    └── order_pipeline.tap.yml
+```
+
+- `orders_db` captures the MySQL `orders` table.
+- `fulfillment_db` captures the PostgreSQL `shipments` table.
+- `order_pipeline` uses `nest` to embed matching shipments under each order.
+- The inline `view` materializes the result as `views.order_state` in the
+  playground's managed MongoDB store. It does not need a `serve` block.
+
+The sources use `mode: cdc`, and the pipeline uses
+`read_mode: snapshot_and_cdc`. The initial rows arrive through Snapshot; later
+inserts, updates, and deletes arrive through CDC.
+
+## Watch an order
+
+Start a CLI session:
+
+```bash
+./tapstate -w work
+```
+
+Connect, sign in with the password from `.env`, and start a live view:
+
+```text
+connect http://127.0.0.1:8080
+login admin
+watch views.order_state {id:1}
+```
+
+Keep this terminal open. Press <kbd>Ctrl</kbd>+<kbd>C</kbd> when you want to
+stop watching; the pipeline continues to run.
+
+## Add a shipment in PostgreSQL
+
+Open a second terminal in `tapstate-demo`. Add a shipment to order `1`:
+
+```bash
+docker compose exec postgres psql -U postgres -d appdb \
+  -c "INSERT INTO shipments VALUES (7, 1, 'ups', 'pending');"
+```
+
+The watched order should gain a third item in its `shipments` array. To verify
+the result directly with a bounded wait:
+
+```bash
+uri='mongodb://mongo:27017/views?directConnection=true'
+i=0
+until docker compose exec -T mongo mongosh --quiet "$uri" \
+  --eval 'quit((db.order_state.findOne({id:1})?.shipments?.length ?? 0) >= 3 ? 0 : 1)'; do
+  i=$((i+1))
+  [ "$i" -lt 60 ] || { echo "shipment did not appear within 60 seconds"; break; }
+  sleep 1
+done
+[ "$i" -lt 60 ]
+```
+
+## Change the order in MySQL
+
+Update the parent record:
+
+```bash
+docker compose exec mysql mysql -uroot -psecret appdb \
+  -e "UPDATE orders SET customer='alicia' WHERE id=1;"
+```
+
+Wait for the customer field to change without losing the shipment array:
+
+```bash
+i=0
+until docker compose exec -T mongo mongosh --quiet "$uri" \
+  --eval 'quit(db.order_state.findOne({id:1})?.customer=="alicia" ? 0 : 1)'; do
+  i=$((i+1))
+  [ "$i" -lt 60 ] || { echo "order did not update within 60 seconds"; break; }
+  sleep 1
+done
+[ "$i" -lt 60 ]
+
+docker compose exec mongo mongosh --quiet "$uri" \
+  --eval 'db.order_state.find({id:1}).pretty()'
+```
+
+The same document now reflects the MySQL update and still contains the
+PostgreSQL shipments. Tapstate maintains this object from two independent
+change streams; it does not run a cross-database SQL join for each read.
+
+## Remove the shipment
+
+Delete the shipment you added:
+
+```bash
+docker compose exec postgres psql -U postgres -d appdb \
+  -c "DELETE FROM shipments WHERE id=7;"
+```
+
+Wait until the `shipments` array returns to two elements:
+
+```bash
+i=0
+until docker compose exec -T mongo mongosh --quiet "$uri" \
+  --eval 'quit((db.order_state.findOne({id:1})?.shipments?.length ?? 0) <= 2 ? 0 : 1)'; do
+  i=$((i+1))
+  [ "$i" -lt 60 ] || { echo "shipment was not removed within 60 seconds"; break; }
+  sleep 1
+done
+[ "$i" -lt 60 ]
+```
+
+The playground configures
+`REPLICA IDENTITY FULL` for this table so PostgreSQL deletes carry the fields
+needed to locate the embedded child. When you prepare your own PostgreSQL
+source, follow the [PostgreSQL CDC requirements](/docs/connectors/postgresql#prepare-a-source-database).
+
+## Inspect and reset the environment
+
+From the connected CLI, inspect the pipeline:
+
+```text
+status order_pipeline
+metrics order_pipeline
+logs order_pipeline
+```
+
+To reset every sample database and rerun the quickstart:
+
+```bash
+docker compose down -v
+sh quickstart.sh
+```
+
+The managed MongoDB instance is part of this disposable playground. It runs
+without database authentication and also stores tapstate control-plane data.
+Do not treat it as a tenant or user security boundary, and do not use sensitive
+or production data in this environment.
+
+## Next steps
+
+- [Create your own workspace](/docs/overview/create-workspace) with the installed CLI.
+- Learn how [nest assembles documents](/docs/guides/assemble-documents-with-nest).
+- Review [view and serve](/docs/reference/view-and-serve) to distinguish managed materialization from external delivery.
+- Use [Troubleshooting](/docs/guides/troubleshooting) for quickstart, connector, or pipeline failures.

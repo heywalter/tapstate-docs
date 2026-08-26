@@ -57,11 +57,125 @@ html > body[data-scroll-locked] {
   --removed-body-scroll-bar-size: 0px !important;
 }
 
+@keyframes quickstart-flow-down {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -0.25rem);
+  }
+  4%,
+  22% {
+    opacity: 1;
+  }
+  28%,
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 1.4rem);
+  }
+}
+
+@keyframes quickstart-flow-across {
+  0% {
+    opacity: 0;
+    transform: translate(-0.25rem, -50%);
+  }
+  4%,
+  22% {
+    opacity: 1;
+  }
+  28%,
+  100% {
+    opacity: 0;
+    transform: translate(2.65rem, -50%);
+  }
+}
+
+@keyframes quickstart-source-row {
+  0%,
+  24%,
+  100% {
+    border-color: color-mix(in srgb, var(--color-fd-border) 70%, transparent);
+    background: color-mix(in srgb, var(--color-fd-muted) 35%, transparent);
+  }
+  6%,
+  16% {
+    border-color: color-mix(in srgb, var(--color-fd-primary) 35%, var(--color-fd-border));
+    background: color-mix(in srgb, var(--color-fd-primary) 8%, transparent);
+  }
+}
+
+@keyframes quickstart-nest-stage {
+  0%,
+  28%,
+  52%,
+  100% {
+    box-shadow: none;
+  }
+  36%,
+  44% {
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-fd-primary) 12%, transparent);
+  }
+}
+
+@keyframes quickstart-state-update {
+  0%,
+  54%,
+  84%,
+  100% {
+    background: transparent;
+    color: var(--color-fd-muted-foreground);
+  }
+  64%,
+  76% {
+    background: color-mix(in srgb, var(--color-fd-primary) 12%, transparent);
+    color: var(--color-fd-primary);
+  }
+}
+
+.quickstart-flow-pulse {
+  left: 50%;
+  top: 0;
+  animation: quickstart-flow-down 4.8s ease-in-out infinite;
+}
+
+.quickstart-source-row {
+  animation: quickstart-source-row 4.8s ease-in-out infinite;
+}
+
+.quickstart-nest-stage {
+  animation: quickstart-nest-stage 4.8s ease-in-out infinite;
+}
+
+.quickstart-state-update {
+  animation: quickstart-state-update 4.8s ease-in-out infinite;
+}
+
+@media (min-width: 64rem) {
+  .quickstart-flow-pulse {
+    left: 0;
+    top: 50%;
+    animation-name: quickstart-flow-across;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .quickstart-flow-pulse {
+    left: 50%;
+    top: 50%;
+    animation: none;
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+
+  .quickstart-source-row,
+  .quickstart-nest-stage,
+  .quickstart-state-update {
+    animation: none;
   }
 }

@@ -8,7 +8,6 @@ import {
   CircleHelp,
   Database,
   Layers3,
-  RadioTower,
   TerminalSquare,
 } from 'lucide-react';
 
@@ -47,6 +46,7 @@ const tasks = [
 
 const popularConnectors = [
   { label: 'MySQL', href: '/docs/connectors/mysql' },
+  { label: 'PostgreSQL', href: '/docs/connectors/postgresql' },
   { label: 'MongoDB', href: '/docs/connectors/mongodb' },
 ];
 
@@ -59,26 +59,18 @@ const currentConnectors = [
     icon: Database,
   },
   {
+    label: 'PostgreSQL',
+    role: 'Current source',
+    description: 'Capture an initial load and logical-replication changes.',
+    href: '/docs/connectors/postgresql',
+    icon: Database,
+  },
+  {
     label: 'MongoDB',
     role: 'Current target',
     description: 'Maintain application-ready operational state.',
     href: '/docs/connectors/mongodb',
     icon: Layers3,
-  },
-];
-
-const roadmapConnectors = [
-  {
-    label: 'PostgreSQL',
-    role: 'Planned source',
-    href: '/docs/connectors/postgresql',
-    icon: Database,
-  },
-  {
-    label: 'Kafka / Confluent',
-    role: 'Planned target',
-    href: '/docs/connectors/kafka',
-    icon: RadioTower,
   },
 ];
 
@@ -180,20 +172,20 @@ export default function HomePage() {
             <p className="m-0 text-xs font-semibold uppercase tracking-[0.15em] text-fd-primary">Connector guides</p>
             <h2 className="mb-0 mt-3 text-3xl font-semibold tracking-[-0.035em]">Start with the current data path.</h2>
             <p className="mb-0 mt-3 max-w-2xl text-base leading-7 text-fd-muted-foreground">
-              The v0.2.1 preview captures MySQL changes and maintains operational state in MongoDB. Roadmap guides describe planned directions, not current runtime support.
+              The v0.3.0 preview captures MySQL and PostgreSQL changes and materializes assembled operational state in MongoDB.
             </p>
           </div>
           <ArrowLink href="/docs/connectors">View all connectors</ArrowLink>
         </div>
 
-        <div className="mt-8 grid overflow-hidden rounded-2xl border border-fd-border bg-fd-card sm:grid-cols-2">
+        <div className="mt-8 grid overflow-hidden rounded-2xl border border-fd-border bg-fd-card md:grid-cols-3">
           {currentConnectors.map((connector, index) => {
             const Icon = connector.icon;
             return (
               <Link
                 key={connector.label}
                 href={connector.href}
-                className={`group cursor-pointer p-5 text-fd-foreground no-underline outline-none transition-colors duration-200 hover:bg-fd-muted/55 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-fd-ring ${index > 0 ? 'border-t border-fd-border sm:border-l sm:border-t-0' : ''}`}
+                className={`group cursor-pointer p-5 text-fd-foreground no-underline outline-none transition-colors duration-200 hover:bg-fd-muted/55 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-fd-ring ${index > 0 ? 'border-t border-fd-border md:border-l md:border-t-0' : ''}`}
               >
                 <div className="flex items-center justify-between gap-3">
                   <Icon className="size-5 text-fd-primary" aria-hidden="true" />
@@ -209,24 +201,6 @@ export default function HomePage() {
           })}
         </div>
 
-        <div className="mt-5 flex flex-col gap-3 rounded-xl border border-dashed border-fd-border bg-fd-muted/20 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="m-0 text-xs font-semibold uppercase tracking-[0.12em] text-fd-muted-foreground">Roadmap</p>
-            <p className="mb-0 mt-1 text-sm text-fd-muted-foreground">Preparation references for planned connector directions.</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {roadmapConnectors.map((connector) => {
-              const Icon = connector.icon;
-              return (
-                <Link key={connector.label} href={connector.href} className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-fd-border bg-fd-background px-3 py-2 text-sm font-medium text-fd-foreground no-underline transition-colors hover:border-fd-primary/30 hover:bg-fd-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
-                  <Icon aria-hidden="true" className="size-4 text-fd-muted-foreground" />
-                  {connector.label}
-                  <span className="text-xs text-fd-muted-foreground">{connector.role}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
       </section>
 
       <section className="border-y border-fd-border bg-fd-muted/25">

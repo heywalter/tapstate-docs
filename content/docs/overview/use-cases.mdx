@@ -8,9 +8,9 @@ ai:
 ---
 
 Tapstate is designed for operational data that loses value when it becomes
-stale. The patterns below describe the product model. The v0.2 evaluation path
-implements one slice of it: MySQL capture into MongoDB-backed operational state.
-Kafka/Confluent delivery remains a roadmap direction.
+stale. The patterns below describe the product model. The `v0.3.0` preview
+implements one slice of it: MySQL and PostgreSQL capture into MongoDB-backed
+operational state.
 
 ## Offload reads from a system of record
 
@@ -46,7 +46,7 @@ transform remains outside the current runtime.
 
 **Verify before production:** Access control, data minimization, freshness requirements, auditability, failure behavior, and human authorization for actions.
 
-## Publish governed event feeds (roadmap)
+## Publish governed event feeds
 
 **Customer need:** Multiple teams need a consistent stream or destination without independently reading the same production database.
 

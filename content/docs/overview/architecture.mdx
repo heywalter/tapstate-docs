@@ -14,9 +14,11 @@ target logical architecture. The preview is an implemented, narrow path; the
 target is design direction and does not mean every component is available or
 production-ready.
 
-## Current preview: one runnable path
+## Current preview: one runnable cross-source path
 
-The `v0.2.1` local playground provides one end-to-end path:
+The `v0.3.0` Quickstart captures MySQL orders and PostgreSQL shipments,
+uses `nest` to assemble one order document, and materializes the result in its
+managed MongoDB store:
 
 <PreviewArchitecture />
 
@@ -25,15 +27,17 @@ The `v0.2.1` local playground provides one end-to-end path:
 - The native CLI scaffolds and validates `*.tap.yml` resources offline.
 - A connected CLI session can register connector artifacts, apply resources,
   start a pipeline, and inspect status, metrics, and logs.
+- The CLI, REST API, and MCP provide bounded preview inspection, not a stable
+  application-facing data API.
 - The runtime and CLI are prerelease surfaces; command and API compatibility can
   change before a stable release.
 - The pipeline DAG wires `filter`, `map`, `js`, `union`, and `nest`.
 - `nest` maintains a document assembled from related source tables. The v1
   Schema also declares `join`, but the current DAG builder refuses it.
-- The local playground exercises an inline `view` that materializes the
-  MySQL-to-MongoDB result in the managed state store. A separate `serve.sync`
-  can deliver the output selected by `serve.from` to an external target; query
-  and push are not part of the current public preview path.
+- An inline `view` materializes the Quickstart result in the managed store.
+  `serve.sync` is the separate path for delivery to an external target.
+  `serve.query` and `serve.push` are schema-defined declarations that the
+  current preview does not execute.
 
 ### Recovery and scale limits
 
@@ -43,8 +47,8 @@ The `v0.2.1` local playground provides one end-to-end path:
 - High availability and production recovery guarantees are not part of the
   current preview contract.
 
-See [Author and validate a workspace](/docs/overview/quickstart) for the offline authoring path.
-The [local playground](/docs/overview/quickstart-online) packages this preview
+See [Create your own workspace](/docs/overview/create-workspace) for the offline authoring path.
+The [Quickstart](/docs/overview/quickstart) packages this preview
 topology for local exploration; it is not a deployment architecture.
 
 ## Target logical architecture

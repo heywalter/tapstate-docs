@@ -1,0 +1,166 @@
+---
+title: Create your own workspace
+description: Generate the v0.3.0 workspace, adapt its sources and document assembly, then validate it offline
+ai:
+  kind: guide
+  id: workspace-authoring
+  aliases: [tapstate workspace, create tapstate yml, validate workspace, author tapstate resources]
+---
+
+import { CardGrid, LinkCard } from '@/components/mdx';
+
+Use the installed CLI to generate and adapt a workspace without connecting to a
+server. This guide starts from the same cross-source model as the runnable
+[Quickstart](/docs/overview/quickstart), then shows where to replace the
+sample connections, table selection, and document shape.
+
+Offline validation checks the resource contract. It does not test a database
+connection, create the managed view store, or run the pipeline.
+
+## What you will create
+
+```text
+tapstate-work/
+├── source/
+│   ├── orders_db.tap.yml
+│   └── fulfillment_db.tap.yml
+└── pipeline/
+    └── order_pipeline.tap.yml
+```
+
+The two source resources describe MySQL orders and PostgreSQL shipments. The
+pipeline uses `nest` to assemble related rows and declares an inline
+`order_state` view. The view is materialized by the running deployment; it is
+not an external MongoDB target in the workspace.
+
+## Before you begin
+
+- [Install the tapstate CLI](/docs/overview/install). Command availability can vary by tapstate version.
+- Keep credentials in environment variables or your deployment's secret mechanism.
+- Read the [MySQL](/docs/connectors/mysql) and
+  [PostgreSQL](/docs/connectors/postgresql) preparation guides.
+- Use non-production credentials and endpoints for an authoring walkthrough.
+
+Check the installed command first:
+
+```bash
+tapstate --version
+```
+
+If the command is unavailable, install it before continuing.
+
+## 1. Generate the workspace
+
+```bash
+tapstate demo --workdir tapstate-work
+```
+
+The command writes the three files shown above. It does not start Docker,
+connect to a server, or run the pipeline. Use a new directory; the command
+refuses to overwrite an existing demo workspace unless you pass `--force`.
+
+To inspect the walkthrough without writing files:
+
+```bash
+tapstate demo --print-steps
+```
+
+## 2. Configure your source connections
+
+Open both files under `tapstate-work/source/` and replace the sample `config`
+values with endpoints and credentials for your non-production databases. Keep
+the connector-owned field names distinct: MySQL uses `username`; PostgreSQL
+uses `user` and includes `schema`.
+
+The generated sources use `mode: cdc`, and the pipeline uses
+`read_mode: snapshot_and_cdc`. Prepare binary logging and PostgreSQL logical
+replication before testing this path. If you need only a bounded initial copy,
+change the source and pipeline modes according to [Capture modes](/docs/concepts/capture-modes).
+
+Use environment-variable placeholders or your deployment's secret mechanism.
+Do not commit literal credentials.
+
+## 3. Select your tables and document shape
+
+The generated pipeline expects `orders` from `orders_db` and `shipments` from
+`fulfillment_db`. If your tables or keys differ, update these parts together:
+
+- each source's `tables` selection;
+- the aliases in the `nest.from` map;
+- `root.from` and `root.key` for the parent record;
+- `embed.from`, `embed.on`, and `arrayKey` for child records;
+- the inline view's `id`, `from`, and `primary_key`.
+
+Use [Assemble documents with nest](/docs/guides/assemble-documents-with-nest)
+for the complete shape and key rules. Keep IDs and references consistent across
+all three files.
+
+## 4. Validate the workspace offline
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+An exit code of `0` means the installed validator accepted the resource
+structure, references, modes, and recognized connector fields.
+
+Offline validation does not require every catalog-required connection field,
+reject unknown connector keys, inspect environment-variable values, or open a
+network connection. For example, a syntactically valid resource that points to
+`mysql.invalid` can pass this step.
+
+Server-side apply can run additional checks after schema discovery. In
+particular, an external `serve.sync` upsert requires a primary key in every
+selected source table's discovered schema.
+
+## 5. Inspect the resources
+
+Use these commands to review the workspace and field grammar:
+
+```bash
+tapstate ls --workdir tapstate-work
+tapstate desc order_pipeline --workdir tapstate-work
+tapstate explain source.mode
+```
+
+Do not infer runtime success from an authoring or inspection command.
+
+## Extend the pipeline
+
+Use the same workspace as the starting point for the next capability you need:
+
+<CardGrid>
+  <LinkCard
+    title="Review resource definitions"
+    description="Look up the exact source, pipeline, transform, view, and serve fields."
+    href="/docs/reference/dsl-grammar"
+  />
+  <LinkCard
+    title="Transform records"
+    description="Add a filter, map, script, union, or another supported transform."
+    href="/docs/reference/transforms"
+  />
+  <LinkCard
+    title="Assemble documents with nest"
+    description="Maintain one document from related rows across one or more sources."
+    href="/docs/guides/assemble-documents-with-nest"
+  />
+  <LinkCard
+    title="Run and observe a pipeline"
+    description="Apply resources to a server, control the lifecycle, and inspect data movement."
+    href="/docs/guides/apply-and-run"
+  />
+</CardGrid>
+
+When you are ready to run the workspace, register the official connectors,
+apply and discover both sources, apply the complete workspace, and then start
+the pipeline. See [Register and test connectors](/docs/guides/register-connectors)
+and [Apply and run a pipeline](/docs/guides/apply-and-run). For runtime signals,
+use [Observe a pipeline](/docs/guides/observe-a-pipeline).
+
+## Next steps
+
+- [Apply and run the pipeline](/docs/guides/apply-and-run) against a non-production server.
+- [Observe the pipeline](/docs/guides/observe-a-pipeline) after it starts.
+- Use the [resource definitions](/docs/reference/dsl-grammar) when you need an exact field shape.
+- Use [Troubleshooting](/docs/guides/troubleshooting) to isolate authoring, deployment, and data problems.
