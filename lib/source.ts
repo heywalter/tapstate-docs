@@ -216,19 +216,19 @@ Next, run the connection in a non-production environment and confirm credentials
 |---|---|---|
 | The assembled stack | Source systems → Capture → Broker → Processing → Serving store → Apps, automation & agents | Separate tools and operating boundaries. |
 | The tapstate target path | Source systems → tapstate (Capture · Transform · Serve) → Apps, automation & agents | Target Capture–Transform–Serve operating model. |`)
-    .replace(/<ProductOverviewHero\s*\/>/g, `Tapstate is an open-source unified operational data engine in preview. It builds and maintains live operational state—an Operational State Layer—for applications, APIs, automation, and AI agents. The v0.2.1 local playground explores a MySQL-to-MongoDB snapshot and CDC workflow.
+    .replace(/<ProductOverviewHero\s*\/>/g, `Tapstate is an open-source unified operational data engine in preview. It builds and maintains live operational state—an Operational State Layer—for applications, APIs, automation, and AI agents. The Quickstart assembles MySQL orders and PostgreSQL shipments into a MongoDB document, then keeps it current with CDC.
 
 - **Capture:** Load existing data, then follow committed changes.
 - **Transform:** Filter, map, script, and merge data as it moves.
 - **Serve:** Write current state to a downstream system.
 
-[Try tapstate locally](/docs/overview/quickstart-online) or [browse connectors](/docs/connectors).`)
+[Run the Quickstart](/docs/overview/quickstart) or [browse connectors](/docs/connectors).`)
     .replace(/<PreviewArchitecture\s*\/>/g, `### Current preview architecture diagram
 
 | Path | Components | Current behavior |
 |---|---|---|
 | Control | \`.tap.yml\` workspace → tapstate CLI → single-node server | The CLI validates locally and submits authenticated control requests to the server over HTTP. |
-| Data | MySQL → single-node server (Capture & transform) → declared view → MongoDB managed state store | The local playground materializes an initial snapshot followed by CDC. A separate \`serve.sync\` can deliver the same pipeline output to an external target. The runtime wires \`filter\`, \`map\`, \`js\`, \`union\`, and \`nest\`. |`)
+| Data | MySQL + PostgreSQL → single-node server (Capture & transform) → managed MongoDB state | The Quickstart runs an initial snapshot followed by CDC and uses \`nest\` to assemble related rows from both sources. A separate \`serve.sync\` can deliver pipeline output to an external target. The runtime also wires \`filter\`, \`map\`, \`js\`, and \`union\`. |`)
     .replace(/<TapStateArchitecture\s*\/>/g, `### Target architecture diagram
 
 This diagram describes design direction, not the current preview implementation boundary.
@@ -246,6 +246,13 @@ This diagram describes design direction, not the current preview implementation 
 | Data | Consumers | Applications, APIs, and agents. |
 
 Durable recovery state includes resource versions, checkpoints, schema and mapping state, retries, and operational history.`)
+    .replace(/<QuickstartDataFlow\s*\/>/g, `### Quickstart data flow
+
+The playground starts from its published seed data: MySQL \`orders\` row \`{ id: 1, customer: "alice", amount: 10.00 }\` and PostgreSQL \`shipments\` rows \`{ id: 1, order_id: 1, carrier: "dhl", status: "delivered" }\` and \`{ id: 2, order_id: 1, carrier: "ups", status: "in_transit" }\`. Neither database can join a table in the other.
+
+The single-node tapstate server captures both sources through an initial snapshot followed by CDC. Its \`nest\` transform matches \`shipments.order_id\` to \`orders.id\` and materializes one current document per order in the managed MongoDB-backed \`views.order_state\` collection. Order 1 contains the MySQL fields plus both complete shipment rows under a \`shipments\` array.
+
+The same state is available through the interactive tapstate CLI, the authenticated REST data-browser endpoints, and MCP tools such as \`data_browser_collections\` and \`data_browser_find\` for AI agents. All three surfaces call the running tapstate server; none replaces or starts it.`)
     .replace(/<CliServerWorkflow\s*\/>/g, `### CLI and server responsibilities
 
 - **Offline authoring (no server):** The CLI works with a local workspace to create and inspect resources, and to run 'new', 'validate', 'explain', 'ls', and 'desc'.
@@ -289,7 +296,7 @@ const llmProductOverview = [
   '>',
   '> Its product model captures changes, transforms records in flight, and delivers current operational state to applications, APIs, automation, and AI agents through one governed Capture–Transform–Serve data path. It is intended for teams that would otherwise assemble separate CDC, broker, stream-processing, and serving products for the same path. This describes the product model; it does not mean every surface is available in the current preview.',
   '>',
-  '> The current preview is a prerelease, single-node, in-memory runtime. The documented end-to-end path is a local MySQL-to-MongoDB snapshot followed by CDC. Use the linked page-level documentation for current maturity, roles, modes, limitations, and setup requirements.',
+  '> The current preview is a prerelease, single-node, in-memory runtime. The documented end-to-end path captures MySQL orders and PostgreSQL shipments, assembles them with `nest`, and maintains the result in MongoDB. Use the linked page-level documentation for current maturity, roles, modes, limitations, and setup requirements.',
 ].join('\n');
 
 function getAIPageMetadata(page: (typeof source)['$inferPage']) {
@@ -306,9 +313,6 @@ function renderAgentMetadata(page: (typeof source)['$inferPage']) {
   const connectorProductProfile = ai.kind === 'connector'
     ? getConnectorProductProfile(page.slugs.at(-1) ?? '')
     : undefined;
-  const connectorCatalogEntry = ai.kind === 'connector'
-    ? connectorDirectory.find((entry) => entry.slug === (page.slugs.at(-1) ?? ''))
-    : undefined;
   const statusExplanation = connectorDocumentationStatus === 'current'
     ? 'current connector directory'
     : connectorDocumentationStatus === 'roadmap'
@@ -323,8 +327,6 @@ function renderAgentMetadata(page: (typeof source)['$inferPage']) {
     [connectorDocumentationStatus === 'roadmap' ? 'Planned role' : 'Published role', connectorProductProfile?.useAs.join(', ')],
     ['Category', ai.category],
     ['Guide maturity', ai.maturity],
-    ['Catalog metadata roles', connectorCatalogEntry?.useAs.join(', ')],
-    ['Catalog metadata read modes', connectorCatalogEntry?.modes.join(', ')],
     ['Aliases', ai.aliases?.join(', ')],
   ].filter((field): field is [string, string] => Boolean(field[1]));
 
@@ -370,16 +372,16 @@ export function getLLMIndex() {
     '## Start here',
     '',
     `- [What is tapstate?](${absoluteDocsUrl('/docs/overview/what-is-tapstate')})`,
-    `- [Install the CLI](${absoluteDocsUrl('/docs/overview/install')})`,
-    `- [Local playground](${absoluteDocsUrl('/docs/overview/quickstart-online')})`,
     `- [Quickstart](${absoluteDocsUrl('/docs/overview/quickstart')})`,
+    `- [Explore the order-state demo](${absoluteDocsUrl('/docs/overview/order-state-demo')})`,
+    `- [Install the CLI](${absoluteDocsUrl('/docs/overview/install')})`,
+    `- [Create your own workspace](${absoluteDocsUrl('/docs/overview/create-workspace')})`,
     `- [Architecture](${absoluteDocsUrl('/docs/overview/architecture')})`,
     '',
     '## Connector status',
     '',
-    `- Current product path: [MySQL source](${absoluteDocsUrl('/docs/connectors/mysql')}) with Snapshot and CDC into a [MongoDB target](${absoluteDocsUrl('/docs/connectors/mongodb')}).`,
-    `- Roadmap references: [PostgreSQL capture](${absoluteDocsUrl('/docs/connectors/postgresql')}) and [Kafka / Confluent delivery](${absoluteDocsUrl('/docs/connectors/kafka')}). They do not imply a release date or current product contract.`,
-    '- Other connector preparation materials are not published in the public documentation site or combined agent context.',
+    `- Current product path: [MySQL source](${absoluteDocsUrl('/docs/connectors/mysql')}) and [PostgreSQL source](${absoluteDocsUrl('/docs/connectors/postgresql')}) with Snapshot and CDC into a [MongoDB target](${absoluteDocsUrl('/docs/connectors/mongodb')}). The Quickstart assembles related rows from both sources with \`nest\`.`,
+    '- Other connector preparation materials are not published in the public documentation site or combined agent context and do not imply a product contract.',
     '',
     '## Agent guidance',
     '',

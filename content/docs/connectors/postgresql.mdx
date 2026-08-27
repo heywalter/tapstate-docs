@@ -1,6 +1,6 @@
 ---
 title: PostgreSQL
-description: Prepare PostgreSQL for a planned tapstate source path that captures an initial load and ongoing WAL changes.
+description: Capture an initial PostgreSQL load and ongoing changes into tapstate, then maintain application-ready operational state in MongoDB.
 sidebar:
   order: 3
 ai:
@@ -21,13 +21,17 @@ import { PreparationStep, PreparationSteps, SourceModeTab, SourceModeTabs } from
   maturity="GA"
   maturityLabel="Stable guide and configuration contract"
   worksAs="Source"
-  capabilities="Snapshot, CDC, DDL capture"
-  compatibility="PostgreSQL 9.4–16 · standalone or replication architecture"
+  capabilities="Snapshot, CDC, schema discovery"
+  compatibility="PostgreSQL 9.4–16 · Logical replication with pgoutput"
 />
 
-Use this roadmap guide to prepare PostgreSQL for an initial full load and
-WAL-based CDC. It does not make the PostgreSQL artifact part of the current
-runtime path.
+Use PostgreSQL as a current tapstate source for an initial full load and
+ongoing change data capture (CDC). The documented preview path uses
+PostgreSQL logical replication with `pgoutput` and writes the resulting
+operational state to MongoDB.
+
+PostgreSQL is a source in the current preview. This page does not make it a
+published tapstate target.
 
 ## Before you begin
 
@@ -73,8 +77,7 @@ Run the default-privileges statement as the role that creates future tables, or 
 <SourceModeTab value="snapshot-cdc" label="Full load + CDC" description="Copy existing rows, then follow WAL changes">
 
 Use this preparation path when the destination must begin with existing rows,
-then stay current as PostgreSQL
-receives inserts, updates, deletes, and supported DDL events.
+then stay current as PostgreSQL receives inserts, updates, and deletes.
 
 <PreparationSteps>
 <PreparationStep title="Create a dedicated reader with table and replication access">
@@ -97,27 +100,16 @@ GRANT SELECT ON TABLES TO tapstate;
 ```
 
 </PreparationStep>
-<PreparationStep title="Choose the WAL decoding method">
+<PreparationStep title="Use the documented pgoutput path">
 
-Choose before changing the server because the plugin determines the required PostgreSQL settings and privileges.
+The current preview path uses [`pgoutput`](https://www.postgresql.org/docs/current/protocol-logical-replication.html), PostgreSQL's built-in logical replication output plugin. It does not require a server plugin installation.
 
-| Method | PostgreSQL baseline | When to choose it |
-|---|---|---|
-| [`pgoutput`](https://www.postgresql.org/docs/current/protocol-logical-replication.html) **Recommended default** | PostgreSQL 10+ | Built into PostgreSQL and requires no plugin installation. The account needs publication access; partial publications also require `CREATE PUBLICATION` and ownership of the selected tables. |
-| [`wal2json`](https://github.com/eulerto/wal2json) | PostgreSQL 9.4+ | Choose it when your existing tapstate workload depends on its JSON decoding behavior and the database team can install a server plugin. Tables should have primary keys for reliable deletes. |
-| [`decoderbufs`](https://github.com/debezium/postgres-decoderbufs) | PostgreSQL 9.6+ | Choose it for an existing Protobuf-based decoding setup. Install the plugin and its server dependencies. |
-| `wal2json_rds`, `wal2json_streaming`, `wal2json_rds_streaming` | Deployment-specific | Variants for managed or streaming paths. Select one only when the deployment supplies its matching server setup. |
-| [`walminer`](https://gitee.com/movead/XLogMiner/tree/master/) | Deployment-specific | Reads physical WAL and requires elevated database access. Choose it only when your tapstate environment supports that path. |
-| `physical` | Deployment-specific | Uses the physical-WAL CDC path. Select it only when that path is enabled and supported in your environment. |
-
-For PostgreSQL 10 and later, start with **pgoutput** unless you already depend on another supported decoder. It is the current connector default and avoids installing an extension on the database server. Choose a different method only for a documented compatibility or topology requirement.
-
-For a primary/standby deployment, use `walminer` only when your tapstate deployment supplies that path and you need to read CDC from a standby. Unlike the logical methods, it does not use `wal_level = logical` or logical replication slots, but it requires elevated database access.
+The connector catalog can expose additional connector-owned values, but this guide does not treat them as equivalent runtime paths. Use `pgoutput` unless a later tapstate release documents another path.
 
 </PreparationStep>
 <PreparationStep title="Configure logical WAL capacity">
 
-Skip this step only for a confirmed physical-WAL or `walminer` path. For `pgoutput`, `wal2json`, and `decoderbufs`, configure enough slots and WAL senders for the planned concurrent tasks:
+Configure enough slots and WAL senders for the planned concurrent tasks:
 
 ```ini
 # postgresql.conf
@@ -132,70 +124,20 @@ Allow the replication account in `pg_hba.conf`, using an address range and authe
 host  replication  tapstate  10.0.0.0/24  scram-sha-256
 ```
 
-Restart PostgreSQL during an approved maintenance window when the changed server parameters require it. On PostgreSQL 9.4–9.6, set both `max_replication_slots` and `max_wal_senders` explicitly; `10` is only an example starting point.
+Restart PostgreSQL during an approved maintenance window when the changed server parameters require it. The values above are examples, not tapstate defaults.
 
 </PreparationStep>
 <PreparationStep title="Make update and delete keys available">
 
-Tables without a suitable primary key usually need the full previous row in WAL:
+For a PostgreSQL table embedded by `nest`, set the full previous row so an
+update or delete can be placed in the correct assembled document:
 
 ```sql
 ALTER TABLE schema_name.table_name REPLICA IDENTITY FULL;
 ```
 
-`wal2json` requires a primary key for reliable delete synchronization. With `pgoutput`, partial publications can avoid the global `REPLICA IDENTITY FULL` requirement, but the replication account then needs `CREATE PUBLICATION` and ownership of every selected table.
-
-</PreparationStep>
-<PreparationStep title="Prepare publications for pgoutput">
-
-Skip this step for the other plugins. Create the publications yourself when the deployment will not create them:
-
-```sql
-CREATE PUBLICATION dbz_publication_root
-  FOR ALL TABLES WITH (PUBLISH_VIA_PARTITION_ROOT = TRUE);
-CREATE PUBLICATION dbz_publication FOR ALL TABLES;
-```
-
-Use the publication names configured for your environment. The examples above use the connector defaults.
-
-</PreparationStep>
-<PreparationStep title="Decide whether to enable DDL capture">
-
-For `pgoutput`, `wal2json`, and `decoderbufs`, DDL capture uses a database event trigger, a trigger function, and an internal DDL audit table. It supports adding columns, renaming columns, changing column attributes, and dropping columns. Creating event triggers normally requires superuser-equivalent privileges.
-
-Confirm that your managed PostgreSQL service permits event triggers and that the account can create them. If either condition is false, keep DDL capture disabled. The physical-WAL and `walminer` paths do not provide this trigger-based DDL behavior.
-
-</PreparationStep>
-<PreparationStep title="Install wal2json when selected">
-
-The following example is for PostgreSQL 12 on CentOS 7. Adapt the package names, compiler toolchain, PostgreSQL path, and service name to the server you operate.
-
-```bash
-# PostgreSQL development headers and the build toolchain
-yum install -y postgresql12-devel devtoolset-7-llvm centos-release-scl devtoolset-7-gcc* llvm5.0
-export PATH="$PATH:/usr/pgsql-12/bin"
-
-# Build and install the output plugin
-git clone https://github.com/eulerto/wal2json.git
-cd wal2json
-scl enable devtoolset-7 bash
-make && make install
-```
-
-Skip this step when using a built-in or separately prepared plugin.
-
-</PreparationStep>
-<PreparationStep title="Test the selected logical plugin">
-
-For `wal2json`, create a temporary slot, read it, and remove it before creating a production connection:
-
-```sql
-SELECT * FROM pg_create_logical_replication_slot('tapstate_plugin_check', 'wal2json');
-SELECT * FROM pg_logical_slot_peek_changes('tapstate_plugin_check', NULL, NULL);
-SELECT * FROM pg_drop_replication_slot('tapstate_plugin_check');
-```
-
-Do not leave this test slot behind. A slot retains WAL until it advances or is removed.
+`REPLICA IDENTITY FULL` increases WAL volume. Evaluate it on representative
+tables before enabling CDC in production-like environments.
 
 </PreparationStep>
 </PreparationSteps>
@@ -264,16 +206,21 @@ tapstate validate --workdir tapstate-work
 
 Validation does not resolve the host, credentials, or a PostgreSQL server. A
 syntactically valid resource that uses `postgres.invalid` can therefore pass
-validation. When a release publishes this source path, register its official
-artifact and run a server-side connection test before relying on the
-configuration.
+validation. Register the official artifact and run a server-side connection test
+before relying on the configuration.
 
-When the source path becomes available, run a staging check that:
+A successful connection test does not prove that CDC can start. It can confirm
+network access and credentials while logical replication, a replication slot, a
+publication, or replica identity is still missing. Run a small snapshot and
+then an insert, update, and delete in a staging database.
+
+Run a staging check that:
 
 1. discovers a selected table;
 2. completes a small snapshot;
 3. observes an insert, update, and delete through CDC;
-4. resumes after a short interruption without losing its replication position.
+4. records the expected recovery behavior after a server restart. The current
+   preview replays from the source; it does not provide persisted recovery.
 
 Use these read-only checks while diagnosing the source:
 
@@ -291,7 +238,7 @@ FROM pg_replication_slots;
 - Replication slots retain WAL until consumers advance. Monitor `pg_replication_slots` and disk use, and remove a slot only after confirming that no task still depends on it.
 - Tables without a suitable replica identity can produce incomplete keys for updates and deletes. `REPLICA IDENTITY FULL` increases WAL volume and should be evaluated on busy tables.
 - Capturing changes from partitioned parent tables requires PostgreSQL 13+ with `pgoutput`.
-- `pgoutput`, `wal2json`, and `decoderbufs` can collect supported DDL only when the DDL trigger objects can be created. The physical-WAL path does not provide the same DDL behavior.
+- The current preview does not make a DDL-capture compatibility promise.
 - PostgreSQL string types cannot store the zero byte (`\0`); normalize it before writing if it can appear in source data.
 - A replication slot can be blocked by long-running database work. Investigate materialized-view refreshes and other sessions if slot creation stalls.
 - Do not drop an inactive slot merely because it is inactive; a stopped pipeline may still depend on its position. Remove it only after the owning pipeline has been retired or reset.
@@ -301,27 +248,44 @@ FROM pg_replication_slots;
 
 ### Connection settings
 
-Conditional fields should be supplied only for the selected deployment and log-plugin path.
+The documented current path uses the fields below. The local demo relies on
+the connector's default `pgoutput` behavior and does not pre-create a slot or
+publication. For another deployment, verify that behavior with a staged table
+and its intended database account.
 
 | Field | Required | Default | Use |
 |---|---:|---|---|
-| `deploymentMode` | No | `standalone` | Standalone or primary/standby addressing. |
+| `deploymentMode` | No | `standalone` | Standalone addressing for the documented path. |
 | `host` | Yes | — | PostgreSQL host for standalone mode. |
 | `port` | Yes | `5432` | PostgreSQL port for standalone mode. |
-| `masterSlaveAddress` | No | — | Host and port list for a primary/standby deployment. |
 | `database` | Yes | — | Database name. |
 | `schema` | Yes | — | Schema to discover. |
 | `user` | No | — | Database account. |
 | `password` | No | — | Database password or secret reference. |
-| `logPluginName` | No | `pgoutput` | Incremental method: `pgoutput`, `wal2json`, `decoderbufs`, `walminer`, `physical`, or the deployment-specific `wal2json_rds`, `wal2json_streaming`, and `wal2json_rds_streaming` variants. |
-| `pgtoHost` | No | `127.0.0.1` | Helper host used by the physical-WAL path when that path is supplied by the deployment. |
-| `pgtoPort` | No | `9876` | Helper port used by the physical-WAL path. |
-| `partPublication` | No | `false` | Use per-table or partial publications with `pgoutput`. |
-| `globalPublicationName` | Yes | `dbz_publication` | Publication name used by the global publication path. |
-| `extParams` | No | — | Additional connection parameters accepted by the connector. |
+| `logPluginName` | No | `pgoutput` | Incremental method for the documented logical-replication path. |
 | `timezone` | No | Empty | Session timezone used for temporal conversion. |
 | `allowReplication` | No | `true` | Whether the connection may use PostgreSQL replication. |
-| `defaultWalLogSize` | No | `102400` | Default WAL-size threshold used by the connector monitor. |
+
+### Additional catalog fields
+
+The catalog recognizes the fields below, including decoder and publication
+settings inherited from the underlying connector. They are not required by the
+documented `pgoutput` path and are not used by the Quickstart. Do not use them
+to infer another published PostgreSQL deployment mode.
+
+| Field | Use |
+|---|---|
+| `partPublication` | Per-table or partial publication setting. |
+| `globalPublicationName` | Publication name for the global-publication setting. |
+| `extParams` | Additional connection parameters accepted by the connector. |
+| `masterSlaveAddress` | Host and port list for a primary/standby deployment. |
+| `pgtoHost` | Helper host for a physical-WAL path. |
+| `pgtoPort` | Helper port for a physical-WAL path. |
+| `defaultWalLogSize` | Connector WAL-size monitor threshold. |
+| `checkCdcSlave` | Whether the connector checks CDC standby state; defaults to `false`. |
+| `walTdeKey` | EDB transparent-data-encryption key file used by connector-owned WAL handling. |
+| `walTdeKeyPassword` | Secret password for the EDB TDE key file. |
+| `walTdeKeyWrapAlgorithm` | TDE key wrapping algorithm: `auto`, `aes-256-cbc`, or `aes-128-cbc`; defaults to `auto`. |
 
 ### Database-side data reference
 
@@ -337,5 +301,5 @@ extension types with representative data before migration.
 | Spatial and network | `geometry`, `point`, `polygon`, `circle`, `path`, `box`, `line`, `lseg`, `inet`, `cidr`, `macaddr` |
 | Structured and other | `uuid`, `xml`, `json`, `jsonb`, arrays, OID and reg* identifier types, `tsvector`, `tsquery` |
 
-Verify uncommon extension types with representative data before relying on a
-future runtime path.
+Verify uncommon extension types with representative data before relying on the
+current preview path.

@@ -27,7 +27,7 @@ current preview runtime. For the execution boundary, see [Resource grammar](/doc
 | `SourceResource.kind` | constant | yes | — | `source` | Resource kind discriminator. |
 | `SourceResource.id` | string | yes | — | — | Unique resource id across the workspace; must not contain a dot. |
 | `SourceResource.metadata` | `Metadata` | no | — | — | Optional labels and free-text description. |
-| `SourceResource.connector` | string | yes | — | — | Id of the connector this source reads through (e.g. mysql, kafka). |
+| `SourceResource.connector` | string | yes | — | — | ID of the connector this source reads through (for example, `mysql`). |
 | `SourceResource.config` | object | no | — | — | Connector connection config; keys are connector-specific. |
 | `SourceResource.mode` | `SourceMode` | no | — | `cdc`, `snapshot`, `stream`, `file`, `api` | Read mode; may be omitted when the source is only a connection supplier. |
 | `SourceResource.tables` | array<`TableRef`> | no | — | — | Tables to read: bare names, /regex/ patterns, or per-table objects. |
@@ -76,7 +76,7 @@ current preview runtime. For the execution boundary, see [Resource grammar](/doc
 | `Metadata.description` | string | no | — | — | Free-text description of the resource; never identity. |
 | `TableRef.Spec.name` | string | yes | — | — | Literal name of the table to select from the source. |
 | `TableRef.Spec.filter` | string | no | — | — | CEL row expression that filters which rows of the table are included. |
-| `TableRef.Spec.pk` | array<string> | no | — | — | Primary key column names used to identify rows when the source does not declare one. |
+| `TableRef.Spec.pk` | array<string> | no | — | — | Primary-key override accepted by the grammar. The current runtime does not execute this field; an upsert still requires a primary key in the discovered source schema. |
 | `TableRef.Spec.options` | object | no | — | — | Connector-owned extension options. |
 | `Srs.key` | string | no | — | — | Optional identifier that overrides automatic mining-chain derivation. Reuse a value only when compatible CDC sources must share one replay store. |
 | `Srs.retention` | string | no | — | — | How long captured change data is retained in the replay store. |
@@ -168,7 +168,7 @@ current preview runtime. For the execution boundary, see [Resource grammar](/doc
 | `ViewSchema.evolution` | string | no | — | — | How the view schema is allowed to evolve over time, such as additive-only. |
 | `SyncElement.id` | string | no | — | — | Optional id for this sync element; required only when referenced by a query backend. |
 | `SyncElement.source` | string | yes | — | — | Reference to a kind: source connection supplier that provides the target connector and config. |
-| `SyncElement.write_mode` | `WriteMode` | no | upsert | `upsert`, `append` | How rows are written to the target — for example upsert or append. |
+| `SyncElement.write_mode` | `WriteMode` | no | upsert | `upsert`, `append` | How rows are written to the target. Upsert requires a primary key in each selected source table's discovered schema; append is for insert-only delivery. |
 | `SyncElement.rename` | `RenameSpec` | no | — | — | Rules for renaming the target table and columns relative to the pipeline output. |
 | `SyncElement.ddl` | `DdlPolicy` | no | fail | `apply`, `ignore`, `fail` | Policy controlling how schema changes are applied to the target store. |
 | `SyncElement.options` | object | no | — | — | Connector-owned extension options. |

@@ -1,159 +1,163 @@
 ---
 title: Quickstart
-description: Create and validate a tapstate workspace with the offline CLI without starting a server
+description: Run the v0.3.0 playground and inspect assembled cross-source operational state in one guided flow
 ai:
   kind: guide
   id: quickstart
-  aliases: [tapstate quickstart, tapstate offline quickstart, tapstate workspace, create tapstate yml, validate workspace]
+  maturity: preview
+  modes: [snapshot, cdc]
+  aliases: [tapstate quickstart, try tapstate locally, tapstate Docker quickstart, cross-source quickstart]
 ---
 
-import { CardGrid, LinkCard } from '@/components/mdx';
+import { QuickstartDataFlow } from '@/components/mdx';
 
-Use this quickstart to create and validate a tapstate workspace with the offline
-CLI. It does not start a server or move data. To run the live MySQL-to-MongoDB
-path, use [Try tapstate locally](/docs/overview/quickstart-online).
+Run one disposable tapstate data path without installing the CLI or preparing
+your own databases. The playground captures MySQL orders and PostgreSQL
+shipments, assembles them into one order document, and materializes the result
+in MongoDB.
 
-## What you will create
+When you finish, you will have a running `order_pipeline` and can read
+`views.order_state` from the tapstate CLI.
 
-```text
-tapstate-work/
-├── source/
-│   ├── orders_source.tap.yml
-│   └── customer_view.tap.yml
-└── pipeline/
-    └── orders_to_customer_view.tap.yml
-```
+This quickstart is an evaluation environment, not a server installation or
+production deployment. Use sample data only.
 
-The source resource reads existing MySQL rows. The target connection supplies MongoDB destination settings. The pipeline links the two.
+## Why assemble this state
+
+The sample keeps order details in MySQL and fulfillment records in PostgreSQL.
+Neither database can join a table in the other, so an application that needs a
+complete order would otherwise query both systems and assemble the result on
+every request.
+
+Tapstate declares that relationship once. An initial snapshot builds the
+current order state, and CDC keeps the same object fresh when either the order
+or one of its shipments changes.
+
+<QuickstartDataFlow />
 
 ## Before you begin
 
-- [Install the tapstate CLI](/docs/overview/install). Command availability can vary by tapstate version.
-- Keep credentials in environment variables or your deployment's secret mechanism.
-- Read the [MySQL](/docs/connectors/mysql) and [MongoDB](/docs/connectors/mongodb) preparation guides.
-- Use non-production credentials and endpoints for an authoring walkthrough.
+You need:
 
-Check the installed command first:
+- macOS or Linux;
+- Docker with the Compose plugin running;
+- `curl`;
+- several GB of free Docker storage.
 
-```bash
-tapstate --version
-```
-
-If the command is unavailable, install it before continuing.
-
-## 1. Create the MySQL source
+Confirm Docker is available:
 
 ```bash
-tapstate new --non-interactive \
-  --kind source \
-  --connector mysql \
-  --id orders_source \
-  --mode snapshot \
-  --set host=db.internal \
-  --set port=3306 \
-  --set database=orders \
-  --set username='${MYSQL_USER}' \
-  --set password='${MYSQL_PASSWORD}' \
-  --workdir tapstate-work
+docker info
+docker compose version
 ```
 
-Snapshot copies the selected current data as a bounded read. It does not continue with later changes. To evaluate continuous capture, follow the complete Full load + CDC preparation path in the MySQL guide.
+You do not need to [install the tapstate CLI](/docs/overview/install). The
+script downloads a local `v0.3.0` CLI, the published connector artifacts, and
+the pinned server image into a disposable `tapstate-demo` directory.
 
-## 2. Create the target connection
+## 1. Start the playground
+
+Run the published quickstart script:
 
 ```bash
-tapstate new --non-interactive \
-  --kind source \
-  --connector mongodb \
-  --id customer_view \
-  --set isUri=true \
-  --set uri='${MONGODB_URI}' \
-  --workdir tapstate-work
+curl -fsSL https://install.tapstate.dev | sh
 ```
 
-A target-only connection supplies connector configuration to a pipeline. It does not declare a source read mode.
+The script starts MySQL, PostgreSQL, MongoDB, and a tapstate server. It then:
 
-## 3. Create the pipeline
+1. creates a local administrator;
+2. registers the MySQL, PostgreSQL, and MongoDB connectors;
+3. applies and discovers both source connections;
+4. applies and starts `order_pipeline`;
+5. waits for the assembled initial state.
+
+The command can take several minutes the first time while Docker downloads the
+images.
+
+## 2. Confirm the result
+
+A successful run ends with this line:
+
+```text
+quickstart: 5 orders from MySQL, each carrying its shipments from PostgreSQL -- 6 of them, in one object per order
+```
+
+Do not treat a healthy container or a `running` pipeline status by itself as
+proof that the data arrived. The order and embedded-shipment counts are the
+quickstart's success condition.
+
+## 3. Inspect one assembled order
+
+Change to the generated directory and start the bundled CLI:
 
 ```bash
-tapstate new --non-interactive \
-  --kind pipeline \
-  --id orders_to_customer_view \
-  --source orders_source \
-  --sync-to customer_view \
-  --workdir tapstate-work
+cd tapstate-demo
+./tapstate -w work
 ```
 
-Review the generated files before continuing. Confirm that IDs and references match and that no secret value was written literally.
+At the prompt, connect and sign in:
 
-## 4. Validate the workspace
-
-```bash
-tapstate validate --workdir tapstate-work
+```text
+connect http://127.0.0.1:8080
+login admin
 ```
 
-An exit code of `0` means the installed validator accepted the resource structure, references, modes, and recognized connector fields. The number and wording in success output can vary by version.
+Enter the password stored in the local `.env` file. Then run:
 
-Offline validation does not require every catalog-required connection field,
-reject unknown connector keys, inspect environment-variable values, or open a
-network connection. For example, a syntactically valid resource that points to
-`mysql.invalid` can pass this step.
-
-Next, [register the connector JARs and run server-side connection tests](/docs/guides/register-connectors)
-in a non-production environment. Confirm credentials and network access, then
-verify a representative source read or target write before using production
-data.
-
-## 5. Inspect the resources
-
-Use these commands to review the workspace and field grammar:
-
-```bash
-tapstate ls --workdir tapstate-work
-tapstate desc orders_to_customer_view --workdir tapstate-work
-tapstate explain source.mode
+```text
+show collections
+views.order_state.find({id:1})
+status order_pipeline
 ```
 
-Do not infer runtime success from an authoring or inspection command.
+For the published seed data, the first query returns this business shape
+(MongoDB's generated `_id` is omitted):
 
-## Extend the pipeline
+```javascript
+{
+  id: 1,
+  customer: "alice",
+  amount: Decimal128("10.00"),
+  shipments: [
+    { id: 1, order_id: 1, carrier: "dhl", status: "delivered" },
+    { id: 2, order_id: 1, carrier: "ups", status: "in_transit" }
+  ]
+}
+```
 
-This tutorial creates a direct source-to-target sync. Use the same workspace as
-the starting point for the next capability you need:
-
-<CardGrid>
-  <LinkCard
-    title="Review resource definitions"
-    description="Look up the exact source, pipeline, transform, view, and serve fields."
-    href="/docs/reference/dsl-grammar"
-  />
-  <LinkCard
-    title="Transform records"
-    description="Add a filter, map, script, union, or another supported transform."
-    href="/docs/reference/transforms"
-  />
-  <LinkCard
-    title="Assemble documents with nest"
-    description="Maintain one MongoDB document from related MySQL tables."
-    href="/docs/guides/assemble-documents-with-nest"
-  />
-  <LinkCard
-    title="Run and observe a pipeline"
-    description="Apply resources to a server, control the lifecycle, and inspect data movement."
-    href="/docs/guides/apply-and-run"
-  />
-</CardGrid>
-
-For runtime signals after a pipeline starts, use [Observe a pipeline](/docs/guides/observe-a-pipeline).
+The order fields come from MySQL, while the `shipments` array comes from
+PostgreSQL. You have now completed the shortest runnable tapstate path.
 
 ## Next steps
 
-- [Try tapstate locally](/docs/overview/quickstart-online) with the disposable MySQL-to-MongoDB playground.
-- Learn how [connections and connectors](/docs/concepts/connections-and-connectors) differ.
-- [Register and test connectors](/docs/guides/register-connectors) from the server environment.
-- [Apply and run a pipeline](/docs/guides/apply-and-run), then [observe a pipeline](/docs/guides/observe-a-pipeline).
-- Look up exact [resource fields](/docs/reference/dsl-fields) before changing generated YAML.
-- [Assemble documents with nest](/docs/guides/assemble-documents-with-nest) when related source tables must become one target document.
-- Choose the right [capture mode](/docs/concepts/capture-modes).
-- Use [Troubleshooting](/docs/guides/troubleshooting) to isolate authoring, deployment, and data problems.
-- Continue with the selected source and target connector guides before using the same pattern with production data.
+- [Explore the order-state demo](/docs/overview/order-state-demo) to change both source databases and watch the document stay current.
+- [Install the CLI](/docs/overview/install) when you want `tapstate` available outside the playground.
+- [Create your own workspace](/docs/overview/create-workspace) to author and validate resources for systems your tapstate environment can reach.
+- Use [Troubleshooting](/docs/guides/troubleshooting) if the success line or assembled document does not appear.
+
+## Keep, stop, or remove the playground
+
+Keep the playground running while you explore the order-state demo or prepare
+a workspace for your own [MySQL](/docs/connectors/mysql) or
+[PostgreSQL](/docs/connectors/postgresql) source. Confirm that the tapstate
+server can reach the database before applying it. This remains a disposable
+evaluation environment; use sample or non-sensitive data only.
+
+To pause it and preserve the sample data for later, run this from
+`tapstate-demo`:
+
+```bash
+docker compose stop
+```
+
+Resume the same environment later with `docker compose start`.
+
+When you no longer need the playground, remove its container data and start
+clean next time:
+
+```bash
+docker compose down -v
+```
+
+This permanently removes the sample MySQL, PostgreSQL, and MongoDB volumes. It
+does not remove the files or downloaded images.

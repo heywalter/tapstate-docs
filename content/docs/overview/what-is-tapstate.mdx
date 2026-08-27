@@ -42,29 +42,32 @@ remains part of the declared model but is refused by the current runtime.
 
 ### Serve — deliver current state
 
-The current release includes synchronized writes to a target connector.
-Queryable and push surfaces exist in the v1 declaration model but are not part
-of the current local playground.
+The current release includes `serve.sync` writes to a target connector. The v1
+declaration model also contains `serve.query` and `serve.push`, but the current
+preview does not execute them. The CLI, REST API, and MCP provide bounded
+inspection instead of a stable application-facing data API.
 
 ## Current preview boundary
 
-`v0.2.1` is a prerelease, single-node, in-memory runtime. Its local playground is
-designed to explore MySQL to MongoDB with an initial snapshot followed by CDC.
+`v0.3.0` is a prerelease, single-node, in-memory runtime. Its Quickstart
+captures MySQL orders and PostgreSQL shipments, assembles one document, and
+keeps it current with an initial snapshot followed by CDC.
 A server restart replays from the source instead of resuming a persisted
 offset. See [Architecture](/docs/overview/architecture) for the current and
 target boundaries.
 
 ## When to use tapstate
 
-Use tapstate when applications, APIs, automation, or AI agents depend on operational data that loses value when it becomes stale. Common examples include inventory availability, logistics tracking, fraud and risk signals, cross-system customer or account views, and internal agents that need current system-of-record data. See [Use cases](/docs/overview/use-cases) for detailed patterns.
+Use tapstate when applications, APIs, automation, or AI agents depend on operational data that loses value when it becomes stale. Common examples include inventory availability, logistics tracking, fraud and risk signals, cross-system customer or account views, and AI agents that need current system-of-record data. See [Use cases](/docs/overview/use-cases) for detailed patterns.
 
 ## How to use these docs
 
 The documentation follows the same path you use to build a data pipeline:
 
-- **Prepare the current path.** Use the [connector directory](/docs/connectors) to prepare MySQL capture and MongoDB materialization, and to distinguish current connectors from roadmap references.
-- **Explore a data path.** [Try tapstate locally](/docs/overview/quickstart-online) with sample MySQL and MongoDB data in Docker.
-- **Author a workspace.** Use the [offline walkthrough](/docs/overview/quickstart) to create and validate `.tap.yml` resources.
+- **Prepare the current path.** Use the [connector directory](/docs/connectors) to prepare MySQL and PostgreSQL capture with MongoDB materialization, and to distinguish current connectors from roadmap references.
+- **Run the shortest path.** Use the [Quickstart](/docs/overview/quickstart) with sample MySQL, PostgreSQL, and MongoDB data in Docker.
+- **Explore the data model.** Change both sources in the [order-state demo](/docs/overview/order-state-demo) and watch one assembled document stay current.
+- **Author a workspace.** Use the [offline walkthrough](/docs/overview/create-workspace) to create and validate `.tap.yml` resources.
 - **Look up exact syntax.** Use the [reference](/docs/reference/dsl-grammar) for resource fields and examples.
 - **Work with an AI assistant.** Use [`llms.txt`](/llms.txt) or the page-level Markdown view to provide the same canonical content to an assistant.
 
@@ -72,9 +75,9 @@ The documentation follows the same path you use to build a data pipeline:
 
 <CardGrid>
   <LinkCard
-    title="Local playground"
-    description="Explore the MySQL-to-MongoDB snapshot and CDC workflow in Docker."
-    href="/docs/overview/quickstart-online"
+    title="Quickstart"
+    description="Explore MySQL and PostgreSQL CDC assembled into one document in Docker."
+    href="/docs/overview/quickstart"
   />
   <LinkCard
     title="Architecture"

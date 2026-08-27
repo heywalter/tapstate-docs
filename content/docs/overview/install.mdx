@@ -5,7 +5,7 @@ ai:
   kind: guide
   id: install-tapstate
   maturity: preview
-  aliases: [install tapstate, tapstate CLI download, tapstate v0.2.1]
+  aliases: [install tapstate, tapstate CLI download, tapstate v0.3.0]
 ---
 
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
@@ -16,8 +16,8 @@ The current preview provides native tapstate CLI archives for macOS and Linux. T
 This page installs the CLI only. It does not install or start a tapstate server,
 open a local port, or install connector JARs.
 
-If you want to explore the complete MySQL-to-MongoDB flow instead, use [Try
-tapstate locally](/docs/overview/quickstart-online). Its convenience command is
+If you want to see tapstate run before installing anything, use the
+[Quickstart](/docs/overview/quickstart). Its convenience command is
 `curl -fsSL https://install.tapstate.dev | sh`; that root URL runs the disposable
 Docker playground and does not add `tapstate` to your shell `PATH`.
 
@@ -25,13 +25,13 @@ Docker playground and does not add `tapstate` to your shell `PATH`.
 
 The CLI can author and validate a local workspace without a server. A tapstate
 server is a separate, headless service that exposes an authenticated control
-plane and runs pipelines; it has no built-in web UI in `v0.2.1`.
+plane and runs pipelines; it has no built-in web UI in `v0.3.0`.
 
 <CliServerWorkflow />
 
 The CLI cannot test a database connection or move data without a server. This
 release does not publish a standalone server installer. To explore a
-server-backed path, use the disposable [local playground](/docs/overview/quickstart-online),
+server-backed path, use the disposable [Quickstart](/docs/overview/quickstart),
 which downloads its own CLI and starts the server and sample databases with
 Docker Compose. You do not need to install the CLI first.
 
@@ -92,7 +92,7 @@ The installer:
 It should finish with a message similar to:
 
 ```text
-tapstate 0.2.1 installed to <home>/.tapstate/bin/tapstate
+tapstate 0.3.0 installed to <home>/.tapstate/bin/tapstate
 ```
 
 Add the installation directory to `PATH` if it is not already available:
@@ -113,7 +113,16 @@ Verify the result:
 tapstate --version
 ```
 
-The command should report `tapstate 0.2.1`.
+The command should report `tapstate 0.3.0`.
+
+When the name `tap` is available, the installer also creates it as an optional
+shortcut to `tapstate`. It skips the shortcut instead of replacing an existing
+file or command. You can manage it later with:
+
+```bash
+tapstate alias install
+tapstate alias uninstall
+```
 
 If Zsh reports `command not found: tapstate`, either the installer did not
 finish or its default directory is not on the current shell's `PATH`. Check the
@@ -136,7 +145,7 @@ set `TAPSTATE_VERSION`:
 
 ```bash
 curl -fsSL https://install.tapstate.dev/cli | \
-  TAPSTATE_VERSION=0.2.1 sh
+  TAPSTATE_VERSION=0.3.0 sh
 ```
 
 ### Use a different installation directory
@@ -152,28 +161,28 @@ The selected directory must be on your `PATH` before you can invoke `tapstate` b
 
 ### Install manually
 
-The [v0.2.1 release](https://github.com/tapstate/tapstate/releases/tag/v0.2.1) includes four platform archives, individual `.sha256` files, and a combined `checksums.txt`. Download the archive that matches your system and verify its checksum before extracting it.
+The [v0.3.0 release](https://github.com/tapstate/tapstate/releases/tag/v0.3.0) includes four platform archives, individual `.sha256` files, and a combined `checksums.txt`. Download the archive that matches your system and verify its checksum before extracting it.
 
 For example, on Apple silicon:
 
 ```bash
 curl -fLO \
-  https://github.com/tapstate/tapstate/releases/download/v0.2.1/tapstate-0.2.1-darwin-arm64.tar.gz
+  https://github.com/tapstate/tapstate/releases/download/v0.3.0/tapstate-0.3.0-darwin-arm64.tar.gz
 curl -fLO \
-  https://github.com/tapstate/tapstate/releases/download/v0.2.1/tapstate-0.2.1-darwin-arm64.tar.gz.sha256
+  https://github.com/tapstate/tapstate/releases/download/v0.3.0/tapstate-0.3.0-darwin-arm64.tar.gz.sha256
 
-shasum -a 256 -c tapstate-0.2.1-darwin-arm64.tar.gz.sha256
-tar -xzf tapstate-0.2.1-darwin-arm64.tar.gz
+shasum -a 256 -c tapstate-0.3.0-darwin-arm64.tar.gz.sha256
+tar -xzf tapstate-0.3.0-darwin-arm64.tar.gz
 ```
 
-The archive extracts a complete `tapstate-cli-0.2.1` bundle. Keep its `bin` and
+The archive extracts a complete `tapstate-cli-0.3.0` bundle. Keep its `bin` and
 `libexec` directories together so `tapstate mcp` can find its sidecar.
 
 If macOS blocks a manually downloaded binary after the checksum passes, remove the quarantine attribute and try again:
 
 ```bash
-xattr -d com.apple.quarantine ./tapstate-cli-0.2.1/bin/tapstate
-./tapstate-cli-0.2.1/bin/tapstate --version
+xattr -d com.apple.quarantine ./tapstate-cli-0.3.0/bin/tapstate
+./tapstate-cli-0.3.0/bin/tapstate --version
 ```
 
 ### Update or remove the CLI
@@ -199,6 +208,6 @@ authentication flow and Codex, Claude Code, and generic host examples.
 
 ## Next steps
 
-- [Author and validate a workspace](/docs/overview/quickstart) using only the installed CLI.
-- If Docker is available, [try tapstate locally](/docs/overview/quickstart-online) with the disposable MySQL-to-MongoDB playground.
-- Review the [v0.2.1 release notes](/docs/releases/v0.2.1) before evaluating the runtime.
+- [Create your own workspace](/docs/overview/create-workspace) using only the installed CLI.
+- If Docker is available, run the [Quickstart](/docs/overview/quickstart), then [explore the order-state demo](/docs/overview/order-state-demo).
+- Review the [v0.3.0 release notes](/docs/releases/v0.3.0) before evaluating the runtime.

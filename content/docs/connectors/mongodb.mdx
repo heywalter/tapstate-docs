@@ -147,6 +147,6 @@ for the full sequence.
 | Date and time | `Date`, `Timestamp` |
 | Other | `Boolean`, `MinKey`, `MaxKey`, `Null` |
 
-In the current MySQL-to-MongoDB path, `TIMESTAMP(3)` becomes a BSON `Date` at
+In the current MySQL-to-MongoDB materialization path, `TIMESTAMP(3)` becomes a BSON `Date` at
 millisecond precision; it preserves the instant, not the source time-zone or
 offset representation.

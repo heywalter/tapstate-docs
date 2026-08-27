@@ -1,6 +1,6 @@
 ---
 title: Connector guides
-description: See the current MySQL-to-MongoDB connector path and the next planned connector directions
+description: Configure the current MySQL and PostgreSQL source paths into MongoDB operational state
 sidebar:
   order: 1
 ai:
@@ -11,10 +11,10 @@ ai:
 
 import { ConnectorDirectoryMatrix } from '@/components/mdx';
 
-The current tapstate preview has one published operational-state path: capture
-an initial MySQL snapshot, follow later changes with CDC, and maintain the
-result in MongoDB. The current runtime path registers these two connector
-artifacts only.
+The current tapstate preview publishes MySQL and PostgreSQL as source engines
+and MongoDB as the operational-state target. Both sources support an initial
+snapshot followed by CDC. The Quickstart demonstrates one pipeline that
+assembles MySQL orders and PostgreSQL shipments into a MongoDB document.
 
 Select a current connector to prepare its external system and author the
 connection resource. Before using a real endpoint, run a
@@ -22,27 +22,16 @@ connection resource. Before using a real endpoint, run a
 
 <ConnectorDirectoryMatrix />
 
-## Roadmap entries
-
-Roadmap rows show the next connector directions: PostgreSQL capture and
-Kafka/Confluent delivery. They do not promise a release date, artifact, command,
-or runtime behavior. Use their linked guides only to understand likely
-preparation requirements until a release promotes them into the current product
-path.
-
-Only current and roadmap entries appear in this directory. Other integrations
-are not published in this public documentation site and are not presented as
-supported connector workflows.
-
 ## Documentation status
 
 The directory uses a status separate from **Maturity**:
 
 - **Current path** means the connector has a published role in the current
-  product path. MySQL is the current source and MongoDB is the current target.
-- **Roadmap reference** means the connector is an explicitly planned direction,
-  not a current runtime contract. PostgreSQL and Kafka/Confluent are currently
-  in this group.
+  product path. MySQL and PostgreSQL are current sources; MongoDB is the
+  current target.
+
+Other connector preparation material is not published in this public
+documentation site and is not presented as a supported workflow.
 
 **GA** and **Preview** describe guide or configuration-contract maturity. They
 do not change the documentation status or prove that an artifact is bundled or

@@ -8,7 +8,7 @@ ai:
 ---
 
 This page describes the state responsibilities of the target architecture. The
-current `v0.2.1` runtime is single-node and in-memory; a restart replays from the
+current `v0.3.0` runtime is single-node and in-memory; a restart replays from the
 source instead of resuming a persisted source offset.
 
 The target design separates three kinds of state: working state used while
@@ -51,7 +51,15 @@ enough for the applicable recovery behavior.
 
 ## Materialized state
 
-Materialized state is the current consumer-facing result. It may live in a target database, search system, warehouse, lakehouse, or future serving layer.
+Materialized state is the current consumer-facing result. In `v0.3.0`, an
+inline `view` is written to the deployment's managed MongoDB store. A
+`serve.sync` block is the separate path for delivery to an external target.
+
+The Quickstart runs its managed store without database authentication and uses
+the same MongoDB deployment for control-plane data. That disposable topology is
+not a tenant or user security boundary. Use sample data only; a production
+deployment needs independently designed authentication, network exposure, and
+data isolation.
 
 Its correctness depends on:
 

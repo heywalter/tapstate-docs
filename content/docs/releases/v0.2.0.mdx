@@ -50,7 +50,7 @@ Recommended minimums for this build are macOS 15.0 and glibc 2.34.
 
 - The runtime is single-node, keeps runtime state in memory, and is not intended
   for production.
-- The [local playground](/docs/overview/quickstart-online) verifies one end-to-end combination: MySQL initial load
+- The v0.2.0 local playground verifies one end-to-end combination: MySQL initial load
   plus CDC, an in-flight `map`, and MongoDB materialization.
 - A change that a connector reads is delivered at least once, not exactly once.
 - An insert-only target can receive duplicate rows when the snapshot and CDC
@@ -64,7 +64,7 @@ Recommended minimums for this build are macOS 15.0 and glibc 2.34.
   `connector.not-official`; catalog metadata does not expand this boundary.
 - [`join`](/docs/reference/transforms#join) remains declared by the Schema but is
   refused by the current runtime.
-- [`run`, `export`, `diff`, and `edit`](/docs/reference/cli#commands-not-implemented-in-v021)
+- [`run`, `export`, `diff`, and `edit`](/docs/reference/cli#commands-not-implemented-in-v030)
   remain reserved CLI verbs and return exit code `3`.
 - The server-backed preview is provided through the disposable Docker
   playground; this release does not include a standalone server installer or
@@ -77,8 +77,6 @@ Use non-production systems and data for evaluation.
 
 - [Install the CLI](/docs/overview/install) for offline authoring or to connect
   to an existing server.
-- [Try tapstate locally](/docs/overview/quickstart-online) to run the disposable
-  MySQL-to-MongoDB playground.
 - [Assemble documents with nest](/docs/guides/assemble-documents-with-nest) to
   maintain one MongoDB document from related MySQL tables.
 - Use the [CLI reference](/docs/reference/cli) and

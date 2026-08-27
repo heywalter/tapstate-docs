@@ -3,12 +3,12 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const releaseVersion = '0.2.1';
+const releaseVersion = '0.3.0';
 const releaseTag = `v${releaseVersion}`;
 const productDir = process.env.TAPSTATE_PRODUCT_DIR;
 const installPath = new URL('../content/docs/overview/install.mdx', import.meta.url);
-const quickstartPath = new URL('../content/docs/overview/quickstart-online.mdx', import.meta.url);
-const releasePath = new URL('../content/docs/releases/v0.2.1.mdx', import.meta.url);
+const quickstartPath = new URL('../content/docs/overview/quickstart.mdx', import.meta.url);
+const releasePath = new URL('../content/docs/releases/v0.3.0.mdx', import.meta.url);
 const install = await readFile(installPath, 'utf8');
 const quickstart = await readFile(quickstartPath, 'utf8');
 const release = await readFile(releasePath, 'utf8');
@@ -36,26 +36,10 @@ const expectedDocs = [
     release,
     `https://github.com/tapstate/tapstate/releases/tag/${releaseTag}`,
   ],
-  [
-    'Quickstart connector preview assets',
-    quickstart,
-    'https://github.com/tapstate/tapstate/releases/tag/connectors-preview',
-  ],
-  [
-    'release connector preview assets',
-    release,
-    'https://github.com/tapstate/tapstate/releases/tag/connectors-preview',
-  ],
-  [
-    'Quickstart pinned server image',
-    quickstart,
-    `ghcr.io/tapstate/tapstate:${releaseVersion}`,
-  ],
-  [
-    'release pinned server image',
-    release,
-    `ghcr.io/tapstate/tapstate:${releaseVersion}`,
-  ],
+  ['Quickstart release version', quickstart, `v${releaseVersion}`],
+  ['Quickstart MySQL source', quickstart, 'MySQL'],
+  ['Quickstart PostgreSQL source', quickstart, 'PostgreSQL'],
+  ['Quickstart managed view', quickstart, 'views.order_state'],
 ];
 
 for (const [label, source, expected] of expectedDocs) {

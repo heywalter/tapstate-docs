@@ -15,7 +15,7 @@ import { McpConnectionFlow } from '@/components/mdx';
 
 MCP (Model Context Protocol) lets an AI desktop app, editor, or agent call
 selected tapstate control-plane operations through a standard tool interface.
-In `v0.2.1`, tapstate provides a local MCP gateway in the complete CLI bundle.
+In `v0.3.0`, tapstate provides a local MCP gateway in the complete CLI bundle.
 
 The gateway is an optional integration. It does not install or start a tapstate
 server, provide a web UI, or expose an MCP HTTP endpoint from the server.
@@ -36,9 +36,9 @@ This means the CLI and the server have separate responsibilities:
 - The **MCP gateway** does not replace the server or the server's authorization
   checks.
 
-The current `v0.2.1` server-backed path is provided by the disposable Docker
-playground. This release does not include a standalone server installer. See
-[Try tapstate locally](/docs/overview/quickstart-online) when you need a local
+The current `v0.3.0` server-backed path is provided by the disposable Docker
+Quickstart. This release does not include a standalone server installer. Run the
+[Quickstart](/docs/overview/quickstart) when you need a local
 server to test the integration.
 
 ## Requirements
@@ -51,7 +51,7 @@ Before configuring an MCP host, make sure that:
 2. A tapstate server is already running and reachable from the gateway.
 3. You have administrator credentials to create a scoped machine token, or an
    existing machine token with the scope required by the tools you plan to use.
-4. The `v0.2.1` bundle's sidecar is `tapstate-mcp.jar`, so Java 21 or newer is
+4. The `v0.3.0` bundle's sidecar is `tapstate-mcp.jar`, so Java 21 or newer is
    required for this release. The native CLI's offline commands do not require
    Java.
 
@@ -310,4 +310,4 @@ host from completing the MCP handshake.
 - [Install the CLI](/docs/overview/install)
 - [CLI reference](/docs/reference/cli)
 - [REST API preview](/docs/reference/rest-api)
-- [Try tapstate locally](/docs/overview/quickstart-online)
+- [Quickstart](/docs/overview/quickstart)

@@ -82,11 +82,11 @@ export function ProductOverviewHero() {
             Build and maintain live operational state.
           </h1>
           <p className="mb-0 mt-5 max-w-3xl text-pretty text-base leading-8 text-fd-muted-foreground md:text-lg">
-            Tapstate is an open-source unified operational data engine in preview. It builds and maintains live operational state—an Operational State Layer—for applications, APIs, automation, and AI agents. The v0.2.1 local playground explores a MySQL-to-MongoDB snapshot and CDC workflow.
+            Tapstate is an open-source unified operational data engine in preview. It builds and maintains live operational state—an Operational State Layer—for applications, APIs, automation, and AI agents. The Quickstart assembles MySQL orders and PostgreSQL shipments into a MongoDB document, then keeps it current with CDC.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <Link href="/docs/overview/quickstart-online" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-fd-primary px-4 text-sm font-semibold text-fd-primary-foreground no-underline transition-colors hover:bg-fd-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
-              Try tapstate locally
+            <Link href="/docs/overview/quickstart" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-fd-primary px-4 text-sm font-semibold text-fd-primary-foreground no-underline transition-colors hover:bg-fd-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
+              Run the quickstart
               <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
             <Link href="/docs/connectors" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-fd-border bg-fd-background px-4 text-sm font-semibold text-fd-foreground no-underline transition-colors hover:border-fd-primary/30 hover:bg-fd-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
@@ -155,7 +155,7 @@ export function PreviewArchitecture() {
     <figure className="not-prose my-8 overflow-hidden rounded-2xl border border-fd-border bg-fd-card shadow-sm shadow-black/[0.03] dark:shadow-none">
       <figcaption className="border-b border-fd-border px-5 py-4">
         <p className="m-0 text-sm font-semibold text-fd-foreground">Current preview architecture</p>
-        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">One runnable, single-node MySQL-to-MongoDB path in the local playground.</p>
+        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">A runnable, single-node path that assembles MySQL and PostgreSQL changes into MongoDB state.</p>
       </figcaption>
       <section aria-label="Current preview control and data paths" className="grid gap-2 rounded-xl border border-fd-border bg-fd-muted/20 p-4 sm:grid-cols-[minmax(0,1fr)_2rem_minmax(17rem,1.25fr)_2rem_minmax(0,1fr)] sm:grid-rows-[auto_auto_auto_auto_auto_auto_auto] sm:gap-x-2 sm:gap-y-2 sm:p-5">
         <p className="order-1 mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary sm:col-start-1 sm:row-start-1 sm:mb-0">Control path</p>
@@ -173,7 +173,7 @@ export function PreviewArchitecture() {
         </div>
         <p className="order-6 mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary sm:col-start-1 sm:row-start-6 sm:mb-0 sm:self-start">Data path</p>
         <div className="order-7 sm:col-start-1 sm:row-start-7">
-          <WorkflowNode title="MySQL" description="Initial snapshot and later CDC." icon={Database} />
+          <WorkflowNode title="MySQL + PostgreSQL" description="Independent initial snapshots and later CDC." icon={Database} />
         </div>
         <div className="order-8 sm:col-start-2 sm:row-start-7">
           <WorkflowArrow />
@@ -185,7 +185,7 @@ export function PreviewArchitecture() {
           <WorkflowArrow />
         </div>
         <div className="order-11 sm:col-start-5 sm:row-start-7">
-          <WorkflowNode title="MongoDB" description="Managed state store for the declared view." icon={Layers3} />
+          <WorkflowNode title="Managed MongoDB state" description="The Quickstart materializes its view here." icon={Layers3} />
         </div>
       </section>
     </figure>
@@ -370,6 +370,127 @@ function WorkflowVerticalArrow({ label }: { label: string }) {
       <span>{label}</span>
       <ArrowRight aria-hidden="true" className="size-4 rotate-90" />
     </span>
+  );
+}
+
+function QuickstartFlowArrow({ label, delays = [0] }: { label: string; delays?: number[] }) {
+  return (
+    <span className="flex shrink-0 flex-col items-center justify-center gap-1 py-1 text-center text-[0.65rem] font-medium text-fd-muted-foreground lg:px-1">
+      <span>{label}</span>
+      <span aria-hidden="true" className="relative flex h-9 w-8 items-center justify-center lg:h-8 lg:w-12">
+        <span className="absolute h-full w-px bg-fd-border lg:h-px lg:w-full" />
+        {delays.map((delay) => (
+          <span key={delay} className="quickstart-flow-pulse absolute size-2 rounded-full bg-fd-primary shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-fd-primary)_16%,transparent)]" style={{ animationDelay: `${delay}ms` }} />
+        ))}
+        <ArrowRight className="absolute bottom-[-0.2rem] size-4 rotate-90 text-fd-primary lg:bottom-auto lg:right-[-0.2rem] lg:rotate-0" />
+      </span>
+    </span>
+  );
+}
+
+function QuickstartEventCard({
+  source,
+  table,
+  rows,
+}: {
+  source: string;
+  table: string;
+  rows: Array<Array<[string, string]>>;
+}) {
+  return (
+    <div className="rounded-lg border border-fd-border bg-fd-background p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Database aria-hidden="true" className="size-3.5 text-fd-primary" />
+          <p className="m-0 text-xs font-semibold text-fd-foreground">{source}</p>
+        </div>
+        <code className="rounded bg-fd-muted px-1.5 py-0.5 text-[0.6rem] text-fd-muted-foreground">{table}</code>
+      </div>
+      <div className="mt-2.5 overflow-x-auto rounded-md border border-fd-border/70 bg-fd-muted/35 px-2.5 py-2 font-mono">
+        <p className="m-0 whitespace-nowrap text-[0.52rem] uppercase tracking-[0.04em] text-fd-muted-foreground">
+          {rows[0].map(([field]) => field).join(' · ')}
+        </p>
+        {rows.map((row, rowIndex) => (
+          <p key={rowIndex} className="quickstart-source-row m-0 mt-1 whitespace-nowrap rounded px-1 py-0.5 text-[0.6rem] font-medium text-fd-foreground" style={{ animationDelay: `${rowIndex * 500}ms` }}>
+            {row.map(([, value]) => value).join(' · ')}
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Shows the concrete data path started by the v0.3.0 Quickstart. */
+export function QuickstartDataFlow() {
+  return (
+    <figure className="not-prose my-8 overflow-hidden rounded-2xl border border-fd-border bg-fd-card shadow-sm shadow-black/[0.03] dark:shadow-none">
+      <figcaption className="border-b border-fd-border px-5 py-4">
+        <p className="m-0 text-sm font-semibold text-fd-foreground">From two databases to one current order</p>
+        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">Real playground values; the complete document appears in the verification step below.</p>
+      </figcaption>
+      <div className="grid gap-2 p-3 sm:p-4 lg:grid-cols-[minmax(0,1.08fr)_3rem_minmax(0,0.82fr)_3rem_minmax(0,1.22fr)] lg:items-stretch">
+        <section aria-label="Source database records" className="grid content-start gap-2 rounded-xl border border-fd-border bg-fd-muted/20 p-2.5">
+          <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-fd-primary">Source records</p>
+          <QuickstartEventCard
+            source="MySQL"
+            table="orders"
+            rows={[[['id', '1'], ['customer', 'alice'], ['amount', '10.00']]]}
+          />
+          <QuickstartEventCard
+            source="PostgreSQL"
+            table="shipments"
+            rows={[
+              [['id', '1'], ['order_id', '1'], ['carrier', 'dhl'], ['status', 'delivered']],
+              [['id', '2'], ['order_id', '1'], ['carrier', 'ups'], ['status', 'in_transit']],
+            ]}
+          />
+        </section>
+        <QuickstartFlowArrow label="Snapshot + CDC" delays={[0, 650]} />
+        <section className="quickstart-engine-node relative grid content-center overflow-hidden rounded-xl border border-fd-primary/25 bg-fd-primary/[0.065] p-3.5">
+          <div className="relative flex items-start gap-3">
+            <span className="flex size-8 items-center justify-center rounded-lg border border-fd-primary/25 bg-fd-background text-fd-primary shadow-sm">
+              <Server aria-hidden="true" className="size-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="m-0 text-sm font-semibold text-fd-foreground">Single-node server</p>
+              <p className="mb-0 mt-0.5 text-[0.65rem] font-semibold text-fd-primary">Capture &amp; transform</p>
+            </div>
+          </div>
+          <div className="quickstart-nest-stage relative mt-3 rounded-lg border border-fd-primary/25 bg-fd-background/80 px-2.5 py-2.5 text-center">
+            <p className="m-0 text-[0.65rem] font-semibold text-fd-primary">nest</p>
+            <code className="mt-2 block text-[0.58rem] leading-4 text-fd-muted-foreground">shipments.order_id<br /><span aria-hidden="true">↓</span><span className="sr-only"> matches </span><br />orders.id</code>
+          </div>
+        </section>
+        <QuickstartFlowArrow label="Materialize" delays={[2200]} />
+        <section className="quickstart-state-node rounded-xl border border-fd-primary/25 bg-fd-primary/[0.065] p-3.5">
+          <div className="flex items-center gap-2">
+            <Layers3 aria-hidden="true" className="size-4 text-fd-primary" />
+            <div>
+              <p className="m-0 text-sm font-semibold text-fd-foreground">views.order_state</p>
+              <p className="mb-0 mt-0.5 text-[0.65rem] font-semibold text-fd-primary">Managed MongoDB state</p>
+            </div>
+          </div>
+          <div className="mt-3 rounded-lg border border-fd-border bg-fd-background/85 p-3 text-[0.62rem] leading-4">
+            <div className="grid grid-cols-3 gap-2 border-b border-fd-border pb-2 font-mono">
+              <p className="m-0"><span className="block text-[0.5rem] uppercase text-fd-muted-foreground">id</span><span className="font-semibold text-fd-foreground">1</span></p>
+              <p className="m-0"><span className="block text-[0.5rem] uppercase text-fd-muted-foreground">customer</span><span className="font-semibold text-fd-foreground">alice</span></p>
+              <p className="m-0"><span className="block text-[0.5rem] uppercase text-fd-muted-foreground">amount</span><span className="font-semibold text-fd-foreground">10.00</span></p>
+            </div>
+            <div className="quickstart-state-update mt-2 rounded px-1.5 py-1">
+              <p className="m-0 font-semibold text-fd-foreground">shipments <span className="font-normal text-fd-muted-foreground">· 2</span></p>
+              <p className="m-0 mt-1 font-mono text-fd-muted-foreground">#1 · dhl · delivered</p>
+              <p className="m-0 font-mono text-fd-muted-foreground">#2 · ups · in_transit</p>
+            </div>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[0.58rem]">
+            <span className="text-fd-muted-foreground">Read with</span>
+            <Link href="/docs/reference/cli#read-data-from-a-declared-source" className="rounded-full border border-fd-border bg-fd-background px-2 py-0.5 font-semibold text-fd-foreground no-underline hover:border-fd-primary/35">CLI</Link>
+            <Link href="/docs/reference/rest-api#read-data-through-a-declared-source" className="rounded-full border border-fd-border bg-fd-background px-2 py-0.5 font-semibold text-fd-foreground no-underline hover:border-fd-primary/35">REST</Link>
+            <Link href="/docs/reference/mcp#tools" className="rounded-full border border-fd-primary/25 bg-fd-primary/[0.08] px-2 py-0.5 font-semibold text-fd-primary no-underline hover:border-fd-primary/45">MCP · AI agents</Link>
+          </div>
+        </section>
+      </div>
+    </figure>
   );
 }
 
@@ -723,16 +844,9 @@ export function ConnectorDirectoryMatrix() {
     {
       status: 'current' as const,
       title: 'Current connector path',
-      description: 'Connector roles published for the current MySQL-to-MongoDB operational-state path.',
+      description: 'Connector roles published for the current MySQL- and PostgreSQL-to-MongoDB operational-state path.',
       icon: CircleCheck,
       iconClassName: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-300',
-    },
-    {
-      status: 'roadmap' as const,
-      title: 'Roadmap',
-      description: 'Planned connector directions without a committed release date. These rows are not current product contracts.',
-      icon: RadioTower,
-      iconClassName: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/45 dark:text-cyan-300',
     },
   ];
 
@@ -830,6 +944,7 @@ export function getMDXComponents(components?: MDXComponents) {
     PreviewArchitecture,
     TapStateArchitecture,
     DataPathComparison,
+    QuickstartDataFlow,
     CliServerWorkflow,
     McpConnectionFlow,
     ConnectorProfile,

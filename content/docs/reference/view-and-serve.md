@@ -16,6 +16,17 @@ A `view` materializes pipeline output into tapstate's managed state store. A
 `serve` surface delivers output to systems outside tapstate. A pipeline can use
 either one or both; declaring a view does not require a serve block.
 
+## Current preview boundary
+
+The `v0.3.0` Quickstart uses an inline `view` to materialize MySQL and
+PostgreSQL data in the managed store. `serve.sync` delivers pipeline output to
+an external target and can coexist with a view.
+
+The v1 Schema also accepts `serve.query` and `serve.push`. They are
+declaration shapes, not executable surfaces in the current preview. Use the
+CLI, REST API, or MCP for bounded state inspection; those read surfaces are not
+a stable application-facing data API.
+
 ## `kind: view`
 
 ```yaml title="view/customer-state.tap.yml"
@@ -50,7 +61,11 @@ materializes the warm database layer. The Schema also describes `hot` and
 
 ## `kind: serve`
 
-```yaml title="serve/customer-outputs.tap.yml"
+The following resource shows the v1 Schema shape. In the current preview, use
+the `sync` block for external delivery; do not use `query` or `push` to
+configure a live endpoint or delivery path.
+
+```yaml title="serve/customer-outputs.tap.yml" structure-only
 version: tapstate/v1
 kind: serve
 id: customer-outputs
@@ -89,6 +104,17 @@ Each element requires a target connection ID in `source` and can include:
 - target table rename rules;
 - connector-owned `options`.
 
+#### Choose a write mode
+
+`upsert` is the default. It requires every selected source table to have a
+primary key in its discovered schema so tapstate can identify updates and
+deletes. A unique index does not satisfy this check, and a key declared only on
+the target does not replace the source key.
+
+Use `append` only for insert-only delivery. It does not apply source updates or
+deletes as keyed changes. Although the v1 grammar accepts `tables[].pk`, the
+current runtime does not use that field as a primary-key override.
+
 #### Rename target tables
 
 `rename` changes the target table or collection name without changing the
@@ -115,21 +141,12 @@ An exact entry in `map` has priority. For every other table, tapstate applies
 
 ### `query`
 
-Each element requires `type`: `rest`, `graphql`, or `mcp`. `backend` can name a
-`sync` element that provides the query backend.
+The Schema accepts `type`: `rest`, `graphql`, or `mcp`. Its optional `backend`
+field can name a `sync` element. The current preview does not execute
+`serve.query`; use the read surfaces described above for inspection.
 
 ### `push`
 
-Each element requires a target connection ID in `source` and can include `id`,
-`topic`, `format`, and connector-owned `options`.
-
-## Runtime boundary
-
-These shapes come from the v1 Schema. The released preview's local playground
-declares an inline `view` for MySQL to MongoDB; the rows are written to the
-managed state store without a serve block. A separate `serve.sync` can deliver
-the output selected by `serve.from` to an external target, and both outputs can
-coexist.
-Reusable view and serve references are resolved before the runtime builds the
-pipeline. Schema acceptance alone does not prove that query endpoints or push
-delivery are executable in the current public preview.
+The Schema accepts a target connection ID in `source` and can include `id`,
+`topic`, `format`, and connector-owned `options`. The current preview does not
+execute `serve.push`.

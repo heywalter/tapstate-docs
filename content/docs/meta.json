@@ -2,9 +2,10 @@
   "title": "Tapstate docs",
   "pages": [
     "[What is tapstate?](/docs/overview/what-is-tapstate)",
-    "[Install the CLI](/docs/overview/install)",
-    "[Local playground](/docs/overview/quickstart-online)",
     "[Quickstart](/docs/overview/quickstart)",
+    "[Explore the order-state demo](/docs/overview/order-state-demo)",
+    "[Install the CLI](/docs/overview/install)",
+    "[Create your own workspace](/docs/overview/create-workspace)",
     "concepts",
     "connectors",
     "guides",
