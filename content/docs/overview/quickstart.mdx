@@ -128,27 +128,36 @@ For the published seed data, the first query returns this business shape
 The order fields come from MySQL, while the `shipments` array comes from
 PostgreSQL. You have now completed the shortest runnable tapstate path.
 
-## Stop or remove the playground
+## Next steps
 
-From the `tapstate-demo` directory, stop the containers without deleting their
-data:
+- [Explore the order-state demo](/docs/overview/order-state-demo) to change both source databases and watch the document stay current.
+- [Install the CLI](/docs/overview/install) when you want `tapstate` available outside the playground.
+- [Create your own workspace](/docs/overview/create-workspace) to author and validate resources for systems your tapstate environment can reach.
+- Use [Troubleshooting](/docs/guides/troubleshooting) if the success line or assembled document does not appear.
+
+## Keep, stop, or remove the playground
+
+Keep the playground running while you explore the order-state demo or prepare
+a workspace for your own [MySQL](/docs/connectors/mysql) or
+[PostgreSQL](/docs/connectors/postgresql) source. Confirm that the tapstate
+server can reach the database before applying it. This remains a disposable
+evaluation environment; use sample or non-sensitive data only.
+
+To pause it and preserve the sample data for later, run this from
+`tapstate-demo`:
 
 ```bash
 docker compose stop
 ```
 
-To remove the playground's container data and start clean next time:
+Resume the same environment later with `docker compose start`.
+
+When you no longer need the playground, remove its container data and start
+clean next time:
 
 ```bash
 docker compose down -v
 ```
 
-The second command permanently removes the sample MySQL, PostgreSQL, and
-MongoDB volumes. It does not remove the files or downloaded images.
-
-## Next steps
-
-- [Explore the order-state demo](/docs/overview/order-state-demo) to change both source databases and watch the document stay current.
-- [Install the CLI](/docs/overview/install) when you want `tapstate` available outside the playground.
-- [Create your own workspace](/docs/overview/create-workspace) to author and validate your own resources.
-- Use [Troubleshooting](/docs/guides/troubleshooting) if the success line or assembled document does not appear.
+This permanently removes the sample MySQL, PostgreSQL, and MongoDB volumes. It
+does not remove the files or downloaded images.

@@ -188,11 +188,11 @@ Enter the password stored in the local `.env` file. Do not paste it into a shell
 
 ### A rerun reports an illegal lifecycle transition
 
-The script preserves generated assets and may encounter a pipeline that is already running after a partial or completed attempt. Inspect `status` first. For a clean local reset:
+The script preserves generated assets and may encounter a pipeline that is already running after a partial or completed attempt. Inspect `status` first. For a clean local reset, remain in `tapstate-demo` and run:
 
 ```bash
 docker compose down -v
-sh quickstart.sh
+curl -fsSL https://install.tapstate.dev | sh
 ```
 
 `down -v` permanently removes the Quickstart's local MySQL, PostgreSQL, and

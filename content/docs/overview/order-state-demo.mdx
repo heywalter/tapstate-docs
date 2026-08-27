@@ -95,6 +95,7 @@ docker compose exec mysql mysql -uroot -psecret appdb \
 Wait for the customer field to change without losing the shipment array:
 
 ```bash
+uri='mongodb://mongo:27017/views?directConnection=true'
 i=0
 until docker compose exec -T mongo mongosh --quiet "$uri" \
   --eval 'quit(db.order_state.findOne({id:1})?.customer=="alicia" ? 0 : 1)'; do
@@ -124,6 +125,7 @@ docker compose exec postgres psql -U postgres -d appdb \
 Wait until the `shipments` array returns to two elements:
 
 ```bash
+uri='mongodb://mongo:27017/views?directConnection=true'
 i=0
 until docker compose exec -T mongo mongosh --quiet "$uri" \
   --eval 'quit((db.order_state.findOne({id:1})?.shipments?.length ?? 0) <= 2 ? 0 : 1)'; do
@@ -149,11 +151,12 @@ metrics order_pipeline
 logs order_pipeline
 ```
 
-To reset every sample database and rerun the quickstart:
+To reset every sample database and rerun the Quickstart, remain in
+`tapstate-demo` and run:
 
 ```bash
 docker compose down -v
-sh quickstart.sh
+curl -fsSL https://install.tapstate.dev | sh
 ```
 
 The managed MongoDB instance is part of this disposable playground. It runs
