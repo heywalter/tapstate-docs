@@ -29,6 +29,28 @@ are written to standard error. With `-o json` or `-o yaml`, the structured
 result, including validation diagnostics, is written to standard output.
 Preserve both streams and the exit code when collecting evidence.
 
+### CLI and server versions differ
+
+The CLI and server are separate builds. When `connect` reaches a server on a
+different version, the CLI reports `cli.version-mismatch` and keeps the
+connection open. Run the following command in the same session to confirm both
+values:
+
+```text
+version
+```
+
+Install the CLI version that matches the server, or connect to a server on the
+CLI version. If their contracts differ, the server decides which operations it
+accepts. Do not treat a successful connection as proof that every command is
+compatible.
+
+Text-mode coded CLI diagnostics include the CLI version and the server version
+captured when the connection was made. Offline diagnostics say `server not
+connected`; an older server that does not report a version appears as `server
+not reported`. Structured JSON and YAML results keep their documented shape;
+collect `tapstate version` separately when reporting one.
+
 ## Identify the failing layer
 
 | Layer | Typical evidence | What it can establish |
@@ -286,7 +308,7 @@ For CDC that stops or falls behind:
 
 Before escalating, collect:
 
-- tapstate version and deployment type;
+- output from `tapstate version` and the deployment type;
 - connector ID, role, and mode;
 - redacted resource files;
 - exact command and exit code;

@@ -26,8 +26,35 @@ Unauthenticated endpoints:
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/healthz` | Process liveness only; returns `ok`. |
+| `GET` | `/version` | Report the server release and its versioned contracts. |
 | `POST` | `/auth/bootstrap` | Create the first administrator from loopback, once. |
 | `POST` | `/auth/login` | Exchange username/password for a session token. |
+
+### Read the server version
+
+`GET /version` is available before authentication so a client can identify the
+server before it logs in or reasons about supported operations:
+
+```bash
+curl -sS http://127.0.0.1:8080/version
+```
+
+```json
+{
+  "version": "<server-version>",
+  "dslVersions": [],
+  "dataVersion": null
+}
+```
+
+`version` identifies the server release. `dslVersions` is reserved for the
+authoring grammar versions the server accepts, and `dataVersion` is reserved
+for the schema version of its system data. The current response keeps the
+reserved fields present even when they have no value; do not treat an empty
+list or `null` as a missing field.
+
+Use `/healthz` only for process liveness. It returns `ok` and does not identify
+the running build.
 
 Every `/api/**` endpoint requires:
 

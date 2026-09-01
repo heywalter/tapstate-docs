@@ -208,9 +208,12 @@ After reloading the host:
 
 1. Confirm that the `tapstate` MCP entry starts without a handshake or
    authentication error.
-2. Confirm that the client's available MCP tools include `connector_list`.
-3. Ask the host to list the connectors visible to tapstate. A successful call
-   verifies the local process, MCP handshake, server URL, and machine token.
+2. Confirm that the client's available MCP tools include `system_version` and
+   `connector_list`.
+3. Ask the host to call `system_version`. It identifies the server before the
+   agent reasons about supported operations.
+4. Ask the host to call `connector_list`. A successful call verifies the local
+   process, MCP handshake, server URL, and machine token.
 
 If a tool call returns `isError: true`, the MCP layer is reporting a failed tool
 call. The failure can come from the local gateway, an unreachable server, or a
@@ -226,6 +229,7 @@ By default, the gateway exposes read-only tools:
 
 | MCP tool | Purpose |
 |---|---|
+| `system_version` | Report the server release, accepted DSL versions, and system-data schema version. |
 | `artifact_validate` | Validate a complete `tapstate/v1` workspace without writing it. |
 | `artifact_get` | Read one applied resource and its content hash. |
 | `source_draft` | Render canonical YAML for a source from its live connector contract. |
