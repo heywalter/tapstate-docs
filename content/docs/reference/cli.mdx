@@ -31,8 +31,39 @@ inspect a command without connecting to a server.
 | `-c`, `--connect <url>` | Connect to a server before opening a session or running a one-shot command. |
 | `-u`, `--user <name>` | Log in as this user during launch when `-c` is also supplied. Without `-c`, the CLI stays in an offline session. |
 | `-p`, `--password <password>` | Supply the password inline. Prefer `TAPSTATE_PASSWORD` or the prompt because command-line values are visible in shell history and process listings. |
-| `--version` | Print the CLI version and exit. |
+| `--version` | Print only the installed CLI version and exit. Use `tapstate version` to report both the CLI and server versions. |
 | `--help` | Print top-level help and exit. |
+
+## Report CLI and server versions
+
+The CLI and server are installed separately and can run different builds. Use
+`tapstate version` when you need the complete version pair for troubleshooting
+or compatibility checks:
+
+```console
+$ tapstate version
+cli    <cli-version>
+server not connected
+```
+
+The command works without a server. After you connect, run `version` in the
+same session to read the server's current value:
+
+```console
+tapstate(127.0.0.1:8080)> version
+cli    <cli-version>
+server <server-version> (127.0.0.1:8080)
+```
+
+`tapstate --version` is different: it reports only the local executable and
+does not contact a server.
+
+When `connect` finds different CLI and server versions, it reports
+`cli.version-mismatch` but keeps the connection open. Install the CLI version
+that matches the server, or connect to a server on the CLI version. If their
+contracts differ, the server decides which operations it accepts. A server
+that does not expose its version is reported as `not reported`; the CLI does
+not assume that the versions match.
 
 Running `tapstate` without a subcommand starts the REPL. A global work directory can be supplied before the session starts:
 
@@ -183,6 +214,7 @@ REPL session commands:
 | `disconnect` | Leave the current server. |
 | `login <username>` | Authenticate to the selected server. |
 | `logout` | End the authenticated session. |
+| `version` | Report the CLI version and the connected server version. |
 | `cd <dir>` | Change the REPL workspace directory. |
 | `pwd` | Print the current workspace directory. |
 | `exit`, `quit` | End the session. |
