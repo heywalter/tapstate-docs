@@ -29,6 +29,7 @@ inspect a command without connecting to a server.
 |---|---|
 | `-w`, `--workdir <dir>` | Select the workspace for an interactive session. For an offline one-shot command, place this option after the command. The default is `tap-work`, or `$TAPSTATE_WORKDIR` when set. |
 | `-c`, `--connect <url>` | Connect to a server before opening a session or running a one-shot command. |
+| `--context <name>` | Select a saved server context for connected commands. Use `tapstate context` or `:ctx` to create and manage contexts. |
 | `-u`, `--user <name>` | Log in as this user during launch when `-c` is also supplied. Without `-c`, the CLI stays in an offline session. |
 | `-p`, `--password <password>` | Supply the password inline. Prefer `TAPSTATE_PASSWORD` or the prompt because command-line values are visible in shell history and process listings. |
 | `--version` | Print only the installed CLI version and exit. Use `tapstate version` to report both the CLI and server versions. |
@@ -205,6 +206,30 @@ Password:
 
 The password prompt masks its input. `connect` selects the server; `login` creates the authenticated session used by later commands.
 
+### Save a server context and session
+
+For repeat work against the same server, run `tapstate context` in an interactive
+terminal. The context manager can create, choose, edit, bind, unbind, or delete
+a named context. A context holds its server URL and TLS-verification choice; you
+can bind it to the current workspace when you create it.
+
+Inside a REPL, run `:ctx` (or `context`) to open the same manager. Select a
+saved context at launch with `--context`:
+
+```bash
+tapstate --context local-dev -w work
+```
+
+After `auth login <username>` succeeds for a saved context, the CLI can resume
+its cached session when it next uses that context. Run `auth status` to confirm
+the signed-in user. Run `auth logout` to revoke the remote session and remove
+the local cache, or `auth logout --local-only` to remove only the local cache.
+The latter leaves the remote session valid until it expires.
+
+Use a saved context for an interactive user session. A context does not turn a
+machine token into a saved credential, and a one-shot command that supplies
+`--token` remains scoped to that process.
+
 REPL session commands:
 
 | Command | Purpose |
@@ -214,6 +239,10 @@ REPL session commands:
 | `disconnect` | Leave the current server. |
 | `login <username>` | Authenticate to the selected server. |
 | `logout` | End the authenticated session. |
+| `:ctx`, `context` | Manage saved server contexts. |
+| `auth login <username>` | Sign in and save a session for the selected context. |
+| `auth status` | Report whether the selected context has a usable saved session. |
+| `auth logout [--local-only]` | Revoke and remove the saved session, or remove only its local cache. |
 | `version` | Report the CLI version and the connected server version. |
 | `cd <dir>` | Change the REPL workspace directory. |
 | `pwd` | Print the current workspace directory. |

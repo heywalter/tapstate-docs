@@ -28,7 +28,7 @@ Unauthenticated endpoints:
 | `GET` | `/healthz` | Process liveness only; returns `ok`. |
 | `GET` | `/version` | Report the server release and its versioned contracts. |
 | `POST` | `/auth/bootstrap` | Create the first administrator from loopback, once. |
-| `POST` | `/auth/login` | Exchange username/password for a session token. |
+| `POST` | `/auth/login` | Exchange username/password for a short-lived bearer token; it can also create a revocable user session. |
 
 ### Read the server version
 
@@ -63,6 +63,41 @@ Authorization: Bearer <token>
 ```
 
 See [Bootstrap and authenticate](/docs/guides/bootstrap-and-auth) for the request sequence.
+
+### Create and use a user session
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/auth/session` | Exchange a saved user session for a fresh bearer token. |
+| `POST` | `/auth/logout` | Revoke a saved user session. |
+
+`POST /auth/login` remains compatible with callers that send only `username`
+and `password`: its `token` is the short-lived bearer credential for `/api/**`.
+Set `createSession` to `true` only when the client needs a revocable user
+session that it can later exchange for fresh bearer credentials:
+
+```json
+{
+  "username": "admin",
+  "password": "<password>",
+  "createSession": true
+}
+```
+
+When requested, the response also includes `sessionToken`,
+`sessionIdleExpiresAt`, and `sessionAbsoluteExpiresAt`. Keep the session token
+secret. It is not a `Bearer` token and must not be sent to `/api/**`.
+
+To obtain a fresh access token, send the session token to `POST /auth/session`:
+
+```http
+Authorization: TapstateSession <sessionToken>
+```
+
+The response has the ordinary access-token fields (`token`, `accessExpiresAt`,
+`issuer`, `principal`, and `scopes`); use its `token` as the `Bearer` value for
+`/api/**`. Send the same `TapstateSession` header to `POST /auth/logout` to
+revoke the session. A successful logout returns HTTP `204`.
 
 ## Artifact endpoints
 
@@ -407,8 +442,9 @@ reporting one.
 
 ## Version boundary
 
-- `v0.3.0` supports both interactive connected sessions and one-shot connected
-  commands seeded with `-c` and `-u`.
+- The preview supports both interactive connected sessions and one-shot connected
+  commands seeded with `-c` and `-u`, plus explicit creation and exchange of a
+  revocable user session.
 - No `v1` API prefix or compatibility guarantee exists yet.
 
 ## Related pages

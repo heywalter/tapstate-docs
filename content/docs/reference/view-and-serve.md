@@ -104,6 +104,16 @@ Each element requires a target connection ID in `source` and can include:
 - target table rename rules;
 - connector-owned `options`.
 
+Before starting a pipeline that uses `serve.sync`, discover the schema for each
+pipeline source. Applying the resources does not perform that discovery. If a
+source schema is missing, the start is refused before data-plane components
+start, the pipeline reaches `FAILED`, and its failure code is
+`actuation.source-schema-not-discovered`.
+
+This is a start precondition for `sync`, not for `view`: a view can still be
+applied and use its own pre-discovery behavior. For a refused sync pipeline,
+discover the missing source schema and then start the pipeline again.
+
 #### Choose a write mode
 
 `upsert` is the default. It requires every selected source table to have a
