@@ -18,7 +18,7 @@ either one or both; declaring a view does not require a serve block.
 
 ## Current preview boundary
 
-The `v0.3.0` Quickstart uses an inline `view` to materialize MySQL and
+The Quickstart uses an inline `view` to materialize MySQL and
 PostgreSQL data in the managed store. `serve.sync` delivers pipeline output to
 an external target and can coexist with a view.
 

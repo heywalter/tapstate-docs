@@ -67,7 +67,7 @@ snapshot orders_to_operational_state
 
 Snapshot progress is per table and can be empty outside an initial-load phase or when the publisher has no progress to report. A missing total must not be interpreted as 0% or 100%.
 
-In `v0.3.0`, use materialized-view counts and representative keyed samples as
+In the current preview, use materialized-view counts and representative keyed samples as
 the primary snapshot proof. An empty `snapshot` result alone does not establish
 success or failure.
 
