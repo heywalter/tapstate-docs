@@ -8,7 +8,7 @@ ai:
 ---
 
 This page describes the state responsibilities of the target architecture. The
-current `v0.3.0` runtime is single-node and in-memory; a restart replays from the
+current preview runtime is single-node and in-memory; a restart replays from the
 source instead of resuming a persisted source offset.
 
 The target design separates three kinds of state: working state used while
@@ -51,7 +51,7 @@ enough for the applicable recovery behavior.
 
 ## Materialized state
 
-Materialized state is the current consumer-facing result. In `v0.3.0`, an
+Materialized state is the current consumer-facing result. In the current preview, an
 inline `view` is written to the deployment's managed MongoDB store. A
 `serve.sync` block is the separate path for delivery to an external target.
 

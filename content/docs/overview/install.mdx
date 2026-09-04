@@ -5,7 +5,7 @@ ai:
   kind: guide
   id: install-tapstate
   maturity: preview
-  aliases: [install tapstate, tapstate CLI download, tapstate v0.3.0]
+  aliases: [install tapstate, tapstate CLI download, tapstate v0.4.1]
 ---
 
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
@@ -25,7 +25,7 @@ Docker playground and does not add `tapstate` to your shell `PATH`.
 
 The CLI can author and validate a local workspace without a server. A tapstate
 server is a separate, headless service that exposes an authenticated control
-plane and runs pipelines; it has no built-in web UI in `v0.3.0`.
+plane and runs pipelines; it has no built-in web UI in the current preview.
 
 <CliServerWorkflow />
 
@@ -92,7 +92,7 @@ The installer:
 It should finish with a message similar to:
 
 ```text
-tapstate 0.3.0 installed to <home>/.tapstate/bin/tapstate
+tapstate 0.4.1 installed to <home>/.tapstate/bin/tapstate
 ```
 
 Add the installation directory to `PATH` if it is not already available:
@@ -113,7 +113,7 @@ Verify the result:
 tapstate --version
 ```
 
-The command should report `tapstate 0.3.0`.
+The command should report `tapstate 0.4.1`.
 
 When the name `tap` is available, the installer also creates it as an optional
 shortcut to `tapstate`. It skips the shortcut instead of replacing an existing
@@ -145,7 +145,7 @@ set `TAPSTATE_VERSION`:
 
 ```bash
 curl -fsSL https://install.tapstate.dev/cli | \
-  TAPSTATE_VERSION=0.3.0 sh
+  TAPSTATE_VERSION=0.4.1 sh
 ```
 
 ### Use a different installation directory
@@ -161,28 +161,28 @@ The selected directory must be on your `PATH` before you can invoke `tapstate` b
 
 ### Install manually
 
-The [v0.3.0 release](https://github.com/tapstate/tapstate/releases/tag/v0.3.0) includes four platform archives, individual `.sha256` files, and a combined `checksums.txt`. Download the archive that matches your system and verify its checksum before extracting it.
+The [v0.4.1 release](https://github.com/tapstate/tapstate/releases/tag/v0.4.1) includes four platform archives, individual `.sha256` files, and a combined `checksums.txt`. Download the archive that matches your system and verify its checksum before extracting it.
 
 For example, on Apple silicon:
 
 ```bash
 curl -fLO \
-  https://github.com/tapstate/tapstate/releases/download/v0.3.0/tapstate-0.3.0-darwin-arm64.tar.gz
+  https://github.com/tapstate/tapstate/releases/download/v0.4.1/tapstate-0.4.1-darwin-arm64.tar.gz
 curl -fLO \
-  https://github.com/tapstate/tapstate/releases/download/v0.3.0/tapstate-0.3.0-darwin-arm64.tar.gz.sha256
+  https://github.com/tapstate/tapstate/releases/download/v0.4.1/tapstate-0.4.1-darwin-arm64.tar.gz.sha256
 
-shasum -a 256 -c tapstate-0.3.0-darwin-arm64.tar.gz.sha256
-tar -xzf tapstate-0.3.0-darwin-arm64.tar.gz
+shasum -a 256 -c tapstate-0.4.1-darwin-arm64.tar.gz.sha256
+tar -xzf tapstate-0.4.1-darwin-arm64.tar.gz
 ```
 
-The archive extracts a complete `tapstate-cli-0.3.0` bundle. Keep its `bin` and
+The archive extracts a complete `tapstate-cli-0.4.1` bundle. Keep its `bin` and
 `libexec` directories together so `tapstate mcp` can find its sidecar.
 
 If macOS blocks a manually downloaded binary after the checksum passes, remove the quarantine attribute and try again:
 
 ```bash
-xattr -d com.apple.quarantine ./tapstate-cli-0.3.0/bin/tapstate
-./tapstate-cli-0.3.0/bin/tapstate --version
+xattr -d com.apple.quarantine ./tapstate-cli-0.4.1/bin/tapstate
+./tapstate-cli-0.4.1/bin/tapstate --version
 ```
 
 ### Update or remove the CLI
@@ -210,4 +210,4 @@ authentication flow and Codex, Claude Code, and generic host examples.
 
 - [Create your own workspace](/docs/overview/create-workspace) using only the installed CLI.
 - If Docker is available, run the [Quickstart](/docs/overview/quickstart), then [explore the order-state demo](/docs/overview/order-state-demo).
-- Review the [v0.3.0 release notes](/docs/releases/v0.3.0) before evaluating the runtime.
+- Review the [v0.4.0 release notes](/docs/releases/v0.4.0) before evaluating the runtime.

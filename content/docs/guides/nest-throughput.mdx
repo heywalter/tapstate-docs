@@ -15,7 +15,7 @@ you expect, not only average rows.
 
 ## Understand the delivery contract
 
-The `v0.3.0` preview uses a 50 ms leading-edge send window for a normal `nest`
+The current preview uses a 50 ms leading-edge send window for a normal `nest`
 root. The first changed document is sent immediately; later changes during that
 window can be folded into the next document write. A quiet document does not
 wait for the window.
