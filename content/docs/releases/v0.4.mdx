@@ -24,21 +24,18 @@ the published CLI archives, individual SHA-256 files, `checksums.txt`, and
 
 ### v0.4.3
 
-- Recover an interrupted download without leaving a corrupt or truncated file
-  behind. The CLI installer and Quickstart script stage downloads in `.part`
-  temporary files, retry interrupted transfers automatically, and resume from
-  an existing partial transfer when rerun. An incomplete transfer is not
-  accepted as a successful setup.
+- Recover interrupted downloads automatically. The CLI installer and Quickstart
+  script now stage downloads in temporary `.part` files and resume partial
+  transfers on retry, preventing incomplete files from corrupting installations.
 
 ### v0.4.2
 
-- The published preview CLI, connector artifacts, and Quickstart stack run
-  from the same release path. The installer serves the matching preview
-  release instead of an older build, and the playground runs a matching
-  server image rather than an earlier release.
-- If a setup or authentication command fails during Quickstart initialization,
-  the script prints the CLI diagnostic and exits immediately rather than
-  falling through to target row-count checks.
+- Align preview components across the Quickstart stack and installer,
+  ensuring the CLI, server image, and connector artifacts run from the same
+  release path.
+- Fail fast during Quickstart initialization. If setup or authentication fails,
+  the script prints CLI diagnostics and exits immediately instead of
+  proceeding to downstream validation.
 
 ### v0.4.1
 
