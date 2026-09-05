@@ -3,18 +3,19 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const cliReleaseVersion = '0.4.1';
+const cliReleaseVersion = '0.4.3';
 const cliReleaseTag = `v${cliReleaseVersion}`;
-const featureReleaseVersion = '0.4.0';
-const featureReleaseTag = `v${featureReleaseVersion}`;
-const quickstartServerVersion = '0.3.0';
+const minorReleaseSeries = 'v0.4';
 const productDir = process.env.TAPSTATE_PRODUCT_DIR;
 const installPath = new URL('../content/docs/overview/install.mdx', import.meta.url);
 const quickstartPath = new URL('../content/docs/overview/quickstart.mdx', import.meta.url);
-const releasePath = new URL('../content/docs/releases/v0.4.0.mdx', import.meta.url);
+const releasePath = new URL('../content/docs/releases/v0.4.mdx', import.meta.url);
+const releasesMetaPath = new URL('../content/docs/releases/meta.json', import.meta.url);
+
 const install = await readFile(installPath, 'utf8');
 const quickstart = await readFile(quickstartPath, 'utf8');
 const release = await readFile(releasePath, 'utf8');
+const releasesMeta = JSON.parse(await readFile(releasesMetaPath, 'utf8'));
 const currentReleaseDocs = `${install}\n${quickstart}\n${release}`;
 const failures = [];
 
@@ -37,10 +38,13 @@ const expectedDocs = [
   [
     'release page',
     release,
-    `https://github.com/tapstate/tapstate/releases/tag/${featureReleaseTag}`,
+    'https://github.com/tapstate/tapstate/releases',
   ],
-  ['Quickstart CLI version', quickstart, `v${cliReleaseVersion}`],
-  ['Quickstart server-image version', quickstart, `v${quickstartServerVersion}`],
+  [
+    'current release assets',
+    release,
+    `https://github.com/tapstate/tapstate/releases/tag/${cliReleaseTag}`,
+  ],
   ['Quickstart MySQL source', quickstart, 'MySQL'],
   ['Quickstart PostgreSQL source', quickstart, 'PostgreSQL'],
   ['Quickstart managed view', quickstart, 'views.order_state'],
@@ -48,6 +52,14 @@ const expectedDocs = [
 
 for (const [label, source, expected] of expectedDocs) {
   if (!source.includes(expected)) failures.push(`${label} is not pinned to ${expected}`);
+}
+
+if (!releasesMeta.pages || releasesMeta.pages[0] !== 'v0.4') {
+  failures.push('Release metadata does not list v0.4 as the current release page');
+}
+
+if (quickstart.includes('v0.4.1') || quickstart.includes("The stack's server image remains pinned to v0.3.0")) {
+  failures.push('Quickstart documentation still contains the obsolete v0.4.1 + v0.3.0 version mismatch description');
 }
 
 if (/raw\.githubusercontent\.com\/tapstate\/tapstate\/main\//.test(currentReleaseDocs)) {
@@ -67,14 +79,26 @@ if (productDir) {
     'utf8',
   );
 
-  if (!compose.includes(`image: ghcr.io/tapstate/tapstate:${quickstartServerVersion}`)) {
-    failures.push(`product Quickstart server image is not pinned to ghcr.io/tapstate/tapstate:${quickstartServerVersion}`);
-  }
   if (!script.includes('/download/connectors-preview')) {
     failures.push('product Quickstart no longer uses the documented connector preview asset path');
   }
-  if (!script.includes(`CLI_VERSION="${quickstartServerVersion}"`)) {
-    failures.push(`product direct Quickstart script CLI pin is not ${quickstartServerVersion}`);
+
+  const composeServerMatch = compose.match(/image:\s+ghcr\.io\/tapstate\/tapstate:(\S+)/);
+  const scriptCliMatch = script.match(/CLI_VERSION="([^"]+)"/);
+
+  if (!composeServerMatch) {
+    failures.push('product Quickstart server image tag could not be found');
+  }
+  if (!scriptCliMatch) {
+    failures.push('product direct Quickstart script CLI pin could not be found');
+  }
+  if (
+    !script.includes('image: ghcr.io/tapstate/tapstate:${CLI_VERSION}') &&
+    composeServerMatch &&
+    scriptCliMatch &&
+    composeServerMatch[1] !== scriptCliMatch[1]
+  ) {
+    failures.push(`product Quickstart CLI pin (${scriptCliMatch[1]}) does not match server image (${composeServerMatch[1]})`);
   }
 }
 
@@ -121,7 +145,7 @@ if (process.env.TAPSTATE_VERIFY_REMOTE_LINKS === '1') {
   }
 
   const urls = [
-    `https://github.com/tapstate/tapstate/releases/tag/${featureReleaseTag}`,
+    `https://github.com/tapstate/tapstate/releases/tag/${cliReleaseTag}`,
     'https://github.com/tapstate/tapstate/releases/tag/connectors-preview',
   ];
 
@@ -145,5 +169,5 @@ if (process.env.TAPSTATE_VERIFY_REMOTE_LINKS === '1') {
 }
 
 console.log(
-  `Release contract passed for CLI ${cliReleaseTag}, feature release ${featureReleaseTag}, and Quickstart server v${quickstartServerVersion}${productDir ? ' with product Quickstart cross-check' : ''}.`,
+  `Release contract passed for CLI ${cliReleaseTag} and minor series ${minorReleaseSeries}${productDir ? ' with product Quickstart cross-check' : ''}.`,
 );
