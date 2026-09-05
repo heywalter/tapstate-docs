@@ -52,9 +52,9 @@ docker compose version
 ```
 
 You do not need to [install the tapstate CLI](/docs/overview/install). The
-script downloads a local `v0.4.1` CLI, the published connector artifacts, and
-the Quickstart stack into a disposable `tapstate-demo` directory. The stack's
-server image remains pinned to `v0.3.0`.
+script downloads the current published preview CLI, connector artifacts, and the
+Quickstart stack into a disposable `tapstate-demo` directory. The published CLI
+and server assets are selected from the same release path.
 
 ## 1. Start the playground
 
@@ -75,6 +75,19 @@ The script starts MySQL, PostgreSQL, MongoDB, and a tapstate server. It then:
 The command can take several minutes the first time while Docker downloads the
 images.
 
+For an unreliable connection, save the script before running it so you can inspect and rerun the same file:
+
+```bash
+mkdir -p tapstate-demo
+cd tapstate-demo
+curl -fL https://install.tapstate.dev -o quickstart.sh
+sh quickstart.sh
+```
+
+The script retries interrupted asset downloads and keeps an incomplete transfer
+as a `.part` file. Run the same command again to resume it. A failed transfer
+does not count as a successful setup.
+
 ## 2. Confirm the result
 
 A successful run ends with this line:
@@ -86,6 +99,8 @@ quickstart: 5 orders from MySQL, each carrying its shipments from PostgreSQL -- 
 Do not treat a healthy container or a `running` pipeline status by itself as
 proof that the data arrived. The order and embedded-shipment counts are the
 quickstart's success condition.
+
+If a setup command fails, the script prints the CLI diagnostic and exits. It does not continue to the snapshot check or report an empty target as success.
 
 ## 3. Inspect one assembled order
 
