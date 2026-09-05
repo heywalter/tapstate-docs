@@ -1,20 +1,38 @@
 ---
-title: v0.2.0
-description: Review the tapstate v0.2.0 preview capabilities, installation assets, and known runtime limitations
+title: v0.2
+description: Review the tapstate v0.2 preview capabilities, nest transforms, playground setup, and known runtime limitations.
 ai:
   kind: reference
-  id: release-v0_2_0
+  id: release-v0_2
   maturity: preview
-  aliases: [tapstate v0.2.0, tapstate release notes, tapstate preview release]
+  aliases: [tapstate v0.2, tapstate v0.2.1, tapstate v0.2.0, tapstate release notes, tapstate preview release]
 ---
 
-Released August 16, 2026 · Preview
+Released August 2026 · Current preview: v0.2.1
 
-`v0.2.0` expands tapstate's authoring and runtime surfaces while remaining a
-non-production preview. See the [GitHub release](https://github.com/tapstate/tapstate/releases/tag/v0.2.0)
-for native CLI bundles, checksums, and measured platform requirements.
+`v0.2` expands tapstate's authoring and runtime surfaces while remaining a
+non-production preview. It adds document assembly with `nest`, discovered
+schema validation, and connected CLI operations. See the
+[GitHub releases](https://github.com/tapstate/tapstate/releases) for native
+CLI bundles, checksums, and release assets.
 
-## Highlights
+## What changed
+
+### v0.2.1
+
+- The local playground creates and discovers the MySQL source before it
+  applies the pipeline that reads its rows. This allows the reference
+  MySQL-to-MongoDB flow to complete its initial snapshot instead of failing
+  before the pipeline is created.
+- `tapstate --version` reports `tapstate 0.2.1`, and the CLI installer defaults
+  to this release.
+- The disposable local playground downloads the `0.2.1` CLI and uses the
+  pinned `ghcr.io/tapstate/tapstate:0.2.1` server image.
+- Declare a `view` as the complete instruction to materialize rows into the
+  managed state store. `serve.sync` remains the separate path for delivery to
+  an external system, and a pipeline can use either or both.
+
+### v0.2.0
 
 - Use [`nest` transforms](/docs/guides/assemble-documents-with-nest) to assemble
   related streams into documents, including explicit [root and child key-change
@@ -35,7 +53,7 @@ for native CLI bundles, checksums, and measured platform requirements.
 
 ## Release components
 
-The local playground uses the pinned `ghcr.io/tapstate/tapstate:0.2.0` server
+The local playground uses the pinned `ghcr.io/tapstate/tapstate:0.2.1` server
 image and the separate
 [MySQL and MongoDB connector preview assets](https://github.com/tapstate/tapstate/releases/tag/connectors-preview).
 The server image and connector artifacts support the disposable reference path;
@@ -50,7 +68,7 @@ Recommended minimums for this build are macOS 15.0 and glibc 2.34.
 
 - The runtime is single-node, keeps runtime state in memory, and is not intended
   for production.
-- The v0.2.0 local playground verifies one end-to-end combination: MySQL initial load
+- The v0.2 local playground verifies one end-to-end combination: MySQL initial load
   plus CDC, an in-flight `map`, and MongoDB materialization.
 - A change that a connector reads is delivered at least once, not exactly once.
 - An insert-only target can receive duplicate rows when the snapshot and CDC
