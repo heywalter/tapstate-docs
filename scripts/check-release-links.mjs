@@ -11,7 +11,6 @@ const installPath = new URL('../content/docs/overview/install.mdx', import.meta.
 const quickstartPath = new URL('../content/docs/overview/quickstart.mdx', import.meta.url);
 const releasePath = new URL('../content/docs/releases/v0.4.mdx', import.meta.url);
 const releasesMetaPath = new URL('../content/docs/releases/meta.json', import.meta.url);
-
 const install = await readFile(installPath, 'utf8');
 const quickstart = await readFile(quickstartPath, 'utf8');
 const release = await readFile(releasePath, 'utf8');

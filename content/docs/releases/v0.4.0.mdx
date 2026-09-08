@@ -1,0 +1,72 @@
+---
+title: v0.4.0
+description: Install the v0.4.0 preview CLI, resume a saved CLI session, and diagnose sync startup before data-plane work begins.
+ai:
+  kind: reference
+  id: release-v0_4_0
+  maturity: preview
+  aliases: [tapstate v0.4.0, tapstate release notes, tapstate preview release]
+---
+
+Released September 1, 2026 · Preview
+
+`v0.4.0` keeps tapstate in its single-node, in-memory preview phase while
+adding a resumable connected CLI workflow and an earlier validation boundary
+for synchronization pipelines. It also makes the running CLI and server
+versions observable before compatibility troubleshooting begins. Use it with
+non-production systems and sample data.
+
+See the [GitHub release](https://github.com/tapstate/tapstate/releases/tag/v0.4.0)
+for the published CLI archives, individual SHA-256 files, `checksums.txt`, and
+`platform-minimums.txt`.
+
+## What changed
+
+- Save a named server context and resume a connected CLI session instead of
+  entering connection details and signing in after every restart. Use
+  [`tapstate context`](/docs/reference/cli#save-a-server-context-and-session)
+  to manage saved contexts, and the [CLI authentication commands](/docs/reference/cli#save-a-server-context-and-session)
+  to inspect or remove a saved session.
+- Before starting a `serve.sync` pipeline, discover the schema for every
+  pipeline source. If a source schema is missing, the start is refused before
+  data-plane components start and the pipeline reports
+  `actuation.source-schema-not-discovered`. This condition applies to sync
+  startup, not to view discovery. See [view and serve](/docs/reference/view-and-serve#sync).
+- Identify the running builds before troubleshooting a connection. Use
+  [`tapstate version`](/docs/reference/cli#report-cli-and-server-versions) for
+  the local CLI and connected server, [`GET /version`](/docs/reference/rest-api#read-the-server-version)
+  before REST authentication, or the MCP [`system_version`](/docs/reference/mcp#tools)
+  tool before an agent reasons about supported operations.
+- The release includes native CLI bundles for macOS and glibc-based Linux on
+  `arm64` and `x64`. The release metadata recommends macOS 15.0 and glibc
+  2.34 or newer; these are warnings from the installer, not compatibility
+  gates. Verify a manually downloaded archive against its `.sha256` file or
+  `checksums.txt` before extracting it.
+
+## Known limitations and issues
+
+This remains a preview rather than a production deployment target. Delivery
+for a change the connector reads is at least once, not exactly once. An
+insert-only target can receive duplicates when snapshot and CDC overlap, and a
+change written while a change stream positions itself around the initial
+snapshot can be missed.
+
+- **In-place upgrades do not resume a pipeline.** After an in-place upgrade,
+  a pipeline can report `RUNNING` without carrying data and cannot start again.
+  Stop it and start it again to reload from the beginning. Track progress in
+  [issue #98](https://github.com/tapstate/tapstate/issues/98).
+- **Purge and reload cannot remove rows deleted while the pipeline was down.**
+  A new full load writes current source rows but has no event for a historical
+  deletion. If retaining delete propagation matters, stop without purging
+  state so the next run resumes from its recorded position. Track progress in
+  [issue #104](https://github.com/tapstate/tapstate/issues/104).
+
+## Get started
+
+- Read the [CLI reference](/docs/reference/cli) for connected sessions and
+  saved contexts.
+- Read [view and serve](/docs/reference/view-and-serve) before starting a
+  synchronization pipeline.
+- Use the [v0.4.0 release assets](https://github.com/tapstate/tapstate/releases/tag/v0.4.0)
+  when you need this exact preview build. The [installation guide](/docs/overview/install)
+  documents the current installer separately.
