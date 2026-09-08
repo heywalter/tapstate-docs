@@ -73,3 +73,8 @@ pnpm build
 ```
 
 For an implementation cross-check, set `TAPSTATE_CATALOG_DIR` to the directory containing the product repository's connector catalog JSON files.
+
+## Git and handoff rules
+
+- **Do not commit or create pull requests automatically**: Keep all changes in the working tree (`git diff`) for user review. Never run `git commit` or open a pull request without explicit user instruction.
+- **Do not create multiple branches or PRs**: Consolidate related changes in the current branch and PR. Do not open multiple branches or split work across multiple PRs unless explicitly instructed.

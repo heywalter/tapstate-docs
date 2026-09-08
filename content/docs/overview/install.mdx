@@ -5,10 +5,11 @@ ai:
   kind: guide
   id: install-tapstate
   maturity: preview
-  aliases: [install tapstate, tapstate CLI download, tapstate v0.4.3]
+  aliases: [install tapstate, tapstate CLI download, tapstate v0.4.5, tapstate v0.4.3]
 ---
 
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
 import { CliServerWorkflow } from '@/components/mdx';
 
 The current preview provides native tapstate CLI archives for macOS and Linux. The CLI installer is separate from the local Docker playground, so choose the path that matches what you want to do.
@@ -77,6 +78,24 @@ curl -fsSL https://install.tapstate.dev/cli | sh
 
 </Tab>
 </Tabs>
+
+The installer sends a one-time anonymous ping on successful installation to help prioritize platform support.
+
+<Accordions>
+<Accordion title="Anonymous telemetry and opt-out">
+
+The event is sent only after unpacking the binary, recording the tapstate version, OS, CPU architecture, and a random installation ID at `$HOME/.tapstate/.installation-id` to avoid duplicate counts. It does not monitor CLI commands, databases, or data pipelines, and never collects IP addresses, usernames, or credentials.
+
+To opt out, set `TAPSTATE_TELEMETRY=off` inline or in your shell environment:
+
+```bash
+curl -fsSL https://install.tapstate.dev/cli | TAPSTATE_TELEMETRY=off sh
+```
+
+When disabled, the installer sends no network requests and creates no local ID file.
+
+</Accordion>
+</Accordions>
 
 The `/cli` endpoint returns the installer script. The script may fetch the
 release's `platform-minimums.txt` to print a platform notice, then downloads the

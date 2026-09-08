@@ -5,10 +5,10 @@ ai:
   kind: reference
   id: release-v0_4
   maturity: preview
-  aliases: [tapstate v0.4, tapstate v0.4.3, tapstate v0.4.2, tapstate v0.4.1, tapstate v0.4.0, tapstate release notes, tapstate preview release]
+  aliases: [tapstate v0.4, tapstate v0.4.5, tapstate v0.4.4, tapstate v0.4.3, tapstate v0.4.2, tapstate v0.4.1, tapstate v0.4.0, tapstate release notes, tapstate preview release]
 ---
 
-Released September 2026 · Current preview: v0.4.3
+Released September 2026 · Current preview: v0.4.5
 
 `v0.4` keeps tapstate in its single-node, in-memory preview phase while adding a
 resumable connected CLI workflow, earlier validation boundaries for
@@ -21,6 +21,23 @@ the published CLI archives, individual SHA-256 files, `checksums.txt`, and
 `platform-minimums.txt`.
 
 ## What changed
+
+### v0.4.5
+
+- Report structured diagnostics for rejected issuer discovery. When a CLI
+  connects to an older server that does not serve `/.well-known/tapstate`, it
+  reports `cli.issuer-discovery-rejected` with the target seed and failure reason
+  instead of failing unhandled.
+
+### v0.4.4
+
+- Disclose installation telemetry and provide an opt-out. The CLI installer
+  notifies users on standard error before downloading and supports
+  `TAPSTATE_TELEMETRY=off` to suppress reporting and local ID generation.
+- Support pointed-at document nesting and explicit row keys. `nest` transforms
+  can embed shared rows with automatic direction inference and single-copy
+  storage, allow explicit row identity via `embed.key`, and report unambiguous
+  diagnostics for ambiguous keys or fanout limits.
 
 ### v0.4.3
 

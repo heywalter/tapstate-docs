@@ -45,6 +45,17 @@ CLI version. If their contracts differ, the server decides which operations it
 accepts. Do not treat a successful connection as proof that every command is
 compatible.
 
+If the CLI attempts anonymous issuer discovery against an older server that does
+not serve `/.well-known/tapstate` (such as a server on v0.3.0), the CLI reports
+`cli.issuer-discovery-rejected`. The diagnostic output includes:
+
+- `seed`: The server endpoint URL contacted during discovery.
+- `reason`: The rejection response or HTTP error status returned by the server.
+
+To resolve `cli.issuer-discovery-rejected`, upgrade the tapstate server to a
+release that supports issuer discovery, or use a CLI version matching the older
+server.
+
 Text-mode coded CLI diagnostics include the CLI version and the server version
 captured when the connection was made. Offline diagnostics say `server not
 connected`; an older server that does not report a version appears as `server

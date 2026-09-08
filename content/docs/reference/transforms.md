@@ -127,6 +127,7 @@ scripts with representative insert, update, delete, and non-row events.
   from:
     customers: customers
     orders: orders
+    tiers: customer_tiers
   type: nest
   primary_key: customer_id
   root:
@@ -142,6 +143,12 @@ scripts with representative insert, update, delete, and non-row events.
         path: orders
         arrayKey: [order_id]
         trackKeyChanges: true
+      - from: tiers
+        on:
+          tier_id: tier_id
+        as: object
+        path: tier
+        key: [tier_id]
 ```
 
 `nest` assembles related streams into documents and keeps them updated as source
@@ -150,6 +157,39 @@ such as a MySQL root table and a PostgreSQL child table. Set `trackKeyChanges: t
 when its root key changes. Set it on a child to move embedded data when its array
 key, parent key, or child-pointer key changes. Both forms require the source
 connector to provide a before image.
+
+### Embed configuration and pointed-at relationships
+
+Each `embed` block attaches an auxiliary stream to the document:
+
+- `key`: An array of strings (`string[]`) that explicitly identifies a row in
+  the embedded stream. When omitted, `nest` defaults to the stream's declared
+  primary key. If the stream declares no key and has multiple unique indexes,
+  `nest` refuses the configuration with `nest.key-ambiguous`.
+- **Relationship direction (`on`)**: `nest` infers join direction from the `on`
+  mapping by checking which side matches the stream's row identity. When the
+  parent record holds a foreign key pointing to the child's identity key, it
+  forms a *pointed-at* relationship (parent points to a shared child row).
+- **Pointed-at row lifecycle**:
+  - **Shared storage**: A row referenced by multiple parent documents is stored
+    once in state and shared across them.
+  - **Unblocking arrival**: Documents waiting for a referenced row do not block;
+    they emit without the embedded slice and update once the referenced row arrives.
+  - **Deletion**: When a referenced row is deleted, it is removed from all
+    documents pointing to it.
+  - **Repointing**: Updating a parent's pointer unbinds the old referenced row
+    and attaches the new one.
+
+### Nest diagnostics
+
+The engine validates nest topologies and enforces bounds at runtime:
+
+- `nest.key-ambiguous`: The embed declares no `key`, and the source table has no
+  primary key but multiple candidate unique indexes. Provide `key: [...]` explicitly.
+- `nest.reference-fanout-limit-exceeded`: More documents point to a single
+  referenced row than the configured fanout capacity limit permits.
+- `nest.referenced-level-carries-embeds`: A pointed-at referenced level itself
+  declares nested `embed` definitions.
 
 ### Related guides
 
