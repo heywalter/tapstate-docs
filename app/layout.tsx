@@ -21,12 +21,14 @@ export const metadata: Metadata = {
     : { index: false, follow: false, nocache: true },
 };
 
+const gaId = process.env.NEXT_PUBLIC_GA_ID;
+
 export default function Layout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className={inter.className} suppressHydrationWarning>
       <body className="flex flex-col min-h-screen">
         <Provider>{children}</Provider>
-        <GoogleAnalytics gaId="G-242QS3Z8KP" />
+        {gaId ? <GoogleAnalytics gaId={gaId} /> : null}
       </body>
     </html>
   );

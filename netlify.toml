@@ -10,6 +10,7 @@
 
 [context.production.environment]
   TAPSTATE_SITE_INDEXABLE = "false"
+  NEXT_PUBLIC_GA_ID = "G-242QS3Z8KP"
 
 [context.deploy-preview]
   command = "TAPSTATE_SITE_URL=\"$DEPLOY_URL\" pnpm build"
