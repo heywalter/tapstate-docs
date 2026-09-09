@@ -1,4 +1,5 @@
 import { Inter } from 'next/font/google';
+import { GoogleAnalytics } from '@next/third-parties/google';
 import { Provider } from '@/components/provider';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
@@ -25,6 +26,7 @@ export default function Layout({ children }: { children: ReactNode }) {
     <html lang="en" className={inter.className} suppressHydrationWarning>
       <body className="flex flex-col min-h-screen">
         <Provider>{children}</Provider>
+        <GoogleAnalytics gaId="G-242QS3Z8KP" />
       </body>
     </html>
   );
