@@ -9,7 +9,7 @@
   command = "TAPSTATE_SITE_URL=https://tapstate.dev pnpm build"
 
 [context.production.environment]
-  TAPSTATE_SITE_INDEXABLE = "false"
+  TAPSTATE_SITE_INDEXABLE = "true"
   NEXT_PUBLIC_GA_ID = "G-242QS3Z8KP"
 
 [context.deploy-preview]
