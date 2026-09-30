@@ -1,0 +1,149 @@
+---
+title: Configure a cluster
+description: Configure tapstate members, verify their topology, and understand recovery limits
+ai:
+  kind: guide
+  id: cluster
+  maturity: preview
+  aliases: [tapstate cluster, member discovery, cluster recovery]
+---
+
+Cluster mode is opt-in. By default, tapstate runs as one member, with discovery
+disabled and the member protocol bound to `127.0.0.1`.
+
+<Aside type="note" title="Preview status">
+  Tapstate v0.6 is an evaluation preview. The `production-ha` profile enforces
+  a strict majority, but does not make this release production-ready.
+</Aside>
+
+## Before you begin
+
+Every member needs:
+
+- at least 4 GiB of JVM heap, with additional capacity for the workload;
+- access to the same MongoDB replica set and deployment databases;
+- access to the sources and targets it may process;
+- the same cluster ID and JWT signing secret;
+- a stable, unique node ID and a reachable control-plane URL;
+- an explicit discovery mode and a routable local IP for the member protocol.
+
+The member protocol has **no authentication or TLS**. Restrict its port to a
+private network or an equivalent network policy. Its default port is `5701`;
+it is not the HTTP address that browsers or API clients use.
+
+## Choose a profile
+
+| Profile | bootstrap-min-members | Behavior |
+|---|---:|---|
+| `single` | Ignored (discovery disabled) | Default single-member path. |
+| `process-failure-only` | Exactly `2` | Two-member process-loss experiments; no network-partition safety. |
+| `production-ha` | At least `3` | Pipeline work requires a strict majority of the committed members. |
+
+When `profile: production-ha` is selected, the bootstrap threshold defaults to `3`.
+If you choose `process-failure-only`, explicitly set `bootstrap-min-members: 2`;
+otherwise startup is refused with `boot.cluster-profile-invalid`. Under `profile: single`,
+the threshold is ignored and discovery remains disabled.
+
+## Configure members
+
+Provide these server properties in your server deployment configuration (such as
+Spring Boot's `application.yml`, mounted configuration files, or corresponding
+environment variables prefixed with `TAPSTATE_`). This example uses explicit TCP/IP
+discovery for three hosts:
+
+```yaml title="Member configuration"
+tapstate:
+  cluster:
+    id: evaluation-cluster
+    node-id: member-a
+    profile: production-ha
+    bootstrap-min-members: 3
+  control:
+    advertise-url: http://10.0.0.11:8080
+    auth:
+      jwt-secret: ${TAPSTATE_CLUSTER_JWT_SECRET}
+  hz:
+    bind-address: 10.0.0.11
+    member-port: 5701
+    discovery:
+      mode: tcp-ip
+      tcp-ip:
+        seeds:
+          - 10.0.0.11:5701
+          - 10.0.0.12:5701
+          - 10.0.0.13:5701
+```
+
+Replace the example addresses with your private network addresses. Keep the
+MongoDB replica-set configuration from your deployment. Supply the same signing
+secret to all members through protected configuration.
+
+For members B and C, change `node-id`, `bind-address`, and `advertise-url` to
+those members' values. `bind-address` must be an IP on the member's host, not a
+hostname, loopback address, or `0.0.0.0`. Each advertised control URL must be an
+absolute HTTP or HTTPS URL reachable by clients and other members. Use HTTPS
+for control traffic that crosses an untrusted network.
+
+The alternative `kubernetes` discovery mode uses Kubernetes discovery settings.
+Multicast and automatic discovery remain disabled. Behind address translation,
+`tapstate.hz.advertised-member-address` tells peers where to reach the member
+protocol; it does not replace `tapstate.control.advertise-url`.
+
+## Start and verify
+
+1. Start the configured members. Review each startup log for an invalid profile,
+   address, duplicate node ID, or coordination-store error.
+2. Wait until the profile's bootstrap threshold is met. Discovery alone does not
+   authorize a member to run pipeline work.
+3. Sign in through a healthy member's control URL or a load balancer in front of
+   the control URLs.
+4. Read `GET /api/cluster/members` to verify membership and the pipeline
+   placement included in its `pipelines` array. This read requires
+   authentication; see [REST API](/docs/reference/rest-api#cluster-topology).
+5. Start a test pipeline and verify its target records and subsequent changes.
+
+An unavailable topology read returns a coded refusal. An empty or stale view is
+not evidence that the cluster is healthy. Logs remain a bounded tail from the
+node serving the request; they are not an aggregated cluster log.
+
+## Understand recovery
+
+One member owns the CDC capture shared by compatible pipelines. Each pipeline
+still has its own initial load and consumption progress. All members need
+source access so that another member can take over a capture.
+
+Recovery waits for membership detection and ownership leases. With the default
+settings, heartbeats run every 5 seconds, missing-heartbeat detection is 30
+seconds, and node-session and workload leases are renewed every 10 seconds
+with a 30-second lifetime. These are separate timers, not a failover SLA.
+
+A pipeline that had already failed on its own is not automatically rebuilt just
+because a member restarts. Inspect its original failure before restarting it.
+
+### Losing a majority
+
+The committed member set grows when members join; it does not shrink when a
+member stops answering. A four-member cluster split two-to-two refuses work
+on both sides.
+
+<Aside type="caution" title="If a majority is permanently lost">
+  This release provides no administrative command to remove decommissioned
+  members from the committed quorum set. Bring replacement members online with
+  the exact `node-id` values from that set. A replacement waits for the previous
+  session's lease to expire before rejoining the quorum.
+</Aside>
+
+### Delivery and capacity
+
+Member recovery does not provide exactly-once delivery or remove the source
+positioning limits in the [release notes](/docs/releases/v0.6#known-limits-and-issues).
+Verify target data after a recovery.
+
+Adding members does not divide the minimum heap requirement. Size each member
+for the state it owns and any copies it holds for another member.
+
+## Related pages
+
+- [State and storage](/docs/concepts/storage)
+- [Upgrade to v0.6](/docs/guides/upgrade-to-v0-6)
+- [Observe a pipeline](/docs/guides/observe-a-pipeline)

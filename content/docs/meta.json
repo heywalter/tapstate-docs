@@ -1,16 +1,20 @@
 {
   "title": "Tapstate docs",
   "pages": [
+    "---Get started---",
     "[What is tapstate?](/docs/overview/what-is-tapstate)",
     "[Quickstart](/docs/overview/quickstart)",
     "[Explore the order-state demo](/docs/overview/order-state-demo)",
-    "[Install the CLI](/docs/overview/install)",
-    "[Create your own workspace](/docs/overview/create-workspace)",
+    "---Build and operate---",
     "concepts",
     "connectors",
     "guides",
+    "---Developers and AI---",
+    "[Install the CLI](/docs/overview/install)",
+    "[Create your own workspace](/docs/overview/create-workspace)",
     "reference",
-    "releases",
-    "for-ai"
+    "for-ai",
+    "---Releases---",
+    "releases"
   ]
 }

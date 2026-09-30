@@ -4,10 +4,11 @@
     "what-is-tapstate",
     "quickstart",
     "order-state-demo",
-    "install",
-    "create-workspace",
     "use-cases",
     "architecture",
-    "vs-streaming-stack"
+    "vs-streaming-stack",
+    "---Developers and AI---",
+    "install",
+    "create-workspace"
   ]
 }

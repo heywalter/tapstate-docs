@@ -102,7 +102,11 @@ Use all three evidence types:
 2. `metrics` and `logs` show active work without unresolved errors;
 3. source and destination queries show the expected snapshot and later insert, update, and delete behavior.
 
-The preview is single-node and does not persist a resumable runtime offset across a server restart. A process restart can replay from the source even when pause/resume worked within the running deployment.
+The server retains recovery positions and durable operator state. A restart can
+resume from a retained position and replay records; it does not provide
+exactly-once delivery. Snapshot-only reads may restart their load. Retaining a
+checkpoint is safe only while its corresponding operator state is also retained.
+See [State and storage](/docs/concepts/storage) and [Configure a cluster](/docs/guides/cluster).
 
 ## Next steps
 

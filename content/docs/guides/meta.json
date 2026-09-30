@@ -3,10 +3,13 @@
   "pages": [
     "---Set up and run---",
     "bootstrap-and-auth",
+    "upgrade-to-v0-6",
+    "cluster",
     "register-connectors",
     "apply-and-run",
     "---Document assembly---",
     "assemble-documents-with-nest",
+    "move-nest-state",
     "nest-structural-key-changes",
     "nest-throughput",
     "---Operate and troubleshoot---",

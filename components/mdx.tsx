@@ -155,7 +155,7 @@ export function PreviewArchitecture() {
     <figure className="not-prose my-8 overflow-hidden rounded-2xl border border-fd-border bg-fd-card shadow-sm shadow-black/[0.03] dark:shadow-none">
       <figcaption className="border-b border-fd-border px-5 py-4">
         <p className="m-0 text-sm font-semibold text-fd-foreground">Current preview architecture</p>
-        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">A runnable, single-node path that assembles MySQL and PostgreSQL changes into MongoDB state.</p>
+        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">The playground assembles MySQL and PostgreSQL changes into MongoDB state.</p>
       </figcaption>
       <section aria-label="Current preview control and data paths" className="grid gap-2 rounded-xl border border-fd-border bg-fd-muted/20 p-4 sm:grid-cols-[minmax(0,1fr)_2rem_minmax(17rem,1.25fr)_2rem_minmax(0,1fr)] sm:grid-rows-[auto_auto_auto_auto_auto_auto_auto] sm:gap-x-2 sm:gap-y-2 sm:p-5">
         <p className="order-1 mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary sm:col-start-1 sm:row-start-1 sm:mb-0">Control path</p>
@@ -166,7 +166,7 @@ export function PreviewArchitecture() {
           <WorkflowVerticalArrow label="validate / apply" />
         </div>
         <div className="order-4 sm:col-start-3 sm:row-start-4">
-          <WorkflowNode title="tapstate CLI" description="Offline authoring and authenticated control requests." icon={TerminalSquare} accent />
+          <WorkflowNode title="Web application" description="Inspect sources, pipelines, monitoring, and logs." icon={Layers3} accent />
         </div>
         <div className="order-5 sm:col-start-3 sm:row-start-5">
           <WorkflowVerticalArrow label="Submit (HTTP)" />
@@ -483,7 +483,7 @@ export function QuickstartDataFlow() {
             </div>
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[0.58rem]">
-            <span className="text-fd-muted-foreground">Read with</span>
+            <span className="text-fd-muted-foreground">Developer access</span>
             <Link href="/docs/reference/cli#read-data-from-a-declared-source" className="rounded-full border border-fd-border bg-fd-background px-2 py-0.5 font-semibold text-fd-foreground no-underline hover:border-fd-primary/35">CLI</Link>
             <Link href="/docs/reference/rest-api#read-data-through-a-declared-source" className="rounded-full border border-fd-border bg-fd-background px-2 py-0.5 font-semibold text-fd-foreground no-underline hover:border-fd-primary/35">REST</Link>
             <Link href="/docs/reference/mcp#tools" className="rounded-full border border-fd-primary/25 bg-fd-primary/[0.08] px-2 py-0.5 font-semibold text-fd-primary no-underline hover:border-fd-primary/45">MCP · AI agents</Link>

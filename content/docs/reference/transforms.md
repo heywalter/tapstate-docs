@@ -92,6 +92,18 @@ CEL without loss may still pass through unchanged, but cannot participate in a
 computed expression. See [Troubleshooting](/docs/guides/troubleshooting#row-expression-schema-and-type-errors)
 for the corresponding diagnostic codes.
 
+### Decimal columns and null values
+
+A direct column expression such as `moved: "=after.amount"` preserves the
+source decimal's precision and scale. This also applies to direct `before`
+column references. It does not extend to every computed decimal expression:
+in v0.6.0, a conditional between decimal columns can pass apply and fail at the
+first target write.
+
+Outer joins can supply null dimension values. Use expressions that handle null
+explicitly. An operation that cannot accept null fails with
+`transform.expression-failed`; it is not a target-connector write failure.
+
 ## `js`
 
 ```yaml
@@ -113,6 +125,18 @@ only row data). Connector converted value provenance metadata is preserved
 across unmutated field slots; writing a new value to a slot discards that slot's
 source provenance. Test scripts with representative insert, update, delete, and
 non-row events.
+
+### Decimal values in JavaScript
+
+JavaScript reads decimal columns as double-precision numbers, so arithmetic and
+comparisons work but can round values. An untouched field retains its original
+value and type information; assigning or copying a number uses JavaScript
+numeric precision.
+
+Reading a decimal that overflows to infinity or underflows from nonzero to zero
+fails with `transform.script-decimal-out-of-range`. This range check does not
+reject every loss of decimal precision. Keep exact values unchanged when you
+do not need to calculate with them.
 
 ## `union`
 
@@ -188,6 +212,47 @@ Each `embed` block attaches an auxiliary stream to the document:
     the update is refused with `nest.reference-tracking-requires-before-image`.
 
 
+### Flat embeds
+
+Use `as: flat` when one related row should contribute fields directly to the
+parent, without an object or array wrapper:
+
+```yaml
+- from: invoice
+  on: { invoice_order_id: id }
+  as: flat
+  key: [invoice_row_id]
+```
+
+For example, parent `{ "id": 1 }` and child
+`{ "invoice_row_id": 7, "invoice_order_id": 1, "total": 10 }` produce
+`{ "id": 1, "invoice_row_id": 7, "invoice_order_id": 1, "total": 10 }`.
+A later map step can drop the internal invoice keys.
+
+- Omit both `path` and `arrayKey` for a flat embed.
+- Use stable, distinct `from` aliases when multiple flat embeds read the same stream.
+- One-to-one and many-to-one relationships are supported. A second live child
+  matching the same parent stops the run with `nest.flat-cardinality-violation`.
+  Use `as: array` for one-to-many relationships.
+- Fields must not collide with the parent, sibling fields, or nested paths.
+  A collision returns `nest.flat-field-conflict`; declaration order does not
+  choose a winner. Rename or drop conflicting fields upstream while preserving
+  the keys needed by Nest.
+
+Removed child fields are removed from the output on update or delete. That
+field history is durable, including across a server restart.
+
+### Durable state placement
+
+Set `state.database` on the Nest step to select its state database on the
+existing MongoDB connection. The default is the deployment's
+`tapstate.store.mongo.operator-state-database` (`tapstate_nest` when unset).
+See [Move Nest state](/docs/guides/move-nest-state) before changing an existing
+Nest's placement.
+
+Nest can run with `snapshot_only`; this mode does not provide a CDC resume
+position and can reread the source after restart.
+
 ### Nest diagnostics
 
 The engine validates nest topologies and enforces bounds at runtime:
@@ -258,6 +323,22 @@ logic to initial snapshot loads and continuous change-data capture.
 | `ON` conditions | Conjunctions (`AND`) of qualified column equalities; composite keys are supported. |
 | Projection | Direct column references, column aliases, and supported per-row scalar expressions. |
 | Unsupported | `FULL OUTER`, `CROSS`, `NATURAL`, non-equality joins (`<`, `>`, `!=`), `WHERE`, `DISTINCT`, `GROUP BY`, `HAVING`, aggregates, window functions (`OVER`), subqueries, `ORDER BY`, `LIMIT`. |
+
+### Join input restrictions
+
+Each alias in a Join's `from` mapping must resolve to one physical source
+table. It cannot refer to a previous transform step or a table pattern, even
+when that pattern currently matches one table.
+
+Validate/apply reject these inputs with `dsl.join-input-not-a-table` or
+`dsl.join-input-is-a-pattern`. An older stored definition can be refused at
+start with `actuation.join-input-not-a-table`. SQL whose columns cannot be
+resolved fails startup with `actuation.join-sql-invalid` instead of repeatedly
+remaining `NEW`.
+
+Keep every dimension unique on its complete join key. A duplicate key replaces
+the earlier match; the engine does not enforce dimension uniqueness or fan out
+one fact into multiple output rows.
 
 ### Join diagnostics
 

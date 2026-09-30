@@ -7,11 +7,8 @@ ai:
   aliases: [tapstate storage, operational state, checkpoints, materialized state]
 ---
 
-This page describes the state responsibilities of the target architecture. The
-current preview runtime is single-node and in-memory; a restart replays from the
-source instead of resuming a persisted source offset.
-
-The target design separates three kinds of state: working state used while
+A pipeline needs more than its latest output. Tapstate separates three kinds
+of state: working state used while
 records are processed, recovery state needed after an interruption, and
 materialized state read by downstream consumers.
 
@@ -36,7 +33,7 @@ The data plane needs short-lived state for active processing, buffering, routing
 
 ## Recovery state
 
-Target durable recovery state includes:
+Durable recovery state includes:
 
 - connector positions, offsets, or checkpoints;
 - pipeline identity and canonical configuration;
@@ -44,10 +41,20 @@ Target durable recovery state includes:
 - schema and mapping state;
 - ownership information needed to prevent conflicting execution.
 
-Recovery semantics should answer whether a restart resumes, replays, skips, or
-redelivers records. In the current preview the answer is replay; persisted
-offset resume remains a target capability. Connector retention must be long
-enough for the applicable recovery behavior.
+The control store retains pipeline definitions and recovery positions. Compatible
+pipelines can share one capture while retaining independent consumer positions
+and initial-load boundaries. A restart can resume from retained positions, but
+records may be replayed. Snapshot-only reads have no CDC continuation position.
+
+Keep source logs long enough for recovery. Delivery remains at-least-once for
+changes read by the connector; the snapshot-to-stream positioning window can
+still miss changes. See [v0.6 limits](/docs/releases/v0.6#known-limits-and-issues).
+
+The default operator-state database is `tapstate_nest`, configured with
+`tapstate.store.mongo.operator-state-database`. A Nest can override it with
+`state.database` on the same MongoDB connection. Changing either setting does
+not copy existing state. Follow [Move Nest state](/docs/guides/move-nest-state)
+when moving a running workload.
 
 ## Materialized state
 

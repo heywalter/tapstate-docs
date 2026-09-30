@@ -10,14 +10,15 @@ ai:
 
 The preview server exposes an HTTP control plane. This API exists only
 after a separate tapstate server is running; installing the CLI does not start
-the server or expose an HTTP port. The server is headless and has no built-in
-web UI in this release.
+the server or expose an HTTP port. The v0.6 server image includes the web
+application at the server's root URL.
 
 The API has no stable OpenAPI publication or versioned URL namespace yet; pin
 the tapstate release and treat request and response compatibility as
 prerelease.
 
-Prefer the CLI for interactive use. Use the REST surface when building a controlled integration that can handle authentication, coded errors, synchronous connector operations, and contract changes.
+Use the web application for interactive work. Use REST for integrations that
+handle authentication, coded errors, and contract changes.
 
 ## Base URLs and authentication
 
@@ -25,8 +26,10 @@ Unauthenticated endpoints:
 
 | Method | Path | Purpose |
 |---|---|---|
-| `GET` | `/healthz` | Process liveness only; returns `ok`. |
+| `GET` | `/healthz` | Process/engine liveness: `200 ok`, or `503 broken` after engine loss. |
 | `GET` | `/version` | Report the server release and its versioned contracts. |
+| `GET` | `/.well-known/tapstate` | Read issuer, cluster identity, API version, and authentication modes before presenting a cached credential. |
+| `GET` | `/connector-icons/{id}` | Read icon bytes for a registered connector; returns 404 if unavailable. |
 | `POST` | `/auth/bootstrap` | Create the first administrator from loopback, once. |
 | `POST` | `/auth/login` | Exchange username/password for a short-lived bearer token; it can also create a revocable user session. |
 
@@ -41,20 +44,20 @@ curl -sS http://127.0.0.1:8080/version
 
 ```json
 {
-  "version": "<server-version>",
-  "dslVersions": [],
-  "dataVersion": null
+  "version": "0.6.0",
+  "dslVersions": ["tapstate/v1"],
+  "dataVersion": 11
 }
 ```
 
-`version` identifies the server release. `dslVersions` is reserved for the
-authoring grammar versions the server accepts, and `dataVersion` is reserved
-for the schema version of its system data. The current response keeps the
-reserved fields present even when they have no value; do not treat an empty
-list or `null` as a missing field.
+`version` identifies the server release. `dslVersions` lists the accepted
+authoring grammars, and `dataVersion` identifies the control-store schema.
+The example shows v0.6.0 after its startup migrations. Use the reported values
+when checking an upgrade; installing a newer CLI does not change them.
 
-Use `/healthz` only for process liveness. It returns `ok` and does not identify
-the running build.
+Use `/healthz` for process/engine liveness. An engine lost to out-of-memory
+returns `503` with `broken`. A `200` response does not verify source, target, or
+MongoDB health and does not identify the running build.
 
 Every `/api/**` endpoint requires:
 
@@ -146,6 +149,11 @@ Apply request:
 
 The server reparses the YAML and returns one `CREATED`, `UPDATED`, or `UNCHANGED` outcome per draft.
 
+The validate endpoint returns a validation report. HTTP `200` can contain
+`valid: false` and entries in `diagnostics`; check `valid` before treating the
+workspace as accepted. For example, a v0.6 View that still includes `schema`
+reports `dsl.unknown-field` in that list.
+
 Apply can return `dsl.upsert-needs-key` after source discovery. Its `params`
 identify the affected `source`, `table`, and resource `path`. Select a source
 table with a discovered primary key, or use `append` only for insert-only
@@ -158,6 +166,7 @@ current runtime check.
 |---|---|---|
 | `POST` | `/api/connectors:register` | Register a base64-encoded connector JAR. |
 | `GET` | `/api/connectors` | List the bundled and registered online catalog. |
+| `GET` | `/api/connectors/{id}/icon` | Read the registered connector icon, or 404 if unavailable. |
 | `GET` | `/api/connectors/{id}` | Read one connector's normalized fields and capabilities. |
 | `POST` | `/api/connections:test` | Run and store a connector connection test synchronously. |
 | `GET` | `/api/connections/{id}/test-result` | Read the latest stored test report. |
@@ -405,6 +414,8 @@ Create or replace complete pipeline resource definitions:
 
 | Method | Path | Purpose |
 |---|---|---|
+| `GET` | `/api/pipelines` | List structured pipeline views; accepts optional `offset` and `limit`. |
+| `GET` | `/api/pipelines/{id}` | Read one structured pipeline view and its `ETag`. |
 | `POST` | `/api/pipelines` | Create a pipeline resource. Returns `201 Created` with `ETag`. |
 | `PUT` | `/api/pipelines/{id}` | Replace a pipeline definition. Requires optimistic concurrency control with `If-Match`. |
 
@@ -431,7 +442,7 @@ Position document shape:
       "sourceId": "orders_source",
       "tables": ["orders"],
       "resumeFrom": {
-        "token": "mysql-bin.000004:154"
+        "token": "<opaque-resume-token>"
       },
       "recordedAt": "2026-09-17T03:00:00Z",
       "targetAcked": null,
@@ -465,6 +476,8 @@ Position document shape:
 |---|---|---|
 | `GET` | `/api/pipelines/{id}/status` | Store-backed observed lifecycle state |
 | `GET` | `/api/pipelines/{id}/metrics` | Open metric map and optional `perTableOffset` |
+| `GET` | `/api/pipelines/{id}/metrics/history` | Bounded output-rate and selected-table lag history |
+| `GET` | `/api/pipelines/{id}/explain` | Explanation derived from current observation evidence |
 | `GET` | `/api/pipelines/{id}/snapshot` | Per-table initial-load progress when available |
 | `GET` | `/api/pipelines/{id}/logs` | Bounded node-local log tail |
 
@@ -482,11 +495,71 @@ WebSocket endpoints:
 
 The WebSocket handshake uses the same bearer header. It returns HTTP `401` or `403` instead of upgrading when authentication or authorization fails.
 
-Cluster endpoint:
+### Pipeline history
+
+`GET /api/pipelines/{id}/metrics/history` accepts:
+
+| Parameter | Required | Contract |
+|---|---|---|
+| `from` | Yes | Inclusive RFC3339 timestamp with a UTC offset. |
+| `to` | Yes | Exclusive RFC3339 timestamp with a UTC offset; later than `from`, at most 15 days apart. |
+| `resolution` | No | `auto` (default), `raw`, `PT5M`, `PT30M`, `PT1H`, `PT3H`, or `PT6H`. |
+| `limit` | No | Page point budget, 1–1000; default 240. |
+| `table` | No | Repeat for each table whose lag is needed; at most 20. Omit for output rates only. |
+| `cursor` | No | Opaque `nextCursor` from the preceding page of the same query. |
+
+For example, with a bearer token held in `TAPSTATE_TOKEN`:
+
+```bash
+curl --fail-with-body --get "$TAPSTATE_SERVER/api/pipelines/orders/metrics/history" \
+  -H "Authorization: Bearer $TAPSTATE_TOKEN" \
+  --data-urlencode 'from=2026-09-29T01:00:00Z' \
+  --data-urlencode 'to=2026-09-29T02:00:00Z' \
+  --data-urlencode 'resolution=PT5M' \
+  --data-urlencode 'table=orders' \
+  --data-urlencode 'table=shipments'
+```
+
+Set `TAPSTATE_SERVER` to your server's HTTP or HTTPS base URL. Use a range
+containing your pipeline run.
+
+The response includes the requested and effective ranges, `retentionCutoff`,
+`effectiveResolution`, `status`, `consistency`, `segments`, `gaps`,
+`unavailable`, and nullable `nextCursor`. Rates describe target-confirmed
+records and bytes. Table lag is the age of the last acknowledgement. Do not
+turn gaps, counter resets, or unavailable values into zeroes.
+
+`NO_RETAINED_SAMPLES` can be a successful empty result. Samples default to a
+60-second interval and 15-day retention. Pagination is `EVENTUAL`: it is not
+a frozen audit snapshot. To continue, repeat all query parameters unchanged
+and add `cursor`. A signed cursor lasts 10 minutes; `nextCursor: null` ends
+the walk.
+
+| Code | HTTP | Response |
+|---|---:|---|
+| `control.malformed-request` | 400 | Correct the time range, resolution, or limit. |
+| `monitor.invalid-cursor` | 400 | Repeat the original query with its cursor, or start a new query. |
+| `monitor.cursor-expired` | 410 | Start a new query without the expired cursor. |
+| `monitor.query-budget-exceeded` | 400 | Reduce the range or selected tables; a request can scan at most 25,000 raw samples. |
+
+### Pipeline explanations
+
+`GET /api/pipelines/{id}/explain` interprets the current observation. It does
+not run a new pipeline or inspect every target row. `NO_MATCH` means no
+explanation rule matched. Missing observations return
+`monitor.no-observation`; see [Observe a pipeline](/docs/guides/observe-a-pipeline).
+
+### Cluster topology
 
 | Method | Path | Boundary |
 |---|---|---|
-| `GET` | `/api/cluster/members` | Present but returns HTTP `501` in the current preview |
+| `GET` | `/api/cluster/members` | Authenticated cluster membership and pipeline placement read |
+
+The response contains `clusterId`, nullable `topologyRevision`, `members`,
+and `pipelines`. Pipeline placement is included in this response; there is no
+separate pipeline topology endpoint. A missing revision means unknown, not
+revision zero. A refused read is not an empty healthy cluster. See
+[Configure a cluster](/docs/guides/cluster).
 
 ## Error responses
 

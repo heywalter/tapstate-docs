@@ -162,7 +162,13 @@ patterns, even if a YAML parser happens to accept the input form.
 
 ## Compatibility rules
 
-- Unknown top-level fields are rejected.
+- Unknown top-level fields are rejected. Views no longer accept `schema:` in
+  v0.6; remove the block from local resources before applying them.
+- A Nest accepts `state.database` for durable state placement and `as: flat`
+  for an embed without a wrapper. See [Transform reference](/docs/reference/transforms#nest)
+  for cardinality, field collisions, and migration requirements.
+- Each Join alias must resolve to one physical table, not a transform step or
+  table pattern. See [Join input restrictions](/docs/reference/transforms#join-input-restrictions).
 - Connector-owned `config`, `options`, and `experimental` maps can accept
   extension fields.
 - `experimental` fields do not carry the v1 compatibility guarantee.

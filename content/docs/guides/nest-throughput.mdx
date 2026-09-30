@@ -67,7 +67,8 @@ tree. When an assembled document can grow without a practical bound, split the
 consumer model or use a different materialization shape. Increasing a memory
 budget cannot make an oversized document safe to assemble or store.
 
-The preview is single-node and does not publish a production throughput SLO.
+The preview does not publish a production throughput SLO. Cluster operation
+does not remove per-member memory requirements; see [Configure a cluster](/docs/guides/cluster).
 Treat measured capacity as deployment-specific and repeat these tests after
 changing the source schema, document shape, target indexes, or server version.
 

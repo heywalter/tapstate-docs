@@ -28,6 +28,7 @@ yarn-error.log*
 # local runtime validation (may contain credentials, URLs, raw responses, and reports)
 /.tapstate-validation/
 /scripts/private/
+/scripts/runtime-validation/
 /scripts/validate-runtime-surfaces.sh
 
 # local release review artifacts

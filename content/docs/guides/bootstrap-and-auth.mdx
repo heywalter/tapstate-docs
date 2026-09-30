@@ -15,10 +15,19 @@ automatically. Use this page after a tapstate server is already running, for
 example in that playground or in an environment managed separately from these
 docs.
 
+## Sign in on the web
+
+For the Playground, follow the [Web access step](/docs/overview/quickstart#3-open-the-web-application)
+and sign in as `admin` with the password saved in `tapstate-demo/.env`. The setup script creates the account.
+For another deployment, use the server URL and account supplied by its operator.
+
+The sections below are for operators creating the first account and developers
+using the CLI or HTTP API. Web users do not need to repeat bootstrap.
+
 ## Before you begin
 
 - Start a preview server with its control port bound to loopback or another protected interface.
-- Confirm `GET /healthz` returns `ok`.
+- Confirm `GET /healthz` returns HTTP `200` with `ok`; a broken engine returns `503`.
 - Install `curl` and `jq` for the HTTP examples.
 - Choose a strong first-administrator password and keep it out of shell history.
 
@@ -120,8 +129,9 @@ API errors use the [structured error envelope](/docs/reference/rest-api#error-re
 - Keep the preview server on a trusted network path.
 - Do not pass passwords as CLI arguments or commit `.env` files.
 - Unset the shell variables when finished: `unset TAPSTATE_ADMIN_PASSWORD TOKEN`.
-- Treat server restart as a new session boundary.
-- The preview does not provide a complete production identity lifecycle or high-availability token-signing contract.
+- If the signing secret is generated at startup, existing tokens stop working after restart.
+- In a cluster, configure the same `tapstate.control.auth.jwt-secret` on every member. See [Configure a cluster](/docs/guides/cluster).
+- This preview is not a production identity-management service.
 
 ## Next steps
 

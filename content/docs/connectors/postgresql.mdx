@@ -294,6 +294,8 @@ to infer another published PostgreSQL deployment mode.
 | `pgtoPort` | Helper port for a physical-WAL path. |
 | `defaultWalLogSize` | Connector WAL-size monitor threshold. |
 | `checkCdcSlave` | Whether the connector checks CDC standby state; defaults to `false`. |
+| `walArchiveDir` | Optional WAL archive directory; no default. |
+| `walArchiveRestoreCommand` | Optional WAL archive restore command; no default. |
 | `walTdeKey` | EDB transparent-data-encryption key file used by connector-owned WAL handling. |
 | `walTdeKeyPassword` | Secret password for the EDB TDE key file. |
 | `walTdeKeyWrapAlgorithm` | TDE key wrapping algorithm: `auto`, `aes-256-cbc`, or `aes-128-cbc`; defaults to `auto`. |

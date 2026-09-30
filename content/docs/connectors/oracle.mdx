@@ -164,7 +164,7 @@ tables:
   - /CUSTOMERS_.*/
 ```
 
-For Oracle 23c (Free), specify `autoLog: false` in `config` because the automatic LogMiner requests `CONTINUOUS_MINE`, which is unsupported in Oracle 23c. In addition, ensure schema, table, and column identifiers remain within 30 characters; identifiers longer than 30 characters can pass snapshot reads but cause LogMiner CDC to deliver no rows without an error.
+For Oracle 23c (Free), specify `autoLog: false` in `config` because the automatic LogMiner requests `CONTINUOUS_MINE`, which is unsupported in Oracle 23c. In addition, ensure schema, table, and column identifiers remain within 30 characters; v0.6 refuses unsupported LogMiner identifiers before capture starts. This LogMiner check does not apply to a full-load-only read.
 
 Connect Oracle source to an operational target such as MongoDB:
 
@@ -232,7 +232,7 @@ WHERE PROFILE = (SELECT PROFILE FROM DBA_USERS WHERE USERNAME = 'TAPSTATE')
 
 ## Limitations
 
-- With LogMiner, table and column identifiers longer than 30 characters can be affected by Oracle LogMiner limits in some versions and configurations.
+- LogMiner capture refuses schema, table, and column names longer than 30 characters before starting. Review the reported identifier or use an appropriate capture mode; a successful snapshot does not prove LogMiner CDC can start.
 - `INTERVAL` and `XMLTYPE` are not supported by the LogMiner baseline. The direct raw-log baseline does not support `TIMESTAMP WITH LOCAL TIME ZONE`.
 - Oracle empty strings become `NULL`. A source `NOT NULL` string column can therefore fail when written to Oracle if the source contains empty strings.
 - DDL and a large burst of DML on the same table can make dictionary reconstruction unreliable. Stage schema changes separately from heavy write windows when possible.

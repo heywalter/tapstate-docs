@@ -55,7 +55,6 @@ current preview runtime. For the execution boundary, see [Resource grammar](/doc
 | `ViewResource.metadata` | `Metadata` | no | — | — | Optional labels and free-text description. |
 | `ViewResource.primary_key` | string | yes | — | — | Name of the column used as the view's primary key. |
 | `ViewResource.storage` | `Storage` | no | — | — | Where and how the view's data is materialized. |
-| `ViewResource.schema` | `ViewSchema` | no | — | — | Column definitions of the view's output schema. |
 | `ViewResource.experimental` | object | no | — | — | Experimental fields, exempt from the v1 compatibility freeze. |
 | `ServeResource.version` | constant | yes | — | `tapstate/v1` | The grammar version; always "tapstate/v1". |
 | `ServeResource.kind` | constant | yes | — | `serve` | Resource kind discriminator. |
@@ -101,7 +100,6 @@ current preview runtime. For the execution boundary, see [Resource grammar](/doc
 | `ViewBlock.Inline.from` | `FromRef` | yes | — | — | The upstream source this view consumes records from. |
 | `ViewBlock.Inline.primary_key` | string | yes | — | — | Field or fields that uniquely identify a record in this view. |
 | `ViewBlock.Inline.storage` | `Storage` | no | — | — | Storage backend used to persist this view. |
-| `ViewBlock.Inline.schema` | `ViewSchema` | no | — | — | Schema policy for this view: whether its shape is enforced and how it may evolve. |
 | `ViewBlock.Use.id` | string | no | — | — | Unique resource id across the workspace; must not contain a dot. Defaults to the referenced view name. |
 | `ViewBlock.Use.use` | string | yes | — | — | Name of the externally defined view to reuse. |
 | `ViewBlock.Use.from` | `FromRef` | yes | — | — | The upstream source this view consumes records from. |
@@ -130,7 +128,9 @@ current preview runtime. For the execution boundary, see [Resource grammar](/doc
 | `TransformBody.Nest.order` | `NestOrder` | no | — | `main_first`, `sub_first` | Ordering applied to nested child records. |
 | `TransformBody.Nest.entries_in_memory` | integer | no | — | — | Maximum entries kept in memory at each nest level. Additional entries use the configured backing layer. Omit to use the deployment default. |
 | `TransformBody.Nest.max_elements_per_document` | integer | no | — | — | Maximum embedded elements allowed in one assembled document. Exceeding the limit fails the pipeline. Omit to use the deployment default. |
+| `TransformBody.Nest.state` | `NestStateStorage` | no | — | — | Durable state placement for this nest; absent inherits the deployment default. |
 | `TransformBody.Nest.root` | `NestRoot` | yes | — | — | The root stream whose documents receive the nested children. |
+| `NestStateStorage.database` | string | yes | — | — | MongoDB database holding this nest's state, shape record, and dead letters. |
 | `NestRoot.from` | string | yes | — | — | Alias of the parent stream that anchors this nest tree. |
 | `NestRoot.key` | array<string> | no | — | — | Upsert key fields that identify a parent document for updates. |
 | `NestRoot.mode` | string | no | — | — | Write mode for the parent stream, such as append-only or upsert. |
@@ -138,8 +138,8 @@ current preview runtime. For the execution boundary, see [Resource grammar](/doc
 | `NestRoot.embed` | array<`Embed`> | no | — | — | Child streams embedded under each parent document. |
 | `Embed.from` | string | yes | — | — | Alias of the nest step's from map that supplies this child's rows. |
 | `Embed.on` | object | yes | — | — | Maps this child's join fields to the parent fields they match. |
-| `Embed.as` | `EmbedAs` | yes | — | `array`, `object` | How the matched child rows are shaped under the parent: a single object or an array. |
-| `Embed.path` | string | yes | — | — | Target field path under the parent where the embedded child is placed. |
+| `Embed.as` | `EmbedAs` | yes | — | `array`, `object`, `flat` | How matched child rows contribute under the parent: an array, an object, or flat fields. |
+| `Embed.path` | string | no | — | — | Target field path for array and object embeds. Flat embeds must omit it. |
 | `Embed.key` | array<string> | no | — | — | Fields that identify one row of this embed's stream. Absent means the stream's own declared key is used, and a stream that declares none is refused. |
 | `Embed.arrayKey` | array<string> | no | — | — | Fields that tell one element apart from the others in the same array, which may be unique only within that array. Absent means the row identity above is used. |
 | `Embed.ignoreUpdates` | boolean | no | — | — | When true, updates to the child rows are not propagated into the parent. |
@@ -160,8 +160,6 @@ current preview runtime. For the execution boundary, see [Resource grammar](/doc
 | `Storage.Warm.collection` | string | yes | — | — | Database collection that backs the warm layer. |
 | `Storage.Warm.indexes` | array<string> | no | — | — | Indexes to create on the warm collection. |
 | `Storage.Cold.partition_by` | array<string> | no | — | — | Fields to partition cold data by. |
-| `ViewSchema.enforce` | boolean | no | — | — | Whether the declared view schema is strictly enforced at runtime. |
-| `ViewSchema.evolution` | string | no | — | — | How the view schema is allowed to evolve over time, such as additive-only. |
 | `SyncElement.id` | string | no | — | — | Optional id for this sync element; generated from its position when omitted. |
 | `SyncElement.source` | string | yes | — | — | Reference to a kind: source connection supplier that provides the target connector and config. |
 | `SyncElement.write_mode` | `WriteMode` | no | upsert | `upsert`, `append` | How rows are written to the target. Upsert requires a primary key in each selected source table's discovered schema; append is for insert-only delivery. |

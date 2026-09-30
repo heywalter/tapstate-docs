@@ -1,0 +1,144 @@
+---
+title: Move Nest state
+description: Place a Nest's durable state in a selected MongoDB database and move it without abandoning pending records
+ai:
+  kind: guide
+  id: move-nest-state
+  maturity: preview
+  aliases: [Nest state database, state.database, migrate Nest state]
+---
+
+A Nest can keep its durable state in a selected MongoDB database. This includes
+its operator-state records, shape record, and dead letters.
+
+By default, Nest uses `tapstate.store.mongo.operator-state-database`, whose
+default value is `tapstate_nest`. Set `state.database` on a Nest step to override
+that default:
+
+```yaml
+- id: order_doc
+  type: nest
+  state:
+    database: order_doc_state
+  from: { o: orders, i: order_items }
+  root:
+    from: o
+    key: [id]
+    embed:
+      - from: i
+        on: { order_id: id }
+        as: array
+        path: items
+```
+
+The database uses the existing `tapstate.store.mongo.uri` connection and
+credentials. This setting does not select a different MongoDB server or copy
+existing state. Other Nest steps and other operators keep their own placement.
+
+## Before you begin
+
+- Choose a nonempty MongoDB database name of at most 63 UTF-8 bytes. The control
+  database, `local`, and `config` cannot hold operator state.
+- Give the server account `readWrite` on every selected state database.
+- Record the pipeline ID, Nest step ID, old database, and new database.
+- Plan downtime for every server process that can write this deployment.
+- Take a restorable backup before moving existing state.
+
+A rolling change is unsafe: different processes could write the same Nest to
+different databases. Restarting only the pipeline is insufficient because the
+server process retains the existing map configuration.
+
+## Preserve state and continue
+
+1. Stop the pipeline without clearing state. Use `stop <pipeline-id> --keep-state`
+   in an authenticated CLI session, or the REST stop operation with
+   `{"purgeState": false}`.
+2. Stop every tapstate server process that can run the deployment, then back up
+   the old database.
+3. Copy the selected Nest's records using the procedure below. Compare document
+   counts and indexes before continuing.
+4. If you are changing the server-wide default (`tapstate.store.mongo.operator-state-database`),
+   update your server configuration and restart all server processes. If you are only overriding
+   placement for this specific Nest via `state.database`, restart the server processes so they
+   evict in-memory cached map configurations. Keep the pipeline stopped until all servers are healthy.
+5. In your pipeline definition, add or update `state.database` under the Nest step. Apply the
+   workspace and start the pipeline.
+6. Check the startup log entry beginning `Nest state placement resolved before
+   pipeline`. Confirm every affected namespace resolves to the new database.
+7. Verify target records, pending-child completion, and dead letters. Confirm
+   new state writes reach only the new database. Keep the old database and
+   backup until the pipeline has processed normal traffic without error.
+
+A process that still has the old map placement refuses the change with
+`nest.state-database-changed-while-running`.
+
+### Copy the selected state
+
+Save the following script as `move-nest-state.js` and execute it with MongoDB 7 tools
+(`mongosh "$TAPSTATE_STORE_MONGO_URI" move-nest-state.js`) while all writers are stopped.
+Replace the four header variables with your recorded IDs and database names. Use a migration
+account with read access to the old database and write access to the new one.
+Do not paste connection credentials into a shared script.
+
+```javascript
+const fromName = "tapstate_nest";
+const toName = "order_doc_state";
+const pipelineId = "orders";
+const stepId = "order_doc";
+const from = db.getSiblingDB(fromName);
+const to = db.getSiblingDB(toName);
+const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const mapNamespaces = { $regex: `^${escapeRegex(`nest.${pipelineId}.${stepId}.`)}` };
+const stateMatch = { $or: [
+  { "_id.ns": mapNamespaces },
+  { "_id.ns": `nest.shape.${pipelineId}`, "_id.k": stepId }
+] };
+const deadLetterMatch = { "_id.ns": mapNamespaces };
+
+if (from.operator_state.countDocuments(stateMatch) === 0) {
+  throw new Error("No state matched. Check the pipeline and step IDs.");
+}
+for (const [name, match] of [
+  ["operator_state", stateMatch],
+  ["nest_dead_letters", deadLetterMatch]
+]) {
+  from.getCollection(name).aggregate([
+    { $match: match },
+    { $merge: { into: { db: toName, coll: name }, on: "_id",
+                whenMatched: "replace", whenNotMatched: "insert" } }
+  ]).toArray();
+  const before = from.getCollection(name).countDocuments(match);
+  const after = to.getCollection(name).countDocuments(match);
+  printjson({ collection: name, before, after });
+  if (before !== after) throw new Error("State copy verification failed.");
+  printjson({ sourceIndexes: from.getCollection(name).getIndexes(),
+              targetIndexes: to.getCollection(name).getIndexes() });
+}
+```
+
+This copies the selected records and shape record, not unrelated pipelines.
+The collections use their automatic `_id_` indexes. If the old database has
+additional indexes, recreate and compare them before cutover; `$merge` does
+not copy index definitions. Use a destination without conflicting state for
+the same pipeline and step IDs.
+
+## Roll back
+
+Stop all writers again. If no new events were processed after cutover, restore
+the previous `state.database` setting (or server-wide default), restart all
+server processes, and resume against the old database. If the new database has
+received writes, migrate those changes back before resuming. Simply pointing
+at the old copy would abandon newer state.
+
+## Start clean instead
+
+A clean start deliberately discards the continuation. Back up first, then
+clear the pipeline's state and position while the old servers are still
+available: use `stop <pipeline-id> -y`, or REST with `{"purgeState": true}`.
+Stop all servers, restart them with the new setting, apply the updated Nest,
+and start a fresh load.
+
+Do not keep an old checkpoint while selecting an empty state database: earlier
+acknowledged events would be skipped even though their Nest state is absent.
+Review [stop behavior](/docs/reference/rest-api#pipeline-lifecycle-endpoints)
+when other pipelines share the same capture.

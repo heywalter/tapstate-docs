@@ -209,7 +209,15 @@ docker compose ps
 docker compose logs --tail=200 mysql postgres mongo server
 ```
 
-Fix port conflicts or local resource pressure before rerunning. Keep passwords and tokens out of shared log bundles.
+Wait for MySQL and PostgreSQL to finish initialization before retrying source
+schema discovery. A healthy tapstate server does not mean either source is
+ready. Slow Docker storage can leave a database initializing while the server
+already accepts requests.
+
+For `cli.request-timed-out` during connector registration, check the registered
+catalog before retrying: the upload can finish on the server after the client
+times out. Registration is idempotent. Resolve storage or memory pressure,
+then retry the failed steps. Keep passwords and tokens out of shared log bundles.
 
 ### The assembled result does not appear
 
@@ -249,7 +257,7 @@ The script preserves generated assets and may encounter a pipeline that is alrea
 
 ```bash
 docker compose down -v
-curl -fsSL https://install.tapstate.dev | sh
+curl -fsSL https://install.tapstate.dev/demo | sh
 ```
 
 `down -v` permanently removes the Quickstart's local MySQL, PostgreSQL, and
@@ -335,6 +343,17 @@ For CDC that stops or falls behind:
 - inspect long transactions and source-side cleanup jobs;
 - test insert, update, delete, stop, and resume in staging.
 
+### PostgreSQL reports an active replication slot
+
+If a capture failure says that its replication slot is already active, check
+`pg_replication_slots.active_pid` and the owning database session. Stop the
+affected pipeline and confirm that the previous reader has disconnected before
+starting another reader. Do not drop a slot that an existing pipeline needs.
+
+After recovery, verify a new source change in the target. A `RUNNING` status
+alone does not prove that PostgreSQL CDC resumed. See the
+[v0.6 PostgreSQL limitations](/docs/releases/v0.6#known-limits-and-issues).
+
 ### Lifecycle, position, and schema sync diagnostics
 
 | Diagnostic | What it means | What to do |
@@ -393,3 +412,35 @@ Before escalating, collect:
 - expected and observed records.
 
 Remove passwords, tokens, private keys, and customer data before sharing the bundle.
+
+## v0.6 diagnostics
+
+Start with the pipeline's **Monitoring** and **Logs** pages. For a repeatable
+diagnostic read, use the [observation interfaces](/docs/guides/observe-a-pipeline).
+
+| Code or symptom | What to check |
+|---|---|
+| `dsl.unknown-field` on `view.schema` | Remove the unused View policy; keep connector `config.schema`. See [Upgrade to v0.6](/docs/guides/upgrade-to-v0-6). |
+| `actuation.source-schema-not-discovered` | Discover every required source before starting either View or sync output. |
+| `engine.view-key-missing-from-before-image` | Confirm the selected View key is present in source before images for updates and deletes. |
+| `dsl.join-input-not-a-table` / `dsl.join-input-is-a-pattern` | Use one physical table per Join alias, not a prior step or a table pattern. |
+| `actuation.join-sql-invalid` | Resolve the reported SQL column or input error before starting again. |
+| `nest.flat-cardinality-violation` | More than one live child matched a flat embed. Use an array or correct the relationship. |
+| `nest.flat-field-conflict` | Rename or drop conflicting fields before Nest while preserving its relationship keys. |
+| `nest.state-database-changed-while-running` | Stop all writers and follow the full [state move](/docs/guides/move-nest-state); a pipeline restart alone is insufficient. |
+| `transform.script-decimal-out-of-range` | JavaScript cannot represent the decimal within its numeric range. Keep it unchanged or revise the calculation. |
+| `transform.expression-failed` | Check expression inputs, including null dimension values from an outer join. |
+| `monitor.no-observation` | No observation has been published; do not interpret missing data as success. |
+| `monitor.cursor-expired` | Start a fresh history query without the expired cursor. |
+
+### Engine out of memory
+
+After the engine is lost to out-of-memory, affected running or paused pipelines
+report `engine.out-of-memory` and `/healthz` returns `503 broken`. Restart the
+server process after addressing memory pressure; repeating pipeline start
+cannot restore the lost engine. Check heap allocation, source batch sizes,
+operator state, and [Nest capacity](/docs/guides/nest-throughput).
+
+A healthy `/healthz` response does not prove target writes or CDC continuity.
+Inspect data and observations after recovery. Pipelines that failed for another
+reason before a member restart retain that failure and need separate diagnosis.

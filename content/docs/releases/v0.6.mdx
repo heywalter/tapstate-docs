@@ -1,0 +1,126 @@
+---
+title: v0.6
+description: Manage pipelines visually with a bundled web application, scale capture with opt-in cluster mode, query 15-day metrics history, isolate Nest state databases, and flatten child documents in v0.6.
+ai:
+  kind: reference
+  id: release-v0_6
+  maturity: preview
+  aliases: [tapstate v0.6, tapstate v0.6.0, tapstate release notes, tapstate preview release]
+---
+
+Released September 28, 2026 · Preview v0.6.0
+
+`v0.6` expands tapstate with a bundled web application, opt-in cluster operation
+with automated capture failover, 15-day metrics history with root-cause explanations,
+flexible Nest state databases, and flat child embeds. Use it with non-production
+systems and sample data.
+
+See the [GitHub releases](https://github.com/tapstate/tapstate/releases) for
+the published CLI archives, individual SHA-256 files, `checksums.txt`, and
+`platform-minimums.txt`.
+
+## Breaking changes and upgrade guidance
+
+- **Control-store upgrades are one-way**: The first start of v0.6 applies four
+  control-store migrations. A v0.5 server refuses to start against an upgraded
+  store afterward. Back up your MongoDB control database before upgrading.
+- **Views no longer accept `schema:`**: Remove `schema:` from local `.tap.yml`
+  view definitions to avoid `dsl.unknown-field`. Stored resources are cleaned
+  automatically during migration. Connector `config.schema` settings are unaffected.
+
+Follow the [Upgrade to v0.6 guide](/docs/guides/upgrade-to-v0-6) for step-by-step
+backup, verification, and rollback procedures.
+
+## What changed
+
+### v0.6.0
+
+#### Web application and observability
+
+- **Manage pipelines visually in your browser**: The server image now bundles a
+  web application. Inspect connection discoveries, visualize pipeline execution
+  graphs, monitor streaming throughput, and tail live logs without CLI setup.
+  See [Quickstart](/docs/overview/quickstart).
+- **Query 15-day metrics history and explanations**: Inspect output rates and
+  table lag over a 15-day retention window through CLI, REST, or MCP. Run
+  `explain <pipeline-id>` to automatically distinguish between transient pauses,
+  stale observations, and genuine stalls. See [Observe a pipeline](/docs/guides/observe-a-pipeline).
+- **Export metrics to Prometheus and OpenTelemetry**: Push operational metrics
+  to an OpenTelemetry collector via HTTP/protobuf or gRPC, or enable a Prometheus
+  scrape listener.
+
+#### Clustering and high availability (Preview)
+
+- **Scale capture with automated failover**: Deploy tapstate across multiple
+  nodes using TCP-IP or Kubernetes discovery. A single active member captures each
+  source stream, and compatible members take over capture seamlessly if a node fails.
+  See [Configure a cluster](/docs/guides/cluster).
+- **Enforce split-brain protection**: The `production-ha` profile requires a strict
+  majority quorum, preventing conflicting capture or state writes across network
+  partitions.
+
+#### Document assembly and transforms
+
+- **Isolate Nest state databases with `state.database`**: Store any Nest step's
+  working state, shape definitions, and dead letters in a dedicated MongoDB
+  database. Relocate active state safely using [Move Nest state](/docs/guides/move-nest-state).
+- **Flatten related records with `as: flat`**: Merge one-to-one or many-to-one
+  child fields directly into parent documents without nested wrappers, protected
+  by cardinality and conflict guards. See [Flat embeds](/docs/reference/transforms#flat-embeds).
+- **Strengthen stream joins and decimals**: Joins validate input shapes early
+  and recover matched state reliably across restarts. JavaScript and mapping
+  transforms preserve exact decimal precision on target writes. See [Join transforms](/docs/reference/transforms#join).
+
+#### Performance and connector improvements
+
+- **Share CDC readers across pipelines**: Multiple pipelines reading the same
+  source share a single CDC capture reader, decoding database logs (such as
+  PostgreSQL WAL) once per cluster.
+- **Stream large snapshots with bounded memory**: Initial table snapshot loads
+  stream with bounded memory hand-off, avoiding oversized heap requirements, while
+  PostgreSQL sources reuse pooled snapshot connections across tables.
+- **Pass node-level connector configuration**: Node-specific connector settings
+  reach runtimes reliably, including Kafka Enhanced `schemaRegistryType` and
+  PostgreSQL WAL archive settings.
+
+## Release components
+
+The release includes native CLI bundles for macOS and glibc-based Linux on
+`arm64` and `x64`. Verify a download against its `.sha256` or `checksums.txt`.
+
+Server container images (`ghcr.io/tapstate/tapstate:0.6.0`) bundle the web
+application for Linux `amd64` and `arm64`. Connector JARs can be installed with
+`tapstate register <id>` or downloaded from the
+[connector preview release assets](https://github.com/tapstate/tapstate/releases/tag/connectors-preview).
+See [Register and test connectors](/docs/guides/register-connectors).
+
+## Known limits and issues
+
+This release remains an evaluation preview rather than a production deployment target.
+
+- **At-least-once delivery semantics**: Delivery for read changes is at-least-once.
+  For append-only targets, overlapping snapshot and CDC reads can produce duplicate
+  rows; configure upsert or unique target keys where deduplication is required.
+- **Snapshot-to-stream positioning window**: Because source stream positioning
+  occurs around initial snapshot execution, changes written during that brief
+  window can be missed on certain connectors.
+- **Cluster network security**: Cluster member coordination communicates over a
+  dedicated port (`5701`) without TLS or authentication. Restrict cluster ports to
+  a private VPC or protected container network.
+- **Stream join relational constraints**: The `join` transform operates on a
+  streaming SQL subset without fan-out (1:N), subqueries, or aggregations. Dimension
+  keys must be unique.
+- **PostgreSQL replication slot WAL retention**: PostgreSQL CDC replication slots
+  may delay advancing confirmed flush positions under specific workloads, causing
+  temporary WAL buildup (tracked in issue #468 and #526).
+
+## Get started
+
+- [Install the CLI](/docs/overview/install) for offline workspace authoring and scripts.
+- Run the [Quickstart playground](/docs/overview/quickstart) to explore visual management and assembled state in Docker.
+- Read [Upgrade to v0.6](/docs/guides/upgrade-to-v0-6) for migration procedures and verification checks.
+- Read [Configure a cluster](/docs/guides/cluster) to set up multi-node deployments.
+- Read [Move Nest state](/docs/guides/move-nest-state) to isolate or relocate operator-state databases.
+- Read [Observe a pipeline](/docs/guides/observe-a-pipeline) to query metrics history and configure export.
+- Use the [v0.6.0 release assets](https://github.com/tapstate/tapstate/releases/tag/v0.6.0) for native binaries and checksums.
+- Explore the [complete product changelog](https://github.com/tapstate/tapstate/compare/v0.5.0...v0.6.0) for the commit and PR history.

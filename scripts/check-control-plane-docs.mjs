@@ -15,17 +15,29 @@ const controllerDir = path.join(
 );
 const referencePath = new URL('../content/docs/reference/rest-api.mdx', import.meta.url);
 const javaFiles = (await readdir(controllerDir)).filter((name) => name.endsWith('.java'));
+// Spring mappings can name a same-package string constant, as AuthWire does.
+const javaSources = await Promise.all(javaFiles.map(async (name) => ({
+  name,
+  source: await readFile(path.join(controllerDir, name), 'utf8'),
+})));
+const pathConstants = new Map();
+for (const { name, source } of javaSources) {
+  for (const match of source.matchAll(/static\s+final\s+String\s+(\w+)\s*=\s*"(\/[^"\n]*)"/g)) {
+    pathConstants.set(`${name.replace(/\.java$/, '')}.${match[1]}`, match[2]);
+  }
+}
 const implementation = new Set();
 const websocketPaths = new Set();
 
-for (const name of javaFiles) {
-  const source = await readFile(path.join(controllerDir, name), 'utf8');
+for (const { name, source } of javaSources) {
   const prefix = /^@RestController\s*$/m.test(source) ? '/api' : '';
 
   for (const match of source.matchAll(
-    /@(Get|Post|Put|Delete|Patch)Mapping\(\s*"([^"]+)"/g,
+    /@(Get|Post|Put|Delete|Patch)Mapping\(\s*(?:"([^"]+)"|([A-Za-z_]\w*\.[A-Za-z_]\w*))/g,
   )) {
-    implementation.add(`${match[1].toUpperCase()} ${prefix}${match[2]}`);
+    const route = match[2] ?? pathConstants.get(match[3]);
+    if (!route) throw new Error(`Unresolved mapping ${match[3]} in ${name}`);
+    implementation.add(`${match[1].toUpperCase()} ${prefix}${route}`);
   }
 
   if (name === 'PipelineStreamConfiguration.java') {

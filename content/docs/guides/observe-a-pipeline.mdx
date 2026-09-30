@@ -8,13 +8,20 @@ ai:
   aliases: [tapstate status, tapstate metrics, tapstate logs, tapstate snapshot]
 ---
 
-tapstate exposes four observation surfaces. They answer different questions and should be read together with source and destination data.
+Open the pipeline in the web application and use **Monitoring** and **Logs**
+to inspect its activity. Compare these observations with source and target data
+before treating a run as successful.
+
+CLI, REST, and MCP expose the same underlying observations for troubleshooting
+and automation. The commands below assume an authenticated CLI session.
 
 | Surface | Question | Storage boundary |
 |---|---|---|
 | Status | What lifecycle state is currently observed? | Latest store-backed observation |
 | Metrics | What numeric run statistics and per-table positions are available? | Latest store-backed observation |
 | Snapshot | What per-table initial-load progress is available? | Latest store-backed observation |
+| History | How did output rates and selected-table lag change? | Retained samples, 15 days by default |
+| Explanation | What does the latest observation say about a failure or lack of progress? | Interpretation of current evidence |
 | Logs | What did this process recently report for the pipeline? | Bounded node-local log tail |
 
 ## Read status
@@ -29,7 +36,7 @@ States include:
 - `NEW`: applied but never started;
 - `RUNNING`: executing;
 - `PAUSED`: intentionally paused;
-- `STOPPED`: cleared and ready for a fresh start;
+- `STOPPED`: stopped; checkpoints may be retained or cleared, depending on the stop request;
 - `COMPLETED`: a bounded input was exhausted;
 - `FAILED`: the running job stopped unexpectedly.
 
@@ -41,6 +48,22 @@ key; `failureMessage` is the reader-facing explanation. Healthy states omit
 these fields.
 
 `status --watch` uses an authenticated WebSocket that polls the same observation and emits only state changes. A failure frame carries the same failure fields. A normal connection drop may be re-attached, but when the server closes the stream with a coded refusal, the CLI reports that code and terminates instead of reconnecting indefinitely. Press <kbd>Ctrl</kbd>+<kbd>C</kbd> to stop watching without stopping the pipeline.
+
+## Explain a lack of progress
+
+In a connected session, run `explain <pipeline-id>`. The explanation uses the
+same failure and freshness evidence as status. It can identify an old
+observation or sustained lack of confirmed progress; `NO_MATCH` means no rule
+matched, not that delivery is healthy.
+
+A stale observation and a stalled pipeline are different conditions. The
+explanation considers an observation older than 30 seconds stale. Stall
+pressure requires at least 60 seconds without frontier movement; a brief
+pause alone is insufficient. Compare source activity, confirmed target
+positions, logs, and target records before restarting anything.
+
+If no observation exists, the read returns `monitor.no-observation`. Missing
+evidence must not become a healthy state in a dashboard.
 
 ## Read metrics
 
@@ -57,7 +80,15 @@ discarded changes; the runtime does not emit one aggregate `dead_lettered` key.
 Check the pipeline logs for the failure code and affected key. If you need a
 pipeline-wide total, sum the namespace entries in your client.
 
-An absent metric is unavailable, not zero. Do not build a strict parser that rejects new metric keys.
+An absent metric is unavailable, not zero. Do not build a strict parser that
+rejects new metric keys.
+
+Output counters reflect target acknowledgements. Source-read, buffered, and
+target-confirmed positions are different facts. The CLI renders serialized
+positions as opaque fingerprints; these can identify a change but do not
+reveal a binlog coordinate or LSN. A write-back summary also hides opaque
+coordinates. Raw `position` JSON remains the format used for position edits.
+See [CLI position commands](/docs/reference/cli#inspect-and-adjust-checkpoint-positions).
 
 ## Read snapshot progress
 
@@ -65,11 +96,59 @@ An absent metric is unavailable, not zero. Do not build a strict parser that rej
 snapshot orders_to_operational_state
 ```
 
-Snapshot progress is per table and can be empty outside an initial-load phase or when the publisher has no progress to report. A missing total must not be interpreted as 0% or 100%.
+Snapshot progress is per table. For chain-backed initial loads, confirmed
+completion can survive a replacement run or member takeover. The current
+run's `snapshot.rows.read.<table>` counter can therefore differ from the
+persisted completion count. This retained completion does not apply to
+`snapshot_only` runs.
 
-In the current preview, use materialized-view counts and representative keyed samples as
-the primary snapshot proof. An empty `snapshot` result alone does not establish
-success or failure.
+A missing total must not be interpreted as 0% or 100%. Compare target counts
+and representative keyed samples; an empty `snapshot` result alone does not
+establish success or failure.
+
+## Read recent history
+
+Choose a time range that contains your run. For example:
+
+```text
+metrics orders_to_operational_state --from 2026-09-29T01:00:00Z --to 2026-09-29T02:00:00Z --resolution 5m --table orders
+```
+
+History reports target-confirmed output rates and lag for explicitly selected
+tables. Lag is the age of the last target acknowledgement, not a count of
+queued rows. Omitting `--table` omits table lag.
+
+- Sampling defaults to once per 60 seconds; retention defaults to 15 days.
+  Operators can change `tapstate.metrics.history.sample-interval` and
+  `tapstate.metrics.history.retention`.
+- Read the effective range and retention cutoff. Old samples may have expired.
+- Keep resets and gaps visible. A missing rate or `NO_RETAINED_SAMPLES` is not
+  zero throughput.
+- Continue with `nextCursor` while repeating the original query. Cursors expire
+  after 10 minutes; restart the query if one expires. Results are eventually
+  consistent, not a fixed audit snapshot.
+
+See [History parameters](/docs/reference/rest-api#pipeline-history) for limits,
+resolutions, and error handling, or use
+[`pipeline_metrics_history`](/docs/reference/mcp#pipeline-history-and-explanations)
+from an AI agent.
+
+## Export metrics
+
+Export is optional. Without an OTLP endpoint or Prometheus port, the server
+starts neither exporter. These settings do not disable built-in observations.
+
+| Server property | Default | Use |
+|---|---|---|
+| `tapstate.metrics.export.otlp.endpoint` | Unset | Collector URL; include `/v1/metrics` for HTTP/protobuf. |
+| `tapstate.metrics.export.otlp.protocol` | `http-protobuf` | Use `http-protobuf` or `grpc`. |
+| `tapstate.metrics.export.otlp.interval` | `60s` | Push interval. |
+| `tapstate.metrics.export.prometheus.port` | Unset | Enable a separate scrape listener on this port. |
+| `tapstate.metrics.export.prometheus.host` | `127.0.0.1` | Interface for the scrape listener. |
+
+Prometheus export has no built-in authentication and can expose pipeline,
+table, and namespace identifiers. If a scraper needs another bind address,
+restrict access to that network. It does not use the control API's bearer token.
 
 ## Read and follow logs
 

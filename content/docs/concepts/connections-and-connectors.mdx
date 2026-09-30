@@ -22,6 +22,18 @@ PostgreSQL fields + modes →  shipments_postgres ├→ source: [orders_mysql, 
                                                   └→ nest → view: order_state → managed MongoDB state
 ```
 
+## From a connection to current state
+
+The main workflow is to prepare a source system, configure a connection,
+discover its tables, select the data for a pipeline, and verify the resulting
+state. Monitor both the initial load and subsequent changes.
+
+Use the web application to explore the sources, pipelines, and observations
+available in your deployment. The underlying concepts stay the same when a
+developer or AI agent uses CLI, REST, or MCP. YAML examples in the references
+describe that shared resource model; installing the CLI is not a prerequisite
+for the [Quickstart](/docs/overview/quickstart).
+
 ## Connector definition
 
 The connector definition answers questions that should stay consistent across environments:

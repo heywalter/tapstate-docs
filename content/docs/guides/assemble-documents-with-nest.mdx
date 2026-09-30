@@ -131,6 +131,11 @@ when the relationship has at most one child.
 The `view` materializes `order_state` in the preview's managed store. No `serve`
 block or MongoDB target connection is required for this path.
 
+For one related row whose fields should sit directly on the parent, use an
+[`as: flat` embed](/docs/reference/transforms#flat-embeds). Keep the array form
+above for multiple shipments. To change where this Nest keeps its durable
+state, follow [Move Nest state](/docs/guides/move-nest-state).
+
 ## 4. Discover both source schemas, then apply the pipeline
 
 Validate locally, apply each source, discover its schema, and then apply the
@@ -183,8 +188,8 @@ test matrix, see [Plan nest capacity and delivery behavior](/docs/guides/nest-th
 - `nest` does not perform arbitrary lookups; use the separately declared
   [`join` transform](/docs/reference/transforms#join) for stream-to-stream
   joins between a driving fact table and dimension sources.
-- The current preview is single-node and does not provide production recovery
-  guarantees.
+- The server defaults to one member; [cluster mode](/docs/guides/cluster) is
+  opt-in. The release does not provide production recovery guarantees.
 
 Continue with [Observe a pipeline](/docs/guides/observe-a-pipeline) and the
 [`nest` reference](/docs/reference/transforms#nest) for runtime signals and every

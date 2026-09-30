@@ -58,6 +58,22 @@ Prepare and verify:
    delivery.
 5. A staging run covers insert, update, delete, stop, and resume behavior.
 
+### Initial loads and recovery
+
+For a CDC source, `settings.read_mode` controls a pipeline run:
+`snapshot_only`, `cdc_only`, or `snapshot_and_cdc`. Use the modes and
+prerequisites supported by that connector; a source's `mode` and a pipeline's
+read mode describe different choices.
+
+Compatible pipelines can share a CDC capture while keeping their own initial
+loads and consumer positions. Only selected tables belong to a pipeline's
+capture contract. Snapshot-only Nest runs can assemble the selected data, but
+they have no CDC continuation position and may reread after restart.
+
+Full load plus CDC does not promise exactly-once output or a lossless handoff
+for every connector. Verify the [v0.6 positioning limits](/docs/releases/v0.6#known-limits-and-issues)
+and test representative changes before relying on continuity.
+
 ## Stream and API sources
 
 Stream sources start from an offset or broker-defined position. Retention controls how far back a consumer can start, and recovery can redeliver records.

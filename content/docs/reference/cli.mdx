@@ -8,7 +8,9 @@ ai:
   aliases: [tapstate CLI, tapstate commands, tapstate REPL, tapstate exit codes, tapstate data browser, tapstate watch, tapstate tail]
 ---
 
-The tapstate CLI has three operating forms:
+The CLI is an optional interface for developers, scripts, and AI agents.
+Start with the [web Quickstart](/docs/overview/quickstart) for interactive use.
+The CLI has three operating forms:
 
 - **Offline commands** read or create local workspace files. They do not require a running server.
 - **Connected sessions** retain the selected workspace, server, and login in an interactive REPL.
@@ -52,10 +54,10 @@ same session to read the server's current self-description:
 
 ```console
 tapstate(127.0.0.1:8080)> version
-cli    0.5.0
-server 0.5.0 (127.0.0.1:8080)
+cli    0.6.0
+server 0.6.0 (127.0.0.1:8080)
 dsl    tapstate/v1
-data   1
+data   11
 ```
 
 When connected, `version` reports the CLI version, server version, the list of accepted authoring grammars (`dsl`), and the internal store schema version (`data`). If the server accepts no grammars, `dsl` reports `none`. If the server omits a field entirely, it reports `not reported`. Offline sessions omit `dsl` and `data` because only a running server can report them.
@@ -456,6 +458,8 @@ A successful resource validation does not establish network reachability, authen
 | `status <pipeline-id>` | Read current pipeline lifecycle state, failure details when failed, and latest observation instant (`observedAt`). |
 | `status <pipeline-id> --watch` | Stream lifecycle changes until interrupted. |
 | `metrics <pipeline-id>` | Read current pipeline and per-table metrics or confirmed target positions. |
+| `metrics <pipeline-id> --from <time> --to <time> [options]` | Read bounded output-rate and selected-table lag history. |
+| `explain <pipeline-id>` | In a connected session, explain current pipeline observations. |
 | `logs <pipeline-id>` | Read recent node-local logs, including forwarded connector and PDK runtime warnings and errors. |
 | `logs <pipeline-id> --follow` | Stream node-local logs and forwarded connector logs until interrupted. |
 | `snapshot <pipeline-id>` | Read the current snapshot view when one is available. |
@@ -463,6 +467,26 @@ A successful resource validation does not establish network reachability, authen
 Use <kbd>Ctrl</kbd>+<kbd>C</kbd> to end `status --watch` or `logs --follow`. This ends the local stream, not the pipeline.
 
 Status and metrics report observed state and can lag a lifecycle command briefly. In this preview, `snapshot` may report that no snapshot is available; do not use that response alone as proof that a data path succeeded or failed.
+
+### History and explanations
+
+For history, supply both `--from` and `--to` as RFC3339 timestamps with UTC
+offsets. The range is half-open and cannot exceed 15 days.
+
+| Option | Contract |
+|---|---|
+| `--resolution` | `auto` (default), `raw`, `5m`, `30m`, `1h`, `3h`, or `6h`. |
+| `--limit` | 1–1000 points per page; default 240. |
+| `--table` | Repeat for up to 20 tables; omitted table selections return no table lag. |
+| `--cursor` | Continue the same query with its returned `nextCursor`. |
+
+Repeat the original query unchanged when continuing. Cursors expire after
+10 minutes. Read gaps, unavailable values, and effective ranges as described
+in [Observe a pipeline](/docs/guides/observe-a-pipeline#read-recent-history).
+
+`explain` has two meanings: without a server target, it describes a DSL field;
+with a server target, it interprets one pipeline's observations. A connected
+`NO_MATCH` response does not establish healthy delivery.
 
 ### Stop and restart a pipeline
 
@@ -494,13 +518,19 @@ To adjust or rewind a resume position:
    ```bash
    tapstate position orders_pipeline > position.json
    ```
-2. Edit `resumeFrom.token` in `position.json`.
+2. Replace `resumeFrom.token` only with a valid token for that connector and
+   position. Do not invent a binlog/LSN string or substitute a displayed fingerprint.
 3. Apply the updated position while the pipeline is stopped:
    ```bash
    tapstate position orders_pipeline -f position.json
    ```
 
 Modifying position while a pipeline or any pipeline sharing its mining chains is active is refused with `position.write-back-while-live`.
+
+Serialized positions in `metrics` appear as opaque fingerprints. A position
+write-back summary also hides opaque coordinates. These displays do not expose
+an exact source LSN or binlog location; the JSON returned by a position read
+remains the editable payload.
 
 ### Synchronize schema changes with `derived-schema`
 

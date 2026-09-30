@@ -1,0 +1,97 @@
+---
+title: Upgrade to v0.6
+description: Back up a v0.5 deployment, update incompatible resources, and verify a v0.6 upgrade
+ai:
+  kind: guide
+  id: upgrade-to-v0-6
+  maturity: preview
+  aliases: [tapstate upgrade, v0.6 migration, tapstate rollback]
+---
+
+The first v0.6 server start upgrades the control store. **A v0.5 server cannot
+open that store afterward.** Back up before upgrading; changing the image tag
+back is not a rollback procedure.
+
+Tapstate v0.6 remains a preview for evaluation, not production use. If you only
+need a new disposable environment, follow the [Quickstart](/docs/overview/quickstart).
+
+## Before you begin
+
+- Record the current server version, image, configuration, pipeline definitions,
+  and connector artifacts.
+- Identify the control MongoDB database and every operator-state database,
+  including per-Nest `state.database` overrides.
+- Plan a maintenance window and a consistent backup. Preserve the external
+  source logs needed for recovery and record a target-data reconciliation point.
+- Keep the v0.5 binaries, configuration, and a tested way to restore the backup.
+
+## 1. Prepare resource files
+
+Remove `schema:` from standalone View resources and inline `view` blocks.
+That policy was never enforced. In v0.6, a local file that still includes it is
+rejected by validate or apply with `dsl.unknown-field`.
+
+Stored View resources are cleaned during migration. Local `.tap.yml` files are
+not rewritten. Keep connector fields such as an Oracle or PostgreSQL
+`config.schema`; those identify source database schemas and are unrelated.
+
+Review [Join input restrictions](/docs/reference/transforms#join-input-restrictions) and run source
+schema discovery before starting pipelines that write a View or sync target.
+See [View and serve](/docs/reference/view-and-serve#sync).
+
+## 2. Stop writers and back up
+
+Stop pipelines while retaining their checkpoints and operator state. For a
+scripted operation, the stop request must include `{"purgeState": false}`;
+see [Pipeline lifecycle endpoints](/docs/reference/rest-api#pipeline-lifecycle-endpoints).
+The CLI equivalent is `stop <pipeline-id> --keep-state`.
+
+Stop all server processes that can write to the deployment, then take a
+consistent MongoDB backup. Include control data, durable operator state, and
+managed View data. Account for external target data separately. Do not rely on
+a copy taken while other members continue writing.
+
+## 3. Start the new release
+
+Use the [v0.6.0 release](https://github.com/tapstate/tapstate/releases/tag/v0.6.0)
+and the matching `ghcr.io/tapstate/tapstate:0.6.0` server image. Preserve the
+existing MongoDB, authentication, connector, and state-placement settings.
+Do not mix v0.5 and v0.6 servers against the upgraded control store.
+
+The first start applies four control-store changes: removal of unused View
+schema policies, rate-history indexes, independent consumer-offset indexes,
+and a history-pagination index. Check startup logs for migration errors before
+allowing pipelines to run.
+
+## 4. Verify the deployment
+
+1. Confirm `/version` reports `version: "0.6.0"` and `dataVersion: 11`, and confirm
+   `/healthz` returns HTTP `200` with `ok`.
+2. Sign in on the web and confirm the expected sources and pipelines are present.
+3. Apply any corrected resource definitions while their pipelines are stopped.
+4. Start the pipelines and inspect their status, monitoring, and logs.
+5. Compare target counts and representative keyed records with the pre-upgrade
+   result. Check a controlled insert, update, and delete where the source supports CDC.
+
+After health checks pass, verify end-to-end data continuity. Delivery remains
+at-least-once, and the [v0.6 limits](/docs/releases/v0.6#known-limits-and-issues)
+still apply.
+
+## Roll back
+
+If you must revert to v0.5, follow these steps in order:
+
+1. **Stop all v0.6 servers** to ensure no further writes reach MongoDB or external targets.
+2. **Back up the stopped v0.6 MongoDB state separately** before replacing it, so it remains available for investigation or recovery.
+3. **Restore MongoDB from the pre-upgrade backup**, including both the control database and all operator-state databases. A v0.5 server refuses to start against a store modified by v0.6 migrations.
+4. **Revert server binaries or container images to v0.5** alongside their v0.5 configuration files.
+5. **Start the v0.5 servers** and confirm `/version` reports v0.5.
+6. **Reconcile external data**: if sources or external targets received changes after the backup was taken, reconcile those records before resuming pipelines. Restoring MongoDB does not roll back downstream writes or recreate expired source transaction logs.
+
+Preserve the upgraded MongoDB backup until you have verified the restored deployment under normal operation.
+
+## Related pages
+
+- [Move Nest state](/docs/guides/move-nest-state)
+- [Configure a cluster](/docs/guides/cluster)
+- [Observe a pipeline](/docs/guides/observe-a-pipeline)

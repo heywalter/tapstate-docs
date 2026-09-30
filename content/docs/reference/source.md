@@ -120,3 +120,14 @@ SRS settings. They are valid only for a `cdc` source. Accepted fields are
 
 See the [connector directory](/docs/connectors) for current roles, modes, and
 external-system preparation.
+
+## Connection and node settings
+
+A connector can declare connection settings and settings for a particular node
+use. Supply its supported values in the existing source `config` map; tapstate
+routes them to the connector's corresponding configuration forms. There is no
+separate `node:` block in a source resource.
+
+Use the [connector guide](/docs/connectors) and the registered connector's live
+specification for field names, defaults, and required values. A catalog field
+does not establish support in a different connector artifact version.

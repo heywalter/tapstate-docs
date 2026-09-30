@@ -9,7 +9,8 @@ ai:
 
 import { LinkCard, CardGrid } from '@/components/mdx';
 
-Tapstate connects operational systems through one governed Capture–Transform–Serve data path. Use these docs to understand the model, prepare external systems, and describe a path as reviewable resources.
+Tapstate connects operational systems through one governed Capture–Transform–Serve data path. Use these docs to understand the model, prepare external systems, and build a data path and check its results. Start in the web application; use the
+CLI, REST API, or MCP when you need programmatic control.
 
 ## Start here
 
@@ -36,9 +37,9 @@ Tapstate connects operational systems through one governed Capture–Transform�
   />
 </CardGrid>
 
-## Current preview
+## Try the current preview
 
-The public preview demonstrates one concrete operational data path:
+The Quickstart demonstrates one operational data path:
 
 - MySQL orders and PostgreSQL shipments, each captured by an initial load plus
   continuous change data capture (CDC)
@@ -63,19 +64,9 @@ this release does not publish a standalone server installer.
     href="/docs/connectors"
   />
   <LinkCard
-    title="Install the CLI"
-    description="Install and verify the preview CLI on macOS or Linux."
-    href="/docs/overview/install"
-  />
-  <LinkCard
     title="Explore the order-state demo"
     description="Change MySQL and PostgreSQL rows and watch the same MongoDB document update."
     href="/docs/overview/order-state-demo"
-  />
-  <LinkCard
-    title="Create your own workspace"
-    description="Author and validate declarative source, pipeline, transform, view, and serve resources."
-    href="/docs/overview/create-workspace"
   />
   <LinkCard
     title="Look up fields"
@@ -113,6 +104,14 @@ this release does not publish a standalone server installer.
     href="/docs/concepts/storage"
   />
 </CardGrid>
+
+## Developers and AI agents
+
+Use the [CLI](/docs/overview/install) for local authoring and scripted operations,
+the [REST API](/docs/reference/rest-api) for integrations, and
+[MCP](/docs/reference/mcp) for an AI host. These are optional clients of the same
+server. [Create a workspace](/docs/overview/create-workspace) when you need
+reviewable `.tap.yml` files in version control.
 
 ## AI-readable documentation
 

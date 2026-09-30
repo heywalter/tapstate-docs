@@ -38,7 +38,8 @@ Capture loads an initial data set and, when the connector supports it, follows c
 
 The current preview filters, maps, runs scripted transforms, merges streams,
 and uses `nest` to maintain documents assembled from related tables. `join`
-remains part of the declared model but is refused by the current runtime.
+combines a fact stream with dimensions using a restricted SQL subset. See
+[Transform reference](/docs/reference/transforms#join) for its input and key requirements.
 
 ### Serve — deliver current state
 
@@ -49,12 +50,15 @@ inspection instead of a stable application-facing data API.
 
 ## Current preview boundary
 
-The current preview is a single-node, in-memory runtime. Its Quickstart
-captures MySQL orders and PostgreSQL shipments, assembles one document, and
-keeps it current with an initial snapshot followed by CDC.
-A server restart replays from the source instead of resuming a persisted
-offset. See [Architecture](/docs/overview/architecture) for the current and
-target boundaries.
+Tapstate v0.6 runs as a single member by default and offers opt-in cluster
+operation. It stores recovery positions and durable operator state in MongoDB;
+recovery can replay records and does not provide exactly-once delivery.
+
+Use the web application for the default interactive path. The Quickstart
+captures MySQL orders and PostgreSQL shipments and assembles them into current
+order documents. CLI, REST, and MCP support developers and automation.
+See [Architecture](/docs/overview/architecture) and the
+[v0.6 limits](/docs/releases/v0.6#known-limits-and-issues) before choosing a deployment.
 
 ## When to use tapstate
 
@@ -67,7 +71,7 @@ The documentation follows the same path you use to build a data pipeline:
 - **Prepare the current path.** Use the [connector directory](/docs/connectors) to prepare MySQL, PostgreSQL, Oracle, and SQL Server capture with MongoDB materialization, and to distinguish current connectors from roadmap references.
 - **Run the shortest path.** Use the [Quickstart](/docs/overview/quickstart) with sample MySQL, PostgreSQL, and MongoDB data in Docker.
 - **Explore the data model.** Change both sources in the [order-state demo](/docs/overview/order-state-demo) and watch one assembled document stay current.
-- **Author a workspace.** Use the [offline walkthrough](/docs/overview/create-workspace) to create and validate `.tap.yml` resources.
+- **Automate when needed.** Developers can use the [offline walkthrough](/docs/overview/create-workspace) to create and validate `.tap.yml` resources.
 - **Look up exact syntax.** Use the [reference](/docs/reference/dsl-grammar) for resource fields and examples.
 - **Work with an AI assistant.** Use [`llms.txt`](/llms.txt) or the page-level Markdown view to provide the same canonical content to an assistant.
 

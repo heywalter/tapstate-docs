@@ -35,11 +35,11 @@ const tasks = [
     icon: Cable,
   },
   {
-    eyebrow: 'Install the tool',
-    title: 'Install the CLI',
-    description: 'Install and verify tapstate on macOS or Linux, then author your first workspace.',
-    href: '/docs/overview/install',
-    linkLabel: 'Install the CLI',
+    eyebrow: 'Try tapstate',
+    title: 'Run the quickstart',
+    description: 'Start the sample environment, sign in on the web, and explore an order pipeline.',
+    href: '/docs/overview/quickstart',
+    linkLabel: 'Start the quickstart',
     icon: TerminalSquare,
   },
 ];

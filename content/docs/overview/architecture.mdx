@@ -24,16 +24,17 @@ managed MongoDB store:
 
 ### Current preview boundaries
 
-- The native CLI scaffolds and validates `*.tap.yml` resources offline.
+- The web application is the default interactive entry for sources, pipelines, monitoring, and logs.
+- The optional native CLI scaffolds and validates `*.tap.yml` resources offline.
 - A connected CLI session can register connector artifacts, apply resources,
   start a pipeline, and inspect status, metrics, and logs.
 - The CLI, REST API, and MCP provide bounded preview inspection, not a stable
   application-facing data API.
 - The runtime and CLI are prerelease surfaces; command and API compatibility can
   change before a stable release.
-- The pipeline DAG wires `filter`, `map`, `js`, `union`, and `nest`.
-- `nest` maintains a document assembled from related source tables. The v1
-  Schema also declares `join`, but the current DAG builder refuses it.
+- The pipeline supports `filter`, `map`, `js`, `union`, `nest`, and a restricted
+  `join`. See [Transform reference](/docs/reference/transforms) for their limits.
+- `nest` maintains a document assembled from related source tables.
 - An inline `view` materializes the Quickstart result in the managed store.
   `serve.sync` is the separate path for delivery to an external target.
   `serve.query` and `serve.push` are schema-defined declarations that the
@@ -41,11 +42,12 @@ managed MongoDB store:
 
 ### Recovery and scale limits
 
-- The server is single-node and uses in-memory runtime state.
-- A server restart replays from the source instead of resuming a persisted
-  source offset.
-- High availability and production recovery guarantees are not part of the
-  current preview contract.
+- The server defaults to one member. [Cluster mode](/docs/guides/cluster) is opt-in.
+- MongoDB retains control data, recovery positions, and durable operator state.
+  In-memory working state still has workload-dependent capacity requirements.
+- Recovery can resume from retained positions and replay records. It does not
+  remove the delivery and positioning limits in the [release notes](/docs/releases/v0.6#known-limits-and-issues).
+- The release remains Preview; a cluster profile is not a production-readiness guarantee.
 
 See [Create your own workspace](/docs/overview/create-workspace) for the offline authoring path.
 The [Quickstart](/docs/overview/quickstart) packages this preview
@@ -66,9 +68,10 @@ applies reviewable shaping and document-assembly rules. Materialize
 maintains consumer-oriented state, and Deliver exposes that state through
 connector or query surfaces.
 
-The target recovery boundary owns source positions, checkpoints, retry state,
-schema state, and operational history durably. This is a design requirement,
-not a guarantee of the current in-memory preview.
+The recovery boundary covers source positions, checkpoints, retry state,
+schema state, and operational history. The current release implements specific
+parts of that boundary; see [State and storage](/docs/concepts/storage) for the
+retention and recovery limits.
 
 ### Target control plane
 

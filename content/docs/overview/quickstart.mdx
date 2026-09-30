@@ -16,8 +16,8 @@ your own databases. The playground captures MySQL orders and PostgreSQL
 shipments, assembles them into one order document, and materializes the result
 in MongoDB.
 
-When you finish, you will have a running `order_pipeline` and can read
-`views.order_state` from the tapstate CLI.
+When you finish, you will have a running `order_pipeline`, a checked initial
+result in MongoDB, and a web session for exploring the pipeline.
 
 This quickstart is an evaluation environment, not a server installation or
 production deployment. Use sample data only.
@@ -52,7 +52,7 @@ docker compose version
 ```
 
 You do not need to [install the tapstate CLI](/docs/overview/install). The
-script downloads the current published preview CLI, connector artifacts, and the
+script downloads the tools, connector artifacts, and the
 Quickstart stack into a disposable `tapstate-demo` directory. The published CLI
 and server assets are selected from the same release path.
 
@@ -61,7 +61,7 @@ and server assets are selected from the same release path.
 Run the published quickstart script:
 
 ```bash
-curl -fsSL https://install.tapstate.dev | sh
+curl -fsSL https://install.tapstate.dev/demo | sh
 ```
 
 The script starts MySQL, PostgreSQL, MongoDB, and a tapstate server. It then:
@@ -80,7 +80,7 @@ For an unreliable connection, save the script before running it so you can inspe
 ```bash
 mkdir -p tapstate-demo
 cd tapstate-demo
-curl -fL https://install.tapstate.dev -o quickstart.sh
+curl -fL https://install.tapstate.dev/demo -o quickstart.sh
 sh quickstart.sh
 ```
 
@@ -96,38 +96,49 @@ A successful run ends with this line:
 quickstart: 5 orders from MySQL, each carrying its shipments from PostgreSQL -- 6 of them, in one object per order
 ```
 
-Do not treat a healthy container or a `running` pipeline status by itself as
-proof that the data arrived. The order and embedded-shipment counts are the
-quickstart's success condition.
+The order and embedded-shipment counts are the quickstart's success condition.
 
 If a setup command fails, the script prints the CLI diagnostic and exits. It does not continue to the snapshot check or report an empty target as success.
 
-## 3. Inspect one assembled order
+## 3. Open the web application
 
-Change to the generated directory and start the bundled CLI:
+On the Docker host, open `http://127.0.0.1:8080` in your browser. The Playground
+binds that port to the host's loopback interface. From another computer, keep
+this SSH tunnel open and visit `http://127.0.0.1:18080` locally:
 
 ```bash
-cd tapstate-demo
-./tapstate -w work
+ssh -N -L 127.0.0.1:18080:127.0.0.1:8080 user@linux-host
 ```
 
-At the prompt, connect and sign in:
+Replace `user@linux-host` with your SSH login for the Docker host.
+Sign in as `admin` with `TAPSTATE_ADMIN_PASSWORD` from the generated
+`tapstate-demo/.env` file. Keep that file private.
 
-```text
-connect http://127.0.0.1:8080
-login admin
-```
+The sample is already configured and running. You do not need to create a
+connection, author a workspace, or start another pipeline to complete this
+quickstart.
 
-Enter the password stored in the local `.env` file. Then run:
+Under **Data Sources**, open `orders_db` and select `orders` to inspect its
+discovered columns. `fulfillment_db` contains the `shipments` table.
 
-```text
-show collections
-views.order_state.find({id:1})
-status order_pipeline
-```
+![The orders table in Data Sources, showing its discovered columns and primary key](/images/quickstart/v0.6-source-columns.jpg)
 
-For the published seed data, the first query returns this business shape
-(MongoDB's generated `_id` is omitted):
+In **Pipelines**, open `order_pipeline`. **Build** shows the sample data path:
+
+![The order pipeline in the tapstate web application: orders and shipments feed assemble, which writes order_state](/images/quickstart/v0.6-pipeline-build.jpg)
+
+The two sources feed `assemble`, then `order_state`. Open **Monitoring** to see
+the current status and metrics; **Logs** shows recent pipeline messages.
+
+![The order pipeline Monitoring page, showing its current status and metrics](/images/quickstart/v0.6-pipeline-monitoring.jpg)
+
+## 4. Understand the result
+
+The setup script checks the result in MongoDB (`views.order_state`) before printing the success line:
+**5 orders and 6 embedded shipments**.
+
+For order `1`, the sample result has this business shape (MongoDB's generated
+`_id` is omitted):
 
 ```javascript
 {
@@ -141,14 +152,17 @@ For the published seed data, the first query returns this business shape
 }
 ```
 
-The order fields come from MySQL, while the `shipments` array comes from
-PostgreSQL. You have now completed the shortest runnable tapstate path.
+The order fields come from MySQL; the `shipments` array comes from PostgreSQL.
+The web application lets you inspect the pipeline topology, monitoring metrics, and
+logs. Interactive result querying remains in development, so the setup script
+verifies the assembled documents directly in MongoDB.
 
 ## Next steps
 
 - [Explore the order-state demo](/docs/overview/order-state-demo) to change both source databases and watch the document stay current.
-- [Install the CLI](/docs/overview/install) when you want `tapstate` available outside the playground.
-- [Create your own workspace](/docs/overview/create-workspace) to author and validate resources for systems your tapstate environment can reach.
+- Learn how [connections and connectors](/docs/concepts/connections-and-connectors) and [capture modes](/docs/concepts/capture-modes) fit the pipeline.
+- Prepare an external system with its [connector guide](/docs/connectors).
+- For scripts or AI integrations, use the optional [CLI](/docs/overview/install) or [MCP gateway](/docs/reference/mcp).
 - Use [Troubleshooting](/docs/guides/troubleshooting) if the success line or assembled document does not appear.
 
 ## Keep, stop, or remove the playground

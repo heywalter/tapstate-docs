@@ -38,9 +38,6 @@ storage:
   warm:
     collection: customers
     indexes: [email]
-schema:
-  enforce: true
-  evolution: additive
 ```
 
 Reference the definition from a pipeline:
@@ -51,13 +48,26 @@ view:
   from: shaped-customers
 ```
 
-An inline view uses the same `primary_key`, `storage`, and `schema` fields and
+An inline view uses the same `primary_key` and `storage` fields and
 also requires `id` and `from`.
 
 For runtime materialization, `primary_key` is required and must be one column
-that matches the identity of the stream feeding the view. The current preview
+that identifies the output row. The current preview
 materializes the warm database layer. The Schema also describes `hot` and
 `cold`, but this release refuses those tiers instead of materializing them.
+
+### View schema compatibility
+
+Views do not accept `schema:` in v0.6. Remove it from local definitions; validate
+and apply otherwise return `dsl.unknown-field`. Stored definitions are cleaned
+during upgrade. This does not remove connector `config.schema` settings.
+
+### Explicit View keys
+
+An explicitly selected View key can use a unique identity supported by the
+discovered source model. It is not an arbitrary key override. Updates and
+deletes must supply that key in the before image; otherwise the write is refused
+with `engine.view-key-missing-from-before-image`.
 
 ## `kind: serve`
 
@@ -104,15 +114,14 @@ Each element requires a target connection ID in `source` and can include:
 - target table rename rules;
 - connector-owned `options`.
 
-Before starting a pipeline that uses `serve.sync`, discover the schema for each
+Before starting a pipeline that writes a View or uses `serve.sync`, discover the schema for each
 pipeline source. Applying the resources does not perform that discovery. If a
 source schema is missing, the start is refused before data-plane components
 start, the pipeline reaches `FAILED`, and its failure code is
 `actuation.source-schema-not-discovered`.
 
-This is a start precondition for `sync`, not for `view`: a view can still be
-applied and use its own pre-discovery behavior. For a refused sync pipeline,
-discover the missing source schema and then start the pipeline again.
+Discover the missing source schema and then start the pipeline again. This
+precondition applies to both View and sync outputs.
 
 #### Choose a write mode
 

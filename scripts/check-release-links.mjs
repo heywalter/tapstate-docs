@@ -3,13 +3,13 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const cliReleaseVersion = '0.5.0';
+const cliReleaseVersion = '0.6.0';
 const cliReleaseTag = `v${cliReleaseVersion}`;
-const minorReleaseSeries = 'v0.5';
+const minorReleaseSeries = 'v0.6';
 const productDir = process.env.TAPSTATE_PRODUCT_DIR;
 const installPath = new URL('../content/docs/overview/install.mdx', import.meta.url);
 const quickstartPath = new URL('../content/docs/overview/quickstart.mdx', import.meta.url);
-const releasePath = new URL('../content/docs/releases/v0.5.mdx', import.meta.url);
+const releasePath = new URL('../content/docs/releases/v0.6.mdx', import.meta.url);
 const releasesMetaPath = new URL('../content/docs/releases/meta.json', import.meta.url);
 const install = await readFile(installPath, 'utf8');
 const quickstart = await readFile(quickstartPath, 'utf8');
@@ -27,7 +27,7 @@ const expectedDocs = [
   [
     'Playground endpoint',
     quickstart,
-    'https://install.tapstate.dev',
+    'https://install.tapstate.dev/demo',
   ],
   [
     'release archive',
@@ -53,8 +53,12 @@ for (const [label, source, expected] of expectedDocs) {
   if (!source.includes(expected)) failures.push(`${label} is not pinned to ${expected}`);
 }
 
-if (!releasesMeta.pages || releasesMeta.pages[0] !== 'v0.5') {
-  failures.push('Release metadata does not list v0.5 as the current release page');
+if (/https:\/\/install\.tapstate\.dev(?:\s*\||\s+-o\s+quickstart)/.test(quickstart)) {
+  failures.push('Quickstart uses the CLI-only root URL; the playground requires /demo');
+}
+
+if (!releasesMeta.pages || releasesMeta.pages[0] !== 'v0.6') {
+  failures.push('Release metadata does not list v0.6 as the current release page');
 }
 
 if (quickstart.includes('v0.4.1') || quickstart.includes("The stack's server image remains pinned to v0.3.0")) {
@@ -111,6 +115,7 @@ if (process.env.TAPSTATE_VERIFY_REMOTE_LINKS === '1') {
   const remoteScripts = [
     ['https://install.tapstate.dev/cli', 'PINNED_VERSION'],
     ['https://install.tapstate.dev', 'PINNED_VERSION'],
+    ['https://install.tapstate.dev/demo', 'CLI_VERSION'],
   ];
 
   for (const [url, variable] of remoteScripts) {

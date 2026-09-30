@@ -40,35 +40,26 @@ The sources use `mode: cdc`, and the pipeline uses
 `read_mode: snapshot_and_cdc`. The initial rows arrive through Snapshot; later
 inserts, updates, and deletes arrive through CDC.
 
-## Watch an order
+## Follow the pipeline
 
-Start a CLI session:
+Open `order_pipeline` under **Pipelines** in the web application. Use
+**Monitoring** to follow activity and **Logs** to investigate errors.
 
-```bash
-./tapstate -w work
-```
-
-Connect, sign in with the password from `.env`, and start a live view:
-
-```text
-connect http://127.0.0.1:8080
-login admin
-watch views.order_state {id:1}
-```
-
-Keep this terminal open. Press <kbd>Ctrl</kbd>+<kbd>C</kbd> when you want to
-stop watching; the pipeline continues to run.
+The optional experiment below changes sample rows with database tools included
+in the playground. Run its commands from `tapstate-demo`. Each change has a
+bounded check against MongoDB because pipeline status alone does not verify the
+assembled document. No tapstate CLI session is required.
 
 ## Add a shipment in PostgreSQL
 
-Open a second terminal in `tapstate-demo`. Add a shipment to order `1`:
+Open a terminal in `tapstate-demo`. Add a shipment to order `1`:
 
 ```bash
 docker compose exec postgres psql -U postgres -d appdb \
   -c "INSERT INTO shipments VALUES (7, 1, 'ups', 'pending');"
 ```
 
-The watched order should gain a third item in its `shipments` array. To verify
+The assembled order should gain a third item in its `shipments` array. To verify
 the result directly with a bounded wait:
 
 ```bash
@@ -143,20 +134,14 @@ source, follow the [PostgreSQL CDC requirements](/docs/connectors/postgresql#pre
 
 ## Inspect and reset the environment
 
-From the connected CLI, inspect the pipeline:
-
-```text
-status order_pipeline
-metrics order_pipeline
-logs order_pipeline
-```
+Check the pipeline status and logs in the web application before resetting it.
 
 To reset every sample database and rerun the Quickstart, remain in
 `tapstate-demo` and run:
 
 ```bash
 docker compose down -v
-curl -fsSL https://install.tapstate.dev | sh
+curl -fsSL https://install.tapstate.dev/demo | sh
 ```
 
 The managed MongoDB instance is part of this disposable playground. It runs
@@ -166,7 +151,8 @@ or production data in this environment.
 
 ## Next steps
 
-- [Create your own workspace](/docs/overview/create-workspace) with the installed CLI.
+- Prepare your own source with its [connector guide](/docs/connectors).
+- For declarative authoring, [create a workspace](/docs/overview/create-workspace) with the optional CLI.
 - Learn how [nest assembles documents](/docs/guides/assemble-documents-with-nest).
 - Review [view and serve](/docs/reference/view-and-serve) to distinguish managed materialization from external delivery.
 - Use [Troubleshooting](/docs/guides/troubleshooting) for quickstart, connector, or pipeline failures.

@@ -244,8 +244,40 @@ By default, the gateway exposes read-only tools:
 | `pipeline_list` | List structured pipelines declared on the server; accepts optional `offset` and `limit`. |
 | `pipeline_status` | Read a pipeline's current lifecycle status. |
 | `pipeline_metrics` | Read the latest bounded pipeline metrics. |
+| `pipeline_metrics_history` | Read bounded output-rate and selected-table lag history. |
+| `pipeline_explain` | Explain the current pipeline observation. |
 | `pipeline_snapshot` | Read the latest per-table snapshot progress. |
 | `pipeline_logs` | Read a bounded, secret-redacted pipeline log tail. |
+
+### Pipeline history and explanations
+
+`pipeline_metrics_history` requires `id`, `from`, and `to`. Use
+RFC3339 timestamps with UTC offsets and a range of at most 15 days. Optional
+parameters are `resolution`, `limit`, `table`, and `cursor`:
+
+```json
+{
+  "id": "orders",
+  "from": "2026-09-29T01:00:00Z",
+  "to": "2026-09-29T02:00:00Z",
+  "resolution": "PT5M",
+  "table": ["orders", "shipments"],
+  "limit": 240
+}
+```
+
+Use `table`, not `tables`. Resolutions are `auto`, `raw`, `PT5M`, `PT30M`,
+`PT1H`, `PT3H`, and `PT6H`. The maximum limit is 1000 and at most 20 tables
+can be selected. Omitting `table` omits table lag.
+
+Repeat the same query with `nextCursor` as `cursor` to continue. A cursor
+expires after 10 minutes. Preserve resets, gaps, unavailable metrics, and
+`NO_RETAINED_SAMPLES` when explaining results; none means zero throughput.
+See [History semantics](/docs/reference/rest-api#pipeline-history).
+
+`pipeline_explain` accepts `id` and interprets existing observation
+evidence. `NO_MATCH` does not prove healthy delivery. A missing observation
+returns `monitor.no-observation`; it is not a request to start the pipeline.
 
 ### Browse data
 
