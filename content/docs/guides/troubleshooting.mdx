@@ -7,313 +7,125 @@ ai:
   aliases: [tapstate troubleshooting, validation error, connector error, cdc not working]
 ---
 
-Start by identifying which layer produced the failure. A resource-file error, a connection failure, and incorrect destination data require different evidence and different fixes.
+Start by identifying which layer produced the failure. A configuration error,
+a connection failure, and incorrect destination data require different evidence
+and different fixes.
 
-## Read the command result
+For CLI exit codes, `.tap.yml` workspace validation, the local Docker quickstart,
+or self-hosted server errors, see [Troubleshoot self-hosted deployments](/docs/self-hosted/troubleshooting).
 
-tapstate commands use these exit codes:
+## Start with the Cloud workflow
 
-| Code | Meaning |
-|---:|---|
-| `0` | Success |
-| `1` | A coded domain diagnostic or refused operation |
-| `2` | Invalid command usage |
-| `3` | Unavailable in this context, not connected, or not implemented |
+| Symptom | First checks |
+|---|---|
+| The expected organization or Cluster is missing | Check the signed-in account and selected [organization](/docs/manage/organizations). Ask its owner to confirm access. |
+| Checkout returned but the Cluster is not ready | Check subscription status in [Billing](/docs/manage/billing) and resource status in **Clusters**. Do not infer provisioning success from payment alone. |
+| A source or Atlas connection fails | Check the [Cluster outbound IP](/docs/manage/clusters#prepare-network-access), network allowlists, endpoint, credentials, and connector permissions. Keep TLS verification enabled. |
+| The Cluster asks for storage setup | Open **Connect Atlas**, add the Cluster's outbound IP to Atlas, and select **Connect** to check and save settings ([Connect storage](/docs/quickstart#2-connect-storage)). |
+| Cache setup reports an occupied database, even with zero documents | Select **Use suggested name** when offered or enter a new empty database name; any existing collection blocks first-time setup. Do not delete existing collections just to reuse a name. |
+| Cache setup cannot list collections | Ask the database administrator to grant metadata inspection access; the failure does not establish whether the database is empty. |
+| Sign-in is interrupted during first initialization | Reopen the same Cluster from Cloud and check the original setup. Do not reset storage or create another Cluster. |
+| Saving storage timed out or initialization stopped refreshing | Reopen the same Cluster and check its original operation. A lost response does not mean the settings were not saved. |
+| The Cluster opens, but the default destination check failed or is unverified | Check the [default destination result](/docs/manage/clusters#check-the-default-destination) and its database access. Do not repeat installation. |
+| Saved storage is not yet active | Check the original setup status and use **Retry storage activation** only when offered. Keep the original Cluster and database names; Cloud setup does not require a local installation directory. |
+| An alert remains active after a repair | Check its latest observation and recovery evidence in [Alerts](/docs/manage/alerts#inspect-an-alert). Missing observations do not confirm recovery. |
+| An alert appeared but no notification arrived | Check the alert, any silence, and [notification delivery](/docs/manage/alerts#interpret-delivery-results). Cloud manages external routing; acceptance does not confirm recipient delivery. Keep the Cloud event ID for support. |
+| Storage is unavailable | Restore access to the original database, credentials, and trust settings. Use [runtime storage recovery](/docs/manage/storage-recovery) only for the supported lost-state case. |
+| Storage recovery finished but pipelines are stopped | Review and confirm each affected pipeline's full rebuild separately. Storage recovery does not automatically restart pipelines. |
+| Pipeline edits stay unsaved or saving fails | Read the save error and keep the page open until it is resolved. A saved draft is not a published or running pipeline. Follow [Build a pipeline](/docs/guides/build-a-pipeline#2-create-a-draft). |
+| The start button shows a busy indicator | Wait for the current request or start-check dialog. The indicator includes publication and does not establish that the pipeline is running. After a lost response, inspect the existing pipeline's status before retrying. |
+| Start published the configuration but the pipeline did not run | Resolve or confirm the start checks, then inspect Monitoring. Publishing and starting are separate results; do not clear target data just to retry. |
+| Monitoring shows a draft or logs are empty | Save and start a valid pipeline before expecting runtime observations. An empty log view alone is not evidence of health. |
+| Views reports unresolved outputs or omits an expected collection | Check the named pipeline's source selection, discovered schema, and referenced definitions. Refresh after correcting them; other listed outputs do not prove the inventory is complete. See [output locations](/docs/reference/rest-api#locate-a-materialized-collection). |
+| Monitoring says Sync healthy but the data has not been checked | Compare known output records. For stable direct mappings, run [Data validation](/docs/guides/validate-pipeline-data). Sync health is not a data comparison. |
+| Data validation is blocked or incomplete | Check the supported mapping, saved keys, and original run state. Follow [Resolve a blocked check](/docs/guides/validate-pipeline-data#resolve-a-blocked-check); an empty partial report does not mean the data matches. |
+| A pipeline runs but data is missing or stale | Compare known source and destination records; check discovered keys, capture mode, logs, and acknowledged progress. Follow [Observe a pipeline](/docs/guides/observe-a-pipeline). |
+| The AI assistant asks you to select an input or correct a proposal | Choose the source and input table, check discovered schemas, and continue the conversation with the reported issue. Review [Build with AI](/docs/guides/build-a-pipeline#build-with-ai) before applying changes. |
+| The AI provider check or generation fails | Check the endpoint, model, and saved key. A connection check does not save provider settings. Resolve a draft save conflict before retrying generation. |
+| Trial dates disagree between setup and Billing | Follow [Trial dates do not match](/docs/manage/billing#trial-dates-do-not-match); do not infer an extended trial from a conflicting display. |
+| Checkout timed out, was submitted twice, or Billing has no price | Follow the [Billing FAQ](/docs/manage/billing#billing-faq) before starting another subscription. |
 
-Use `tapstate --help` to inspect the commands in your installed version. In
-the current preview, use `tapstate help <command>` or `tapstate <command> --help` for a
-command's operands and options.
+For support, record the affected organization and Cluster, the action, time
+including time zone, displayed status, and a short error description. Remove
+credentials, connection URIs, payment details, and customer data from evidence.
 
-Text-mode results are written to standard output and usage or diagnostic messages
-are written to standard error. With `-o json` or `-o yaml`, the structured
-result, including validation diagnostics, is written to standard output.
-Preserve both streams and the exit code when collecting evidence.
+## Resolve start checks
 
-### CLI and server versions differ
+In Cloud, review the Web start report before changing state. A refused start
+does not establish that a new run began.
 
-The CLI and server are separate builds. When `connect` reaches a server on a
-different version, the CLI reports `cli.version-mismatch` and keeps the
-connection open. Run the following command in the same session to confirm both
-values:
+- `lifecycle.start-needs-confirmation`: review the finding, affected target,
+  actions, and saved full-load policy. Choose explicitly; **Clear** also saves
+  that policy for future full loads.
+- `lifecycle.start-blocked`: correct the blocking condition, then request fresh
+  checks. Confirmation flags do not override it.
+- `lifecycle.pipeline-not-runnable`: resolve the pipeline's current lifecycle
+  state before requesting another start.
 
-```text
-version
-```
+For REST, use the fresh report's content hash. HTTP `428` can mean a
+missing or malformed required precondition; `412` means the resource changed.
+Reload and review rather than replaying an old answer. A timeout can leave the
+outcome uncertain: inspect status before retrying a state-changing request.
+See [Start checks](/docs/guides/build-a-pipeline#review-start-checks) and
+[REST start decisions](/docs/reference/rest-api#answer-start-checks).
 
-Install the CLI version that matches the server, or connect to a server on the
-CLI version. If their contracts differ, the server decides which operations it
-accepts. Do not treat a successful connection as proof that every command is
-compatible.
+### Unwind keys, indexes, and before images
 
-If the CLI attempts anonymous issuer discovery against an older server that does
-not serve `/.well-known/tapstate` (such as a server on v0.3.0), the CLI reports
-`cli.issuer-discovery-rejected`. The diagnostic output includes:
+| Diagnostic | What to check |
+|---|---|
+| `connector.target-identity-check-failed` | Target reachability and metadata permissions, complete matching keys, and incompatible unique indexes. An unreadable index report is not a successful identity check. |
+| `dsl.unwind-needs-an-element-key` | Set `element_key` for object elements or `include_array_index` for ordinal identity. |
+| `dsl.unwind-needs-an-upsert-target` | Use a keyed upsert destination for the expanded result. |
+| `dsl.unwind-column-already-exists` | Rename the preserved source identity or index field to avoid the reported collision. |
+| `transform.unwind-needs-a-complete-before-image` | Configure complete source before images so updates and deletes can retract earlier expanded rows. |
+| `transform.unwind-rows-share-a-key` | Expanded elements share one key. Choose an element key that identifies each element; otherwise writes can replace one another. |
 
-- `seed`: The server endpoint URL contacted during discovery.
-- `reason`: The rejection response or HTTP error status returned by the server.
+Changing an identity field on a populated target does not migrate existing
+rows. Review [Unwind](/docs/reference/transforms#unwind) before changing keys or
+indexes, and test in an independent destination.
 
-To resolve `cli.issuer-discovery-rejected`, upgrade the tapstate server to a
-release that supports issuer discovery, or use a CLI version matching the older
-server.
+### A filtered row remains in the target
 
-Text-mode coded CLI diagnostics include the CLI version and the server version
-captured when the connection was made. Offline diagnostics say `server not
-connected`; an older server that does not report a version appears as `server
-not reported`. Structured JSON and YAML results keep their documented shape;
-collect `tapstate version` separately when reporting one.
+For an update that stops matching, check whether the source supplied the full
+before image required to evaluate the previous row. For a source delete, check
+whether the expression handles `op == 'd'` using `before` instead of relying on
+an empty `after`. Compare the source event and the actual keyed target row.
+See [Maintain a filtered result](/docs/reference/transforms#maintain-a-filtered-result).
+
+### A filtered row does not return after matching again
+
+In Cloud, a MySQL row removed from a filtered managed View can
+remain absent when a later update matches again. Compare the source row and
+keyed target row; `RUNNING` alone does not prove the result is complete. See
+[the known limitation](/docs/reference/transforms#maintain-a-filtered-result)
+before relying on this path.
+
+### Editing a connection changes authentication
+
+In structured edits, omitting a saved secret for the same connector retains it.
+Supply a new value to replace it, or use `clearSecrets` to remove it explicitly;
+`null` is refused. A redacted response is not a credential backup. Check the
+connector ID and the reported configured secret paths before retrying. See
+[Edit saved credentials](/docs/reference/rest-api#edit-saved-credentials).
 
 ## Identify the failing layer
 
 | Layer | Typical evidence | What it can establish |
 |---|---|---|
-| Documentation and resource shape | Page reference, YAML diff, schema diagnostic | Whether the resource follows the documented contract |
+| Documentation and resource shape | Page reference, configuration diff, schema diagnostic | Whether the configuration follows the documented contract |
 | Connector contract | Connector ID, mode, field names, preparation guide | Whether the requested role and configuration are declared |
 | Deployment and connectivity | Runtime logs, network test, authentication response | Whether this deployment can reach and authenticate to the system |
 | Data movement | Checkpoints, source and target samples, record counts | Whether Snapshot, CDC, transforms, and writes behave correctly |
 
-Do not use evidence from one layer as proof of another. A valid resource file is the starting point; connectivity and data movement still need to be verified in the environment where the connection runs.
-
-## Check the workspace first
-
-Run the validation command supplied with your tapstate environment before investigating the external system:
-
-```bash
-tapstate validate --workdir tapstate-work
-```
-
-Review the filename, location, diagnostic code, message, and suggested fix. Correct one layer at a time, then validate again.
-
-### Demo workspace already exists or cannot be written
-
-`tapstate demo` protects existing files by default:
-
-- `cli.demo-workspace-exists` means the target already contains a generated
-  demo. Choose an empty work directory, or inspect the existing files before
-  retrying with `--force`.
-- `cli.workspace-not-writable` includes the failing `path` and filesystem
-  `reason`. Correct the permission or choose a writable directory. The command
-  restores replaced files and removes files it created, although empty
-  directories from the failed attempt can remain.
-
-### The `tap` alias is unavailable
-
-The optional alias never replaces another command. `cli.alias-name-taken`
-means the target path belongs to something else. Continue using `tapstate`, or
-remove the conflicting command yourself before running `tapstate alias
-install`. `cli.alias-install-dir-unknown` means the selected installation
-directory has no `tapstate` entry; set `TAPSTATE_INSTALL_DIR` to the directory
-used by the installer and retry.
-
-### Unknown field or invalid value
-
-- Confirm the connector ID and exact field spelling in its [Reference](/docs/connectors) section.
-- Remove fields copied from an upstream UI or another connector version unless the tapstate contract exposes them.
-- Check whether the field is conditional on another value, such as authentication method or storage type.
-
-### Invalid mode
-
-- Use only modes shown on the connector page.
-- Do not add `cdc` because the underlying database supports a transaction log.
-- A target-only connection does not need a source read mode.
-
-### Missing or unresolved reference
-
-- Confirm that pipeline references match resource IDs exactly.
-- Keep every referenced resource in the selected work directory.
-- Check for renamed files whose internal `id` did not change with the filename.
-
-### Row-expression schema and type errors
-
-These checks apply to `filter` expressions and computed `map` fields that read
-`after.<field>` or `before.<field>`:
-
-- `dsl.row-expression-needs-discovery` means at least one source that can reach
-  the expression has no discovered schema. Apply the source connection by
-  itself, run `discover-schema <source-id>`, then apply the pipeline or complete
-  workspace again.
-- `dsl.row-expression-type-unsupported` means the referenced column cannot be
-  represented in CEL without losing information. Carry the column through
-  unchanged, or compute from a compatible column instead.
-- `dsl.row-expression-type-unknown` means the discovered schema has no resolved
-  type for the referenced column. Remove that reference or use a column with a
-  declared type.
-
-These diagnostics restrict computation, not pass-through. A column that cannot
-be computed losslessly can still flow through a `map` when no computed rule
-reads it.
-
-### Upsert source has no discovered primary key
-
-`dsl.upsert-needs-key` is a server-side apply diagnostic. It means a selected
-source table is being written with `upsert`, but its discovered schema has no
-primary key. The diagnostic identifies the affected `source`, `table`, and
-resource `path`.
-
-Discover the source again and select a table with a primary key. A unique index,
-a target-side key, or `tables[].pk` does not satisfy this runtime check. Use
-`append` only when the delivery is insert-only and source updates and deletes do
-not need keyed handling.
-
-### Dotted field names in document stores
-
-`schema.column-name-reads-as-a-path` is an apply-time advisory warning. It
-indicates that a source table column contains a dot (such as `price.usd`) and is
-being mapped to a document store like MongoDB.
-
-Document stores write literal dotted keys, but query paths interpret dots as
-navigation into nested documents, causing direct field queries to return empty
-results and preventing index creation. To resolve this, rename the column in the
-source database or insert a `map` transform step to alias the dot to an
-underscore before writing to the destination.
-
-### Nest and Join transform diagnostics
-
-| Diagnostic | What it means | What to do |
-|---|---|---|
-| `nest.reference-tracking-requires-before-image` | An update on a stream behind a pointed-at embed carried no before image, preventing the engine from unlinking the row's prior reference. | Configure the stream's source to send before images (such as PostgreSQL `REPLICA IDENTITY FULL`). Without before images, unlinked rows cannot be reclaimed. |
-| `nest.key-change-tracking-requires-before-image` | An update on a stream tracking key changes carried an earlier row image missing key columns. | Configure the source to send whole row images rather than minimal ones (such as MySQL `binlog_row_image=FULL` or PostgreSQL `REPLICA IDENTITY FULL`), or turn key change tracking off for that stream. |
-| `actuation.join-output-key-not-published` | A pipeline `join` step writes to an `upsert` sync target, but its SELECT list does not directly project all primary-key columns of the driving fact table. | Project each driving fact table primary-key column directly in the SELECT list (aliases such as `o.id AS order_id` are permitted). |
-| `actuation.join-source-not-declared` | A `join` SQL query references a table alias that was not declared in the step's `from` mapping. | Align the SQL table alias with one declared in the step's `from` map. |
-| `actuation.join-source-key-missing` | The driving fact table in a `join` step has no discovered primary key. | Define a primary key on the source table, re-run schema discovery, and restart the pipeline. |
-| `dsl.join-sql-unsupported` | The join SQL statement uses unsupported clauses (such as `WHERE`, `GROUP BY`, `HAVING`, subqueries, or non-equality conditions). | Rewrite the SQL within the supported subset: one SELECT combining tables via equality associations directly between driving fact and dimension sources. |
-| `engine.join-dimension-row-displaced` | (WARNING) A second dimension row arrived under an existing join key, displacing the earlier match. | Ensure dimension join keys are unique in the source data, or narrow the source selection. Until resolved, the target will contain fewer rows than described by a relational query. |
-
-## Troubleshoot the Quickstart
-
-The [Quickstart](/docs/overview/quickstart) assembles five MySQL orders
-and six PostgreSQL shipments into MongoDB. Treat the run as successful only
-when it prints this complete result:
-
-```text
-quickstart: 5 orders from MySQL, each carrying its shipments from PostgreSQL -- 6 of them, in one object per order
-```
-
-A healthy server or `order_pipeline running` line does not establish that the
-assembled state is correct. Inspect the generated document when the success
-line is missing.
-
-### Docker is unavailable
-
-```bash
-docker info
-docker compose version
-```
-
-Start Docker and confirm the Compose plugin is available. The Quickstart needs
-to pull and run MySQL, PostgreSQL, MongoDB, and the tapstate server.
-
-### A container is unhealthy or stopped
-
-```bash
-docker compose ps
-docker compose logs --tail=200 mysql postgres mongo server
-```
-
-Wait for MySQL and PostgreSQL to finish initialization before retrying source
-schema discovery. A healthy tapstate server does not mean either source is
-ready. Slow Docker storage can leave a database initializing while the server
-already accepts requests.
-
-For `cli.request-timed-out` during connector registration, check the registered
-catalog before retrying: the upload can finish on the server after the client
-times out. Registration is idempotent. Resolve storage or memory pressure,
-then retry the failed steps. Keep passwords and tokens out of shared log bundles.
-
-### The assembled result does not appear
-
-Check the source and target independently:
-
-```bash
-docker compose exec mysql mysql -uroot -psecret appdb \
-  -e "SELECT COUNT(*) AS source_rows FROM orders;"
-
-docker compose exec postgres psql -U postgres -d appdb \
-  -c "SELECT COUNT(*) AS source_rows FROM shipments;"
-
-docker compose exec mongo mongosh --quiet \
-  'mongodb://mongo:27017/views?directConnection=true' \
-  --eval 'printjson({orders: db.order_state.countDocuments({}), shipments: db.order_state.aggregate([{$unwind:"$shipments"},{$count:"count"}]).toArray()})'
-```
-
-If MySQL has five rows and MongoDB does not, enter the CLI REPL and collect pipeline evidence:
-
-```bash
-./tapstate -w work
-```
-
-```text
-connect http://127.0.0.1:8080
-login admin
-status order_pipeline
-metrics order_pipeline
-logs order_pipeline
-```
-
-Enter the password stored in the local `.env` file. Do not paste it into a shell command or diagnostic bundle.
-
-### A rerun reports an illegal lifecycle transition
-
-The script preserves generated assets. Inspect `status` and `logs` first.
-If the sample is already running and the five-order, six-shipment check passes,
-the setup is complete.
-
-For a failed pipeline, fix the reported cause, stop it with `--keep-state`, and
-wait for the stop to complete before retrying the saved script from the same
-directory. See [Lifecycle transitions](/docs/guides/apply-and-run#lifecycle-transitions).
-A lifecycle error alone is not a reason to delete the playground's volumes.
-
-### The managed view store is unreachable
-
-`actuation.view-store-unreachable` means the server cannot reach the managed
-MongoDB store used for an inline `view`. Check the server's view-store
-configuration and MongoDB health, then start the pipeline again. The
-Quickstart's unauthenticated sample store is disposable and is not a production
-security model.
-
-### A connected command returns exit code 3
-
-The command was invoked without a server connection, or the verb is reserved
-but not implemented. Start an interactive session and run `connect` and `login`,
-or seed a one-shot command with `-c` and `-u`. For automation, pass the password
-through `TAPSTATE_PASSWORD` instead of `-p` so it is not exposed in shell history
-or the process list.
-
-### Connector registration is refused or download fails
-
-- `connector.not-official` means the server refused the artifact before
-  registration. The default accepted set has 17 IDs across MySQL, PostgreSQL,
-  MongoDB, Oracle, SQL Server, and Db2, including selected managed variants.
-  Check the exact [accepted IDs](/docs/guides/register-connectors); a catalog
-  entry alone does not make an artifact acceptable or certify every role.
-- `connector.artifact-unreadable` (HTTP `400`) means the uploaded JAR archive
-  or its specification cannot be read. The error's `artifact` parameter names
-  the file; the connector ID may not yet be known. Check that the download is
-  a complete JAR, not an HTML error page, then fetch the matching artifact
-  again before retrying registration.
-- `cli.connector-download-failed` means `register <connector-id>` could not fetch
-  the artifact from the GitHub preview release or the mirror configured in
-  `TAPSTATE_CONNECTORS_URL`. Verify network connectivity, HTTPS proxy settings,
-  or set `TAPSTATE_CONNECTORS_URL` to an internal mirror.
-
-Register connectors one at a time. v0.7 still has a known ambiguity during
-concurrent registration; inspect the resulting catalog before retrying.
-
-### Unsupported target connector
-
-`dsl.unsupported-target-connector` means a `serve.sync` destination is not
-allowed by this deployment's target rules. Cloud accepts MongoDB and MongoDB
-Atlas targets. Self-hosted deployments use the registered connector's sink
-capability, subject to source-only restrictions. Db2 and `aws-rds-mysql` are
-source-only in both modes; `aws-rds-mysql` is refused as a target even when its
-catalog entry reports sink capability. Check the destination's exact connector
-ID and [registration rules](/docs/guides/register-connectors). Catalog capability
-does not establish release certification.
+Do not use evidence from one layer as proof of another. Valid settings or
+resource files are the starting point; connectivity and data movement still need
+to be verified in the environment where the connection runs.
 
 ## Check external-system preparation
 
-If the resource shape is valid but a deployment cannot connect or discover objects:
+If the settings are valid but a deployment cannot connect or discover objects:
 
-1. Confirm DNS, port, routing, firewall, and allowlist rules from the runtime host.
+1. Confirm DNS, port, routing, firewall, and allowlist rules from the runtime host (including the [Cluster outbound IP](/docs/manage/clusters#prepare-network-access) in Cloud).
 2. Authenticate with the same account outside tapstate when a safe vendor tool is available.
 3. Recheck source and target privileges separately.
 4. Verify the database, schema, warehouse, tenant, topic, bucket, or API scope.
@@ -326,16 +138,16 @@ For TLS and connection testing, use only the fields and workflow supported by th
 ### Table selection errors
 
 Table selectors are resolved when the runtime builds the pipeline. Validate the
-resource first, then run schema discovery for the source and apply the updated
-resources before starting again.
+configuration first, refresh the source schema in **Data Sources**, and save
+your updates before starting again.
 
 | Diagnostic | What it means | What to do |
 |---|---|---|
-| `actuation.source-schema-not-discovered` | The source needs a discovered schema to expand an omitted `tables` field or a regex selector. | Run `discover-schema <source-id>`, then apply or start the pipeline again. |
+| `actuation.source-schema-not-discovered` | The source needs a discovered schema to expand an omitted `tables` field or a regex selector. | Refresh schema in **Data Sources**, then save and start the pipeline again. |
 | `actuation.source-table-not-discovered` | A named table is not in the source's current discovered schema. | Discover the source again and use the exact discovered table name. |
 | `actuation.source-table-selection-empty` | The selectors resolve to no tables. This includes an empty list, a non-matching regex, or an omitted selector with no discovered tables. | Supply a literal name or a regex that matches at least one discovered table. |
 | `actuation.source-table-ambiguous` | More than one pipeline source selects the same bare table name. | Where the pipeline names that table, replace the bare name with `source_id.table`. |
-| `actuation.source-table-regex-invalid` | A table regex is not valid Java regular-expression syntax. | Correct the regex, keep it quoted when it contains YAML flow indicators, then apply the pipeline again. |
+| `actuation.source-table-regex-invalid` | A table regex is not valid Java regular-expression syntax. | Correct the regex, keep it quoted when it contains YAML flow indicators, then update the pipeline again. |
 | `actuation.source-table-spec-unsupported` | A table object includes fields that the current preview capture path does not execute. | Use a literal or regex selector, or an object with `name` only. |
 
 For an incomplete Snapshot:
@@ -366,36 +178,15 @@ alone does not prove that PostgreSQL CDC resumed. See the
 
 ### Recovery is refused
 
-`capture.recovery-log-gap` means retained history no longer contains a change
-the consumer needs. `capture.recovery-progress-unproven` means the retained
-checkpoint cannot prove a safe continuation, including some older stores.
-v0.7 prevents new unsafe checkpoints but does not repair existing ones.
+`capture.recovery-log-gap` means retained source history no longer contains a
+change the consumer needs. `capture.recovery-progress-unproven` means the
+retained checkpoint cannot establish a safe continuation.
 
-Back up the metadata and operator state before making changes. Keep the full
-diagnostic and compare the source, retained position, and target. If you choose
-`restart <pipeline-id> --rerun`, review the state-clearing confirmation and
-target write strategy. A shared chain retained by another consumer can retain
-completed-table history, so clearing one pipeline does not guarantee a full
-reload. See [Resume or rerun](/docs/concepts/capture-modes#resume-or-rerun).
-
-### Lifecycle, position, and schema sync diagnostics
-
-| Diagnostic | What it means | What to do |
-|---|---|---|
-| `lifecycle.purge-state-not-stated` | A REST `POST ...:stop` request omitted the mandatory `purgeState` boolean body. | Supply `{"purgeState": false}` to preserve checkpoint offsets, or `{"purgeState": true}` to clear this pipeline's checkpoint position and operator state. |
-| `actuation.schema-sync-while-running` | `derived-schema --accept` was called while the pipeline is running or converging. | If upstream schemas changed, run `tapstate discover-schema <source-id>` first. Then stop the pipeline, wait until `status` confirms `STOPPED`, and accept the derived schema. |
-| `position.write-back-while-live` | Attempted to update checkpoint positions while the pipeline or another pipeline sharing its mining chain is running. | Stop all pipelines reading from the same source connection before writing back positions. |
-| `position.chain-not-read` | The position document specifies a chain not read by the target pipeline. | Read the pipeline's current position document first, edit only its existing chains, and re-apply. |
-| `position.field-not-editable` | A non-editable position attribute outside `resumeFrom.token` was altered. | Re-export the position payload and edit only `resumeFrom.token`. |
-
-### Control plane and REST API diagnostics
-
-| Diagnostic | HTTP status | What it means | What to do |
-|---|---|---|---|
-| `pipeline.not-found` | 404 Not Found | The requested pipeline ID does not exist on the server. | Confirm the pipeline ID with `GET /api/pipelines` or REPL `list pipelines`. |
-| `pipeline.already-exists` | 409 Conflict | A pipeline with the requested ID is already registered. | Use a unique pipeline ID or update the existing pipeline with PUT. |
-| `pipeline.precondition-required` | 428 Precondition Required | A pipeline update request (`PUT /api/pipelines/{id}`) omitted the required `If-Match` header. | Perform a GET request to read the current resource and its `ETag`, then pass that value in the `If-Match` header. |
-| `pipeline.version-conflict` | 412 Precondition Failed | The provided `If-Match` ETag does not match the pipeline's current version (concurrent edit conflict). | Re-fetch the pipeline resource to obtain the latest ETag and retry the update. |
+Keep the full diagnostic, then check source log retention and compare source
+and target records before clearing pipeline state or rerunning from scratch.
+Review the target write strategy as well: clearing one pipeline does not erase
+completed-table history retained by a shared mining chain. See
+[Resume or rerun](/docs/concepts/capture-modes#resume-or-rerun).
 
 ## Check target correctness
 
@@ -405,33 +196,20 @@ reload. See [Resume or rerun](/docs/concepts/capture-modes#resume-or-rerun).
 - Check target constraints, column types, partitioning, and conflict handling.
 - Design downstream processing to tolerate duplicate delivery unless your deployment documents a stronger delivery guarantee.
 
-### Storage and connector state diagnostics
+### Schema and document size diagnostics
 
 | Diagnostic | What it means | What to do |
 |---|---|---|
 | `io.document-too-large` | A pipeline model or schema history entry exceeded MongoDB's 16MB document size limit. | The state store is healthy; retrying will not resolve the issue. Reduce the volume of schema history or wide table models tracked under the affected ID. |
-| `io.schema-write-contention` | Schema discovery failed to publish because its writer lease was reclaimed or concurrent discovery altered the record. | Wait for active discovery tasks to complete, then retry `discover-schema`. |
-| `connector.state-unreadable` | Stored connector state cannot be deserialized, for example after a downgrade. | Preserve a backup and use the release that wrote the state. If choosing to clear it, review shared-chain and target effects before rerunning. |
-| `connector.state-value-unsupported` | A connector attempted to persist an unmappable state data type in the storage layer. | Report the issue against the connector build; the connector's internal state cannot be persisted by the engine. |
-| `store.source-config-keyring-invalid` | The metadata keyring is missing, malformed, or inconsistent. | Restore the encrypted Source records and their matching keyring from a consistent backup; do not generate a replacement keyring for existing ciphertext. |
-| `store.source-config-keyring-not-ready` | This node cannot acknowledge the current keyring generation. | Check cluster membership and startup logs before retrying. Preserve the metadata and keyring for diagnosis. |
-
-## Interpret observations carefully
-
-- Status separates lifecycle intent from the latest runtime observation. Metrics require an observation and may lag a lifecycle command briefly.
-- `status --watch` and `logs --follow` continue until you press <kbd>Ctrl</kbd>+<kbd>C</kbd>.
-- Logs are node-local in the preview and are not a durable audit history.
-- `snapshot` can report that no snapshot is available. Confirm source and target records instead of treating that response alone as proof of success or failure.
-- Shared-capture inbound observations can be attributed incorrectly in v0.7. Compare per-table target confirmations and data before diagnosing a consumer from inbound counts alone.
+| `io.schema-write-contention` | Schema discovery failed to publish because its writer lease was reclaimed or concurrent discovery altered the record. | Wait for active discovery tasks to complete, then retry **Refresh schema**. |
 
 ## Collect a useful diagnostic bundle
 
 Before escalating, collect:
 
-- output from `tapstate version` and the deployment type;
+- Cloud organization, Cluster name, and **Runtime version** from **Clusters**;
+- pipeline ID, **Monitoring** figures, and **Logs** lines;
 - connector ID, role, and mode;
-- redacted resource files;
-- exact command and exit code;
 - complete diagnostic or runtime error;
 - relevant connector-page URL;
 - external-system version and topology;
@@ -440,34 +218,59 @@ Before escalating, collect:
 
 Remove passwords, tokens, private keys, and customer data before sharing the bundle.
 
-## v0.6 diagnostics
+## Pipeline and transform diagnostics
 
-Start with the pipeline's **Monitoring** and **Logs** pages. For a repeatable
-diagnostic read, use the [observation interfaces](/docs/guides/observe-a-pipeline).
+### Row-expression schema and type errors
 
-| Code or symptom | What to check |
-|---|---|
-| `dsl.unknown-field` on `view.schema` | Remove the unused View policy; keep connector `config.schema`. See [Upgrade to v0.6](/docs/guides/upgrade-to-v0-6). |
-| `actuation.source-schema-not-discovered` | Discover every required source before starting either View or sync output. |
-| `engine.view-key-missing-from-before-image` | Confirm the selected View key is present in source before images for updates and deletes. |
-| `dsl.join-input-not-a-table` / `dsl.join-input-is-a-pattern` | Use one physical table per Join alias, not a prior step or a table pattern. |
-| `actuation.join-sql-invalid` | Resolve the reported SQL column or input error before starting again. |
-| `nest.flat-cardinality-violation` | More than one live child matched a flat embed. Use an array or correct the relationship. |
-| `nest.flat-field-conflict` | Rename or drop conflicting fields before Nest while preserving its relationship keys. |
-| `nest.state-database-changed-while-running` | Stop all writers and follow the full [state move](/docs/guides/move-nest-state); a pipeline restart alone is insufficient. |
-| `transform.script-decimal-out-of-range` | JavaScript cannot represent the decimal within its numeric range. Keep it unchanged or revise the calculation. |
-| `transform.expression-failed` | Check expression inputs, including null dimension values from an outer join. |
-| `monitor.no-observation` | No observation has been published; do not interpret missing data as success. |
-| `monitor.cursor-expired` | Start a fresh history query without the expired cursor. |
+These checks apply to `filter` expressions and computed `map` fields that read
+`after.<field>` or `before.<field>`:
 
-### Engine out of memory
+- `dsl.row-expression-needs-discovery` means at least one source that can reach
+  the expression has no discovered schema. Open the source in **Data Sources**,
+  select **Refresh schema**, then save or publish the pipeline again.
+- `dsl.row-expression-type-unsupported` means the referenced column cannot be
+  represented in CEL without losing information. Carry the column through
+  unchanged, or compute from a compatible column instead.
+- `dsl.row-expression-type-unknown` means the discovered schema has no resolved
+  type for the referenced column. Remove that reference or use a column with a
+  declared type.
 
-After the engine is lost to out-of-memory, affected running or paused pipelines
-report `engine.out-of-memory` and `/healthz` returns `503 broken`. Restart the
-server process after addressing memory pressure; repeating pipeline start
-cannot restore the lost engine. Check heap allocation, source batch sizes,
-operator state, and [Nest capacity](/docs/guides/nest-throughput).
+These diagnostics restrict computation, not pass-through. A column that cannot
+be computed losslessly can still flow through a `map` when no computed rule
+reads it.
 
-A healthy `/healthz` response does not prove target writes or CDC continuity.
-Inspect data and observations after recovery. Pipelines that failed for another
-reason before a member restart retain that failure and need separate diagnosis.
+### Upsert source has no discovered primary key
+
+`dsl.upsert-needs-key` is a server-side validation diagnostic. It means a
+selected source table is being written with `upsert`, but its discovered schema
+has no primary key. The diagnostic identifies the affected `source`, `table`,
+and resource `path`.
+
+Refresh the source schema and select a table with a primary key. A unique
+index, a target-side key, or `tables[].pk` does not satisfy this runtime check.
+Use `append` only when the delivery is insert-only and source updates and
+deletes do not need keyed handling.
+
+### Dotted field names in document stores
+
+`schema.column-name-reads-as-a-path` is an advisory warning. It indicates that a
+source table column contains a dot (such as `price.usd`) and is being mapped to
+a document store like MongoDB or MongoDB Atlas.
+
+Document stores write literal dotted keys, but query paths interpret dots as
+navigation into nested documents, causing direct field queries to return empty
+results and preventing index creation. To resolve this, rename the column in the
+source database or insert a `map` transform step to alias the dot to an
+underscore before writing to the destination.
+
+### Nest and Join transform diagnostics
+
+| Diagnostic | What it means | What to do |
+|---|---|---|
+| `nest.reference-tracking-requires-before-image` | An update on a stream behind a pointed-at embed carried no before image, preventing the engine from unlinking the row's prior reference. | Configure the stream's source to send before images (such as PostgreSQL `REPLICA IDENTITY FULL`). Without before images, unlinked rows cannot be reclaimed. |
+| `nest.key-change-tracking-requires-before-image` | An update on a stream tracking key changes carried an earlier row image missing key columns. | Configure the source to send whole row images rather than minimal ones (such as MySQL `binlog_row_image=FULL` or PostgreSQL `REPLICA IDENTITY FULL`), or turn key change tracking off for that stream. |
+| `actuation.join-output-key-not-published` | A pipeline `join` step writes to an `upsert` sync target, but its SELECT list does not directly project all primary-key columns of the driving fact table. | Project each driving fact table primary-key column directly in the SELECT list (aliases such as `o.id AS order_id` are permitted). |
+| `actuation.join-source-not-declared` | A `join` SQL query references a table alias that was not declared in the step's `from` mapping. | Align the SQL table alias with one declared in the step's `from` map. |
+| `actuation.join-source-key-missing` | The driving fact table in a `join` step has no discovered primary key. | Define a primary key on the source table, refresh schema discovery, and restart the pipeline. |
+| `dsl.join-sql-unsupported` | The join SQL statement uses unsupported clauses (such as `WHERE`, `GROUP BY`, `HAVING`, subqueries, or non-equality conditions). | Rewrite the SQL within the supported subset: one SELECT combining tables via equality associations directly between driving fact and dimension sources. |
+| `engine.join-dimension-row-displaced` | (WARNING) A second dimension row arrived under an existing join key, displacing the earlier match. | Ensure dimension join keys are unique in the source data, or narrow the source selection. Until resolved, the target will contain fewer rows than described by a relational query. |

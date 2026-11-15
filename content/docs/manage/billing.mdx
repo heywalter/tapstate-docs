@@ -1,0 +1,192 @@
+---
+title: Pricing and billing
+description: Compare Cloud plans, start a trial, purchase a Cluster, and manage renewal, cancellation, and refunds
+ai:
+  kind: guide
+  id: plans-and-billing
+  aliases: [pricing, plans, subscription, billing, cancel subscription, refunds, trial]
+---
+
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
+
+Compare the Cloud plans below, then create a Cluster through checkout. After
+purchase, use **Plans & billing** in the organization console to manage the
+subscription. Each Cluster has a separate subscription.
+
+For database ownership, access controls, backups, and data handling, see
+[Data security and responsibilities](/docs/manage/data-responsibilities).
+
+## Plans and trial
+
+Each Cluster has its own subscription. Monthly prices below are in USD and
+exclude applicable taxes:
+
+| Plan | vCPU | RAM | Managed storage | Monthly price | Trial |
+|---|---:|---:|---:|---:|---|
+| 2C8G Starter | 2 | 8 GB | 10 GB | $199 | 7 days |
+| 4C16G Pro | 4 | 16 GB | 20 GB | $399 | No trial |
+| 8C32G Enterprise | 8 | 32 GB | 50 GB | $799 | No trial |
+
+Managed storage is the capacity listed on the Cluster creation page. It is
+separate from the Atlas databases you provide during storage setup and does not
+include capacity or credits in your own Atlas account. Account for
+[databases you manage separately](/docs/manage/data-responsibilities#identify-who-manages-each-resource)
+when estimating pipeline costs—the tapstate trial does not waive charges from
+those providers.
+
+- **7-day Starter trial:** Each organization is eligible for one 7-day
+  **2C8G Starter** trial and can start without a payment card. Automatic
+  renewal authorization is still required at checkout. If the organization
+  already has a trial or active subscription, choose **4C16G Pro** or
+  **8C32G Enterprise** for additional Clusters or [contact support](#get-help).
+- **Trial checkout and conversion:** Complete Stripe checkout even when no card
+  is required (**Continue to checkout** does not impose an immediate charge for
+  a cardless Starter trial). Adding a valid payment method with auto-renew
+  enabled converts the same Cluster to a paid monthly subscription at the end of
+  the 7 days; without a payment method (or if renewal is canceled during the
+  trial), the trial ends on its scheduled date and the platform releases the
+  Cluster resources.
+- **No paid-plan trial:** **4C16G Pro** and **8C32G Enterprise** require the
+  first monthly payment at checkout. Review the selected plan, currency, trial
+  terms, recurring charge, and total shown at checkout before subscribing.
+
+<Aside type="note">
+  A Cluster's provisioning completion time does not extend or reset the billing
+  period. If signup and Billing show conflicting dates, see
+  [Trial dates do not match](#trial-dates-do-not-match).
+</Aside>
+
+## Subscribe and manage billing
+
+1. Sign in to [tapstate Cloud](https://cloud.tapstate.com/), confirm the
+   active organization in the sidebar, and select **Provision Cluster** on
+   **Overview**.
+2. Enter a Cluster name, pick a region (cannot be changed later), select a plan,
+   review pricing and renewal authorization, and select **Continue to
+   checkout**.
+3. Complete Stripe checkout, then return to setup and wait for **Cluster is
+   ready** before selecting **Open Cluster Console** and finishing
+   [storage setup](/docs/quickstart#2-connect-storage).
+4. To check or manage an active subscription later, select the organization name
+   above the Cluster to open the organization console, open **Plans & billing**,
+   and select **Refresh** to inspect subscription status, **Auto-renew**,
+   **Current period**, and the associated **Cluster**.
+
+[![Plans and billing showing a Starter trial and the selected plan](/images/cloud/billing-plan.png)](/images/cloud/billing-plan.png)
+
+Check **Clusters** separately for resource readiness before opening a
+workspace; an active subscription or **Auto-renew** label alone does not confirm
+that provisioning succeeded or that a trial has a payment method on file.
+In-place plan upgrades and downgrades are not currently available—[contact
+support](#get-help) before canceling or creating a second subscription, as a new
+subscription creates a separate Cluster lifecycle without migrating pipelines or
+data.
+
+## Cancel a subscription
+
+Cancellation stops renewal at the end of the current trial or paid period; the
+Cluster remains usable until that date. At period end, the platform terminates
+the Cluster and reclaims platform-provided databases (such as the
+platform-managed Configuration database in a three-layer installation). Your
+own Atlas cache and application databases remain your responsibility—save or
+export any required configuration and data beforehand (see
+[retention and cancellation](/docs/manage/data-responsibilities#plan-for-retention-and-cancellation)).
+
+1. Open **Plans & billing** in the intended organization.
+2. Verify the associated **Cluster** and **Current period**.
+3. Select **Cancel subscription**, review the confirmation, and confirm
+   **Yes, cancel** only if you want to stop renewal.
+4. Refresh Billing and confirm **Pending cancellation**, the expected period end,
+   and that automatic renewal is off.
+
+Stopping a pipeline does not cancel a subscription, and cancellation does not
+automatically delete or back up customer-managed Atlas databases.
+
+**Refund policy:** Tapstate does not offer voluntary or prorated refunds for
+unused time, including mid-period cancellation or a renewal not canceled in
+time (refunds required by applicable law remain available; the free trial has no
+subscription charge). See the
+[Subscription & Cancellation Policy, section 6](https://tapstate.com/legal/subscription-policy)
+and [Terms of Service](https://tapstate.com/legal/eula), or
+[contact support](#get-help) with your subscription ID, amount, and charge date
+for a disputed charge. A support request alone does not cancel renewal.
+
+## Billing FAQ
+
+<Accordions>
+<Accordion id="checkout-did-not-complete" title="Checkout timed out or did not complete—should I try again?">
+
+No—do not start another checkout immediately. Return to the organization
+console and refresh **Plans & billing** first to see whether the attempt went
+through. For a declined payment, follow the instructions from Stripe or your
+card issuer; an interrupted browser tab does not prove payment failed. If the
+status stays unclear, [contact support](#get-help) with the visible status and
+attempt timestamp.
+
+</Accordion>
+<Accordion id="bank-authentication" title="Why is my bank asking for 3D Secure (3DS) or extra verification?">
+
+Stripe may require bank authentication such as 3DS before authorizing renewal
+or charging a card. Complete the prompt in the payment flow, then return to
+**Plans & billing** and refresh. Completing bank verification alone does not
+confirm the subscription or Cluster is ready until provisioning finishes.
+
+</Accordion>
+<Accordion id="duplicate-checkout" title="What if checkout was submitted more than once?">
+
+Refresh **Plans & billing** in the organization console and check both the
+subscriptions and associated Clusters before retrying—do not create another
+organization or subscription to work around an uncertain payment state. If you
+see duplicate subscriptions or unexpected charges, report all affected
+subscription IDs, amounts, and attempt timestamps to [support](#get-help).
+
+</Accordion>
+<Accordion id="missing-plan-or-price" title="Why are my plan or price details missing in Billing?">
+
+Confirm that you are viewing the intended organization in **Plans & billing**
+and select **Refresh**. A missing display does not mean a zero charge, and the
+public pricing table above does not override an existing subscription's terms.
+Use your Stripe checkout confirmation email when asking [support](#get-help) to
+reconcile the subscription rather than creating a replacement subscription.
+
+</Accordion>
+<Accordion id="trial-dates-do-not-match" title="Why do signup and Billing show different trial dates?">
+
+Starter's free trial always runs for 7 days. Do not infer an extended trial
+from a conflicting date during setup; include both displayed dates and your
+subscription ID when asking [support](#get-help) to confirm the true period end.
+
+</Accordion>
+<Accordion id="payment-completed-but-the-cluster-is-not-ready" title="Payment completed, but my Cluster is not ready—what should I do?">
+
+On the setup page, **Waiting for Stripe to confirm the payment…** means
+confirmation is still pending; keep the page open or select **Retry** if it
+errors rather than starting a new checkout. If provisioning stops with
+**Provisioning interrupted**, inspect the failed stage and use **Retry
+Provisioning** when offered. If you closed the tab, check **Clusters** and
+**Plans & billing** for the existing subscription and report the Cluster name,
+subscription ID, timestamp, and visible message to [support](#get-help) if the
+error persists.
+
+</Accordion>
+<Accordion id="cluster-still-opens-after-cancellation" title="I canceled my subscription, why does my Cluster still open?">
+
+Cancellation takes effect at the end of the current trial or paid billing
+period, so the Cluster remains accessible until that date. Refresh **Plans &
+billing** to verify **Pending cancellation** and the scheduled end date rather
+than assuming the cancellation request failed.
+
+</Accordion>
+</Accordions>
+
+## Get help
+
+Open **Support** in the organization console to create a ticket or review **My
+tickets** (requires a verified account email; select **Refresh tickets** before
+resubmitting if interrupted), or email
+[support@tapstate.com](mailto:support@tapstate.com).
+
+Include the organization, Cluster, and subscription IDs, the action taken, the
+timestamp with time zone, and the visible status or error. Crop or redact
+screenshots beforehand, and never send passwords, database connection URIs,
+payment card numbers, or authentication codes.

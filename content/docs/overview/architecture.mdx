@@ -9,49 +9,63 @@ ai:
 
 import { PreviewArchitecture, TapStateArchitecture } from '@/components/mdx';
 
-This page separates what you can run in the current preview from the product's
-target logical architecture. The preview is an implemented, narrow path; the
-target is design direction and does not mean every component is available or
-production-ready.
+This page separates what you can run today in tapstate Cloud (and the v0.8
+runtime) from the product's target logical architecture. The preview covers the
+current Capture–Transform–Serve path; the target design describes future
+direction and does not mean every component is available or production-ready.
 
-## Current preview: one runnable cross-source path
+For hosted Cloud provisioning, storage layout, and data ownership, see
+[Clusters](/docs/manage/clusters) and
+[Data security and responsibilities](/docs/manage/data-responsibilities). If you
+run and administer servers yourself, see [Self-hosting](/docs/self-hosted).
 
-The Quickstart captures MySQL orders and PostgreSQL shipments,
-uses `nest` to assemble one order document, and materializes the result in its
-managed MongoDB store:
+## Current preview: control and data path
+
+Tapstate connects relational sources—such as the order, customer, and line-item
+tables in the Cloud [Quickstart](/docs/quickstart), MySQL and PostgreSQL in
+the [local quickstart](/docs/overview/quickstart), or Oracle, SQL Server, Db2
+LUW, and Db2 for i—transforms records with operators such as `nest`, and materializes
+operational views in MongoDB Atlas or MongoDB:
 
 <PreviewArchitecture />
 
 ### Current preview boundaries
 
-- The web application is the default interactive entry for sources, pipelines, monitoring, and logs.
-- The optional native CLI scaffolds and validates `*.tap.yml` resources offline.
-- A connected CLI session can register connector artifacts, apply resources,
-  start a pipeline, and inspect status, metrics, and logs.
-- The CLI, REST API, and MCP provide bounded preview inspection, not a stable
-  application-facing data API.
-- The runtime and CLI are prerelease surfaces; command and API compatibility can
-  change before a stable release.
-- The pipeline supports `filter`, `map`, `js`, `union`, `nest`, and a restricted
-  `join`. See [Transform reference](/docs/reference/transforms) for their limits.
+- The web application (**Data Sources**, **Pipeline builder**, **Monitoring**,
+  **Logs**, **Views**, and **Data validation**) is the primary interface for
+  configuring connections, building pipelines, and inspecting runs.
+- Pipelines support `filter`, `map`, `js`, `union`, `unwind`, `nest`, and a
+  restricted `join`. See [Transform reference](/docs/reference/transforms) for
+  their limits.
 - `nest` maintains a document assembled from related source tables.
-- An inline `view` materializes the Quickstart result in the managed store.
-  `serve.sync` is the separate path for delivery to an external target.
-  `serve.query` and `serve.push` are schema-defined declarations that the
-  current preview does not execute.
+- An inline `view` materializes the result in your Cloud **Atlas state store**
+  (or managed MongoDB store on self-hosted). `serve.sync` writes to an external
+  MongoDB or Atlas target connection. `serve.query` and `serve.push` are
+  schema-defined declarations that the current preview does not execute.
+- On self-hosted deployments, the optional native CLI, REST API, and local MCP
+  gateway scaffold and validate `*.tap.yml` workspaces and provide bounded
+  operational inspection rather than an application-facing data API.
+- Runtime, CLI, and control-plane surfaces remain Preview; command and API
+  compatibility can change before a stable release.
 
 ### Recovery and scale limits
 
-- The server defaults to one member. [Cluster mode](/docs/guides/cluster) is opt-in.
-- MongoDB retains control data, recovery positions, and durable operator state.
-  In-memory working state still has workload-dependent capacity requirements.
-- Recovery can resume from retained positions and replay records. It does not
-  remove the delivery and positioning limits in the [release notes](/docs/releases/v0.6#known-limits-and-issues).
-- The release remains Preview; a cluster profile is not a production-readiness guarantee.
+- Cloud Clusters and self-hosted v0.8 deployments use separate storage layers:
+  Configuration (supplied by tapstate in Cloud), **Durable cache**
+  (checkpoints, runtime ownership, shared change logs, and Nest operator state),
+  and **Application data** on MongoDB Atlas or a MongoDB replica set. In-memory
+  working state still has workload-dependent capacity requirements; see
+  [State and storage](/docs/concepts/storage).
+- Recovery can resume from retained positions and replay unconfirmed records. It
+  does not remove the delivery and positioning limits in
+  [Preview limits](/docs/limits) and [v0.8 release notes](/docs/releases/v0.8#known-limits-and-issues).
+- Self-hosted servers default to one member with opt-in
+  [cluster mode](/docs/guides/cluster). A cluster profile is not a
+  production-readiness guarantee.
 
-See [Create your own workspace](/docs/overview/create-workspace) for the offline authoring path.
-The [Quickstart](/docs/overview/quickstart) packages this preview
-topology for local exploration; it is not a deployment architecture.
+Follow the [Quickstart](/docs/quickstart) to run this path in Cloud, or see
+[Self-hosting](/docs/self-hosted) for the local Docker playground and CLI
+workflow.
 
 ## Target logical architecture
 

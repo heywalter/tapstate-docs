@@ -14,7 +14,7 @@ object can depend on records owned by different databases. The sample combines
 an order in MySQL with its shipments in PostgreSQL and keeps the assembled
 `views.order_state` document current when either source changes.
 
-Complete the [Quickstart](/docs/overview/quickstart) first. Run every
+Complete the [local quickstart](/docs/overview/quickstart) first. Run every
 command on this page from the generated `tapstate-demo` directory.
 
 ## Understand the sample
@@ -171,7 +171,7 @@ source, follow the [PostgreSQL CDC requirements](/docs/connectors/postgresql#pre
 
 Check the pipeline status and logs in the web application before resetting it.
 
-To reset every sample database and rerun the Quickstart, remain in
+To reset every sample database and rerun the local quickstart, remain in
 `tapstate-demo` and run:
 
 ```bash
@@ -191,4 +191,4 @@ or production data in this environment.
 - For declarative authoring, [create a workspace](/docs/overview/create-workspace) with the optional CLI.
 - Learn how [nest assembles documents](/docs/guides/assemble-documents-with-nest).
 - Review [view and serve](/docs/reference/view-and-serve) to distinguish managed materialization from external delivery.
-- Use [Troubleshooting](/docs/guides/troubleshooting) for quickstart, connector, or pipeline failures.
+- Use [Troubleshoot self-hosted deployments](/docs/self-hosted/troubleshooting) for quickstart, connector, or pipeline failures.

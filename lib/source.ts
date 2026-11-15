@@ -54,7 +54,7 @@ function groupConnectorNavigation(node: Folder, folderPath: string): Folder {
   const remainingNodes = node.children.filter((child) => child.type !== 'page') as Node[];
 
   const children = groups.length === 1
-    ? [...directPages, ...groups[0].children, ...remainingNodes]
+    ? node.children
     : [...directPages, ...groups, ...remainingNodes];
 
   return {
@@ -63,37 +63,22 @@ function groupConnectorNavigation(node: Folder, folderPath: string): Folder {
   };
 }
 
-// Keep the existing guide routes while grouping version-specific upgrades.
+// Keep the existing guide routes while shortening version-specific upgrade labels.
 function groupUpgradeNavigation(node: Folder, folderPath: string): Folder {
-  if (folderPath !== 'guides') return node;
-
-  const isUpgradePage = (child: Node): child is Item =>
-    child.type === 'page' && child.url.startsWith(`${docsRoute}/guides/upgrade-to-`);
-  const pages = node.children.filter(isUpgradePage);
-  if (pages.length === 0) return node;
-
-  const group: Folder = {
-    type: 'folder',
-    $id: 'upgrade-guides',
-    name: 'Upgrading',
-    collapsible: true,
-    defaultOpen: false,
-    children: pages.map((page) => ({
-      ...page,
-      name: typeof page.name === 'string'
-        ? page.name.replace(/^Upgrade to /, 'To ')
-        : page.name,
-    })),
-  };
-  let inserted = false;
+  if (folderPath !== 'self-hosted') return node;
 
   return {
     ...node,
-    children: node.children.flatMap<Node>((child) => {
-      if (!isUpgradePage(child)) return [child];
-      if (inserted) return [];
-      inserted = true;
-      return [group];
+    children: node.children.map((child) => {
+      if (child.type !== 'page' || !child.url.startsWith(`${docsRoute}/guides/upgrade-to-`)) {
+        return child;
+      }
+      return {
+        ...child,
+        name: typeof child.name === 'string'
+          ? child.name.replace(/^Upgrade to /, 'To ')
+          : child.name,
+      };
     }),
   };
 }
@@ -166,6 +151,32 @@ function filterPublicPageTreeNode(node: Node): Node | null {
   return { ...node, index, children };
 }
 
+/** Keep structured breadcrumbs aligned with the route-preserving sidebar. */
+export function getDocumentationSection(pageUrl: string) {
+  function contains(node: Node): boolean {
+    if (node.type === 'page') return node.url === pageUrl;
+    return node.type === 'folder'
+      && (node.index?.url === pageUrl || node.children.some(contains));
+  }
+  function firstPage(node: Node): Item | undefined {
+    if (node.type === 'page') return node;
+    if (node.type !== 'folder') return undefined;
+    if (node.index) return node.index;
+    for (const child of node.children) {
+      const page = firstPage(child);
+      if (page) return page;
+    }
+  }
+  for (const node of source.getPageTree().children) {
+    const group = filterPublicPageTreeNode(node);
+    if (!group || group.type !== 'folder' || !contains(group)) continue;
+    const entry = firstPage(group);
+    if (entry && typeof group.name === 'string') {
+      return { label: group.name, href: entry.url };
+    }
+  }
+}
+
 function readAttribute(attrs: string, name: string) {
   return attrs.match(new RegExp(`\\b${name}="([^"]*)"`))?.[1];
 }
@@ -197,6 +208,13 @@ function cleanMdxForLLM(markdown: string) {
     })
     .replace(/<Tab\s+[^>]*value="([^"]+)"[^>]*>\n?/g, '\n### $1\n\n')
     .replace(/<\/Tab>\n?/g, '')
+    .replace(/<Accordions(?:\s[^>]*)?>\n?/g, '')
+    .replace(/<\/Accordions>\n?/g, '')
+    .replace(/<Accordion\s+([^>]*)>\n?/g, (_match, attrs: string) => {
+      const title = readAttribute(attrs, 'title') ?? 'Details';
+      return `\n### ${title}\n\n`;
+    })
+    .replace(/<\/Accordion>\n?/g, '\n')
     .replace(/<SourceModeTabs(?:\s[^>]*)?>([\s\S]*?)<\/SourceModeTabs>/g, (_match, body: string) => {
       return body.replace(/^ {4}/gm, '');
     })
@@ -233,6 +251,7 @@ function cleanMdxForLLM(markdown: string) {
     })
     .replace(/<div[^>]*>\n?/g, '')
     .replace(/<\/div>\n?/g, '')
+    .replace(/^[ \t]*<span\s+id="[^"]*"(?:\s+aria-hidden="true")?\s*\/>\n?/gm, '')
     .replace(/<CardGrid>\n?/g, '')
     .replace(/<\/CardGrid>\n?/g, '')
     .replace(/<LinkCard\s+([\s\S]*?)\/>/g, (_match, attrs: string) => {
@@ -255,8 +274,11 @@ function cleanMdxForLLM(markdown: string) {
       const text = readAttribute(attrs, 'text');
       return text ? `(${text})` : '';
     })
+    .replace(/\[<img\s+alt="([^"]*)"\s+src="__img\d+"\s*\/>\]\(([^)]+)\)/g, (_match, alt: string, href: string) => {
+      return `> **Image:** [${alt}](${href})`;
+    })
     .replace(/<img\s+alt="([^"]*)"\s+src="__img\d+"\s*\/>/g, (_match, alt: string) => {
-      return `> **Screenshot:** ${alt}`;
+      return `> **Image:** ${alt}`;
     })
     .replace(/<ValidationStatusGuide\s*\/>/g, `### Interpret the result
 
@@ -268,21 +290,21 @@ Next, run the connection in a non-production environment and confirm credentials
 
 | Approach | Data path | Operating model |
 |---|---|---|
-| The assembled stack | Source systems → Capture → Broker → Processing → Serving store → Apps, automation & agents | Separate tools and operating boundaries. |
-| The tapstate target path | Source systems → tapstate (Capture · Transform · Serve) → Apps, automation & agents | Target Capture–Transform–Serve operating model. |`)
-    .replace(/<ProductOverviewHero\s*\/>/g, `Tapstate is an open-source unified operational data engine in preview. It builds and maintains live operational state—an Operational State Layer—for applications, APIs, automation, and AI agents. The Quickstart assembles MySQL orders and PostgreSQL shipments into a MongoDB document, then keeps it current with CDC.
+| The assembled stack | Source systems → Capture (CDC connectors) → Broker (Topics & partitions) → Processing (Stream jobs & state) → Serving store (Sink glue & views) → Apps, automation & agents | Separate tools & handoffs: coordinate offsets, schemas and serialization, retries, and separate monitoring across four boundaries. |
+| The tapstate target path | Source systems → tapstate (01 Capture · 02 Transform · 03 Serve) → Apps, automation & agents | Target Capture–Transform–Serve model: one deployable data path sharing checkpoints and recovery, pipeline and schema contracts, and unified preview and monitoring. |`)
+    .replace(/<ProductOverviewHero\s*\/>/g, `Tapstate captures database changes, transforms data in flight, and maintains current results for applications and AI agents. Start in tapstate Cloud with the web application, or run the open-source engine yourself.
 
 - **Capture:** Load existing data, then follow committed changes.
 - **Transform:** Filter, map, script, and merge data as it moves.
 - **Serve:** Write current state to a downstream system.
 
-[Run the Quickstart](/docs/overview/quickstart) or [browse connectors](/docs/connectors).`)
+[Run the Quickstart](/docs/quickstart), [browse connectors](/docs/connectors), or [run tapstate yourself](/docs/self-hosted).`)
     .replace(/<PreviewArchitecture\s*\/>/g, `### Current preview architecture diagram
 
 | Path | Components | Current behavior |
 |---|---|---|
-| Control | Web draft or \`.tap.yml\` workspace → server control plane | Use the web application to save, preview, publish, and start a pipeline. CLI, REST, and MCP provide programmatic operations where exposed. |
-| Data | MySQL + PostgreSQL → tapstate (Capture & transform) → managed MongoDB state | The Quickstart runs an initial snapshot followed by CDC and uses \`nest\` to assemble related rows. It uses one server member; optional clustering and persistent state are described in the deployment guides. |`)
+| Control | Web draft or \`.tap.yml\` workspace → tapstate control plane | Use the web application to save drafts, preview sample results, publish, start pipelines, and inspect monitoring, validation, and logs. Self-hosted servers also support CLI, REST, and MCP where exposed. |
+| Data | Database sources (MySQL, PostgreSQL, Oracle, SQL Server, Db2) → tapstate (Capture & transform) → MongoDB / Atlas state | Runs initial snapshots followed by CDC, applies transforms such as \`nest\`, maintains durable checkpoints in Atlas Durable cache (or MongoDB on self-hosted), and materializes operational views in MongoDB Atlas or MongoDB. |`)
     .replace(/<TapStateArchitecture\s*\/>/g, `### Target architecture diagram
 
 This diagram describes design direction, not the current preview implementation boundary.
@@ -346,11 +368,9 @@ function makeDocumentLinksAbsolute(markdown: string) {
 }
 
 const llmProductOverview = [
-  '> tapstate is a unified operational data engine that builds and maintains an Operational State Layer.',
+  '> Tapstate captures database changes, transforms data in flight, and maintains current results for applications and AI agents.',
   '>',
-  '> Its product model captures changes, transforms records in flight, and delivers current operational state to applications, APIs, automation, and AI agents through one governed Capture–Transform–Serve data path. It is intended for teams that would otherwise assemble separate CDC, broker, stream-processing, and serving products for the same path. This describes the product model; it does not mean every surface is available in the current preview.',
-  '>',
-  '> Start with the Quickstart and Build a pipeline guides. Use the linked canonical pages and release notes for current deployment modes, connector roles, recovery behavior, and limitations.',
+  '> Start with the Cloud Quickstart and shared Build a pipeline guide. Self-hosting covers the local playground and deployments you manage. Use the canonical pages for prerequisites, connector scope, and data verification; software release notes do not identify a Cloud deployment version.',
 ].join('\n');
 
 function getAIPageMetadata(page: (typeof source)['$inferPage']) {
@@ -426,15 +446,20 @@ export function getLLMIndex() {
     '## Start here',
     '',
     `- [What is tapstate?](${absoluteDocsUrl('/docs/overview/what-is-tapstate')})`,
-    `- [Quickstart](${absoluteDocsUrl('/docs/overview/quickstart')})`,
-    `- [Explore the order-state demo](${absoluteDocsUrl('/docs/overview/order-state-demo')})`,
+    `- [Quickstart](${absoluteDocsUrl('/docs/quickstart')})`,
+    `- [Connect data sources](${absoluteDocsUrl('/docs/connectors')})`,
+    `- [Preview limits](${absoluteDocsUrl('/docs/limits')})`,
+    `- [Organizations and Clusters](${absoluteDocsUrl('/docs/manage/organizations')})`,
+    `- [Plans and billing](${absoluteDocsUrl('/docs/manage/billing')})`,
+    `- [Self-hosting](${absoluteDocsUrl('/docs/self-hosted')})`,
+    `- [Explore the local order-state demo](${absoluteDocsUrl('/docs/overview/order-state-demo')})`,
     `- [Install the CLI](${absoluteDocsUrl('/docs/overview/install')})`,
     `- [Create your own workspace](${absoluteDocsUrl('/docs/overview/create-workspace')})`,
     `- [Architecture](${absoluteDocsUrl('/docs/overview/architecture')})`,
     '',
     '## Connector status',
     '',
-    `- Current product path: [MySQL source](${absoluteDocsUrl('/docs/connectors/mysql')}) and [PostgreSQL source](${absoluteDocsUrl('/docs/connectors/postgresql')}) with Snapshot and CDC into a [MongoDB target](${absoluteDocsUrl('/docs/connectors/mongodb')}). The Quickstart assembles related rows from both sources with \`nest\`.`,
+    `- [Connector guides](${absoluteDocsUrl('/docs/connectors')}) provide shared database preparation and configuration references. Directory status and guide maturity do not establish Cloud connector availability or successful data delivery.`,
     '- Other connector preparation materials are not published in the public documentation site or combined agent context and do not imply a product contract.',
     '',
     '## Agent guidance',

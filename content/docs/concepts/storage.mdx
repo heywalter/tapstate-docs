@@ -7,12 +7,30 @@ ai:
   aliases: [tapstate storage, operational state, checkpoints, materialized state]
 ---
 
-A pipeline needs more than its latest output. Tapstate separates three kinds
-of state: working state used while
-records are processed, recovery state needed after an interruption, and
-materialized state read by downstream consumers.
+A pipeline needs its configuration, recovery state, and output to serve
+different purposes. Both tapstate Cloud and self-hosted v0.8 installations use
+three separate databases for these layers; for the older v0.7 self-hosted
+metadata layout, follow its [backup and upgrade guide](/docs/guides/upgrade-to-v0-7).
 
-Choose concrete storage engines, retention, replication, and high-availability behavior for the deployment you operate.
+| Layer | What it retains | Why it matters |
+|---|---|---|
+| Configuration | Cluster identity, keys, storage bindings, authored resources, connector credentials, and self-hosted accounts | Defines the installation and protects its saved configuration. |
+| Durable cache | Sessions, runtime ownership, checkpoints, replay data, discovered models, and operator state | Supports processing and recovery. Losing it requires explicit recovery and full rebuilds. |
+| Application data | Records written through the default target Source | Holds the output read by applications; use the database's own backup policy. |
+
+Cloud supplies Configuration; you connect Atlas databases for Durable cache and
+Application data. Self-hosted v0.8 setup configures all three databases during
+installation. Initial setup tests Durable cache before saving, then activates
+the runtime in the same process without requiring a restart. The default
+Application data connection is checked asynchronously in the background; being
+able to sign in does not establish that it is ready for pipeline output. Use
+different database names and retain their original binding. See
+[Connect storage](/docs/quickstart#2-connect-storage) or
+[Initialize storage](/docs/guides/bootstrap-and-auth#initialize-storage).
+
+The v0.7 self-hosted metadata-store settings (`dataVersion: 12`) do not
+configure three-layer Cloud or v0.8 storage, and there is no automatic
+migration between the layouts. See [Upgrade to v0.8](/docs/guides/upgrade-to-v0-8).
 
 ## Operational state and analytical history
 
@@ -33,19 +51,14 @@ The data plane needs short-lived state for active processing, buffering, routing
 
 ## Recovery state
 
-Durable recovery state includes:
+Durable cache retains checkpoints, runtime ownership, discovered models,
+operator state, and the shared change log. Configuration retains the authored
+pipeline and connection definitions. Neither database replaces the other.
 
-- connector positions, offsets, or checkpoints;
-- pipeline identity and canonical configuration;
-- retry and failure context;
-- schema and mapping state;
-- ownership information needed to prevent conflicting execution.
-
-The metadata store retains pipeline definitions, connector configuration,
-recovery positions, and the durable shared change log. Compatible pipelines
-can share one capture while retaining independent consumer positions and
-initial-load boundaries. A restart can resume from retained positions, but
-records may be replayed. Snapshot-only reads have no CDC continuation position.
+Compatible pipelines can share one capture while retaining independent consumer
+positions and initial-load boundaries. A restart can continue from retained
+positions, but records may be replayed. Snapshot-only reads have no CDC
+continuation position.
 
 For shared capture, a source acknowledgement means the change is durable in
 tapstate's log; target acknowledgement is recorded separately for each
@@ -56,45 +69,48 @@ Keep source logs long enough for recovery. Delivery remains at-least-once for
 changes read by the connector; the snapshot-to-stream positioning window can
 still miss changes. See [v0.7 limits](/docs/releases/v0.7#known-limits-and-issues).
 
-For self-hosted deployments, the default operator-state database is `tapstate_nest`, configured with
-`tapstate.store.mongo.operator-state-database`. A Nest can override it with
-`state.database` on the same MongoDB connection. Changing either setting does
-not copy existing state. Follow [Move Nest state](/docs/guides/move-nest-state)
-when moving a running workload. Cloud derives its internal operator-state and
-View database names from the platform metadata database; these are separate
-from the Atlas connection you configure as an output destination.
+In a self-hosted deployment, a Nest's `state.database` can select an
+authorized database on the Durable cache connection (v0.8) or MongoDB store
+connection (v0.7); it must not name Configuration, Application data, or a
+system database, and changing the name does not migrate existing state. Cloud
+manages Nest state in Durable cache and rejects authored `nest.state`
+(`control.state-database-unavailable`).
+
+If the entire cache is lost, [runtime storage recovery](/docs/manage/storage-recovery)
+leaves affected pipelines stopped. Confirm each full rebuild separately.
+Restoring database connectivity alone cannot reconstruct missing checkpoints.
 
 ### Back up configuration and recovery together
 
-In v0.7, stored Source connector configurations are encrypted with a keyring
-in the metadata database. Preserve the encrypted records and their original
-keyring together. A display-only Source read omits connector configuration
-and is not a restorable configuration export.
+Back up Configuration and its original keyring together. Encrypted connector
+credentials cannot be restored with a newly generated keyring. A display-only
+Source read omits credentials and is not a restorable export.
 
-Stop all writers before taking a consistent backup. Include metadata,
-operator-state databases, and managed View data, plus the deployment
-configuration and required working volumes. Account for external targets
-separately. Restoring older metadata does not restore changes that have
-expired from source logs or undo writes already delivered to a target.
-See [Upgrade to v0.7](/docs/guides/upgrade-to-v0-7).
+For self-hosted servers, stop all writers before taking a consistent backup.
+Retain Configuration, Durable cache, any separate Nest state databases,
+required Application data, and deployment materials such as the installation
+directory and custom CA bundles. Protect backups as sensitive credentials, and
+restore only into an isolated deployment with old writers stopped. See
+[Upgrade to v0.8](/docs/guides/upgrade-to-v0-8) and
+[Upgrade to v0.7](/docs/guides/upgrade-to-v0-7).
 
 ## Materialized state
 
 Materialized state is the current consumer-facing result. An inline `view`
-writes to the deployment's managed MongoDB store. A `serve.sync` block writes
-to its configured target connection.
+uses the deployment's default target Source; a `serve.sync` block writes to its
+selected target connection.
 
-In Cloud, **State Store** configures a user-supplied MongoDB Atlas connection
-named `atlas-store`. The server tests the connection before saving it, and
-pipelines use its selected output collection. This connection is separate from
-the platform's internal metadata and operator-state databases. The self-hosted
-Quickstart instead creates a managed `views` connection automatically.
+Three-layer setup creates the default target Source from the Application data
+database: `atlas-store` in Cloud, and `views` (default database name
+`tapstate_views`) in self-hosted v0.8 installations. Durable cache (default
+database name `tapstate_cache` in self-hosted setup) is separate. On an earlier
+Cloud layout, **Connect Atlas** configures only the output connection; it does
+not replace internal metadata storage.
 
-The Quickstart runs its managed store without database authentication and uses
-the same MongoDB deployment for control-plane data. That disposable topology is
-not a tenant or user security boundary. Use sample data only; a production
-deployment needs independently designed authentication, network exposure, and
-data isolation.
+The disposable local playground can share an unauthenticated MongoDB deployment
+between control-plane and application data. Separate database names in that
+instance are not a security boundary. Use sample data only; configure access
+control, network exposure, and isolation for a deployment you operate.
 
 Its correctness depends on:
 
@@ -104,6 +120,10 @@ Its correctness depends on:
 - ordering and duplicate handling;
 - reconciliation with the system of record;
 - retention and deletion requirements.
+
+For the databases you connect to Cloud, see
+[Data security and responsibilities](/docs/manage/data-responsibilities). Server-level backup
+and state-placement procedures for v0.7 are in its self-hosted guides.
 
 ## Audit history
 

@@ -20,7 +20,7 @@ const sections = [
   },
   {
     title: 'Source and shared fields',
-    definitions: ['Metadata', 'TableRef.Spec', 'Srs'],
+    definitions: ['Metadata', 'SourceRef.Spec', 'TableRef.Spec', 'Srs'],
   },
   {
     title: 'Pipeline wiring and settings',
@@ -37,6 +37,7 @@ const sections = [
       'TransformBody.MapProjection',
       'TransformBody.Js',
       'TransformBody.Union',
+      'TransformBody.Unwind',
       'TransformBody.Nest',
       'NestStateStorage',
       'NestRoot',
@@ -60,17 +61,24 @@ const sections = [
 ];
 
 const descriptionOverrides = {
-  'Settings.parallelism': 'Legacy field. Parses for compatibility but has no runtime effect in v0.7; set execution.parallelism on each node.',
-  'Settings.batch_size': 'Legacy field. Parses for compatibility but has no runtime effect in v0.7; set execution.batch.max_records on each node.',
+  'ViewResource.on_full_load': 'Treatment of existing view rows before a new full load. Continuation from retained state and CDC-only runs do not clear rows; an explicit full rebuild after cache loss applies this policy.',
+  'ViewBlock.Inline.on_full_load': 'Treatment of existing view rows before a new full load. Continuation from retained state and CDC-only runs do not clear rows; an explicit full rebuild after cache loss applies this policy.',
+  'SyncElement.on_full_load': 'Treatment of existing target rows before a new full load. Continuation from retained state and CDC-only runs do not clear rows; an explicit full rebuild after cache loss applies this policy.',
+  'Settings.parallelism': 'Legacy field. Parses for compatibility but has no runtime effect; set execution.parallelism on each node.',
+  'Settings.batch_size': 'Legacy field. Parses for compatibility but has no runtime effect; set execution.batch.max_records on each node.',
   'TableRef.Spec.pk': 'Primary-key override accepted by the grammar. The current runtime does not execute this field; an upsert still requires a primary key in the discovered source schema.',
   'Srs.key': 'Optional identifier that overrides automatic mining-chain derivation. Reuse a value only when compatible CDC sources must share one replay store.',
-  'TransformBody.Nest.entries_in_memory': 'Maximum entries kept in memory at each nest level. Additional entries use the configured backing layer. Omit to use the deployment default.',
-  'TransformBody.Nest.max_elements_per_document': 'Maximum embedded elements allowed in one assembled document. Exceeding the limit fails the pipeline. Omit to use the deployment default.',
+  'TransformBody.Nest.entries_in_memory': 'Maximum entries kept in memory at each nest level (deployment default 4,000; positive integer, minimum 271 for an explicit override, consistent across all nest steps in a pipeline). Additional entries use the configured backing layer. Omit to use the deployment default.',
+  'TransformBody.Nest.max_elements_per_document': 'Maximum embedded elements allowed in one assembled document (deployment default 20,000). Exceeding the limit fails the pipeline. Omit to use the deployment default.',
   'NestRoot.trackKeyChanges': 'When true, moves the assembled document when its root key changes. Requires the source to provide a before image.',
   'Embed.trackKeyChanges': 'When true, moves an embedded subtree when its array key, parent key, or child-reference key changes. Requires the source to provide a before image.',
+  'TransformBody.Nest.state': 'Durable state placement for self-hosted deployments; absent uses the deployment default. Rejected in Cloud with control.state-database-unavailable.',
+  'NestStateStorage.database': 'MongoDB database holding this nest\'s state, shape record, and dead letters in self-hosted deployments. Rejected in Cloud.',
   'SyncElement.write_mode': 'How rows are written to the target. Upsert requires a primary key in each selected source table\'s discovered schema; append is for insert-only delivery.',
   'QueryElement.backend': 'Reserved: the sync id whose sink would serve this query as an API. Omit for parallel egress from the view store.',
 };
+
+const valueDefinitions = ['SourceRef', 'TableRef', 'FromClause', 'FromRef', 'FieldRule', 'PushFormat'];
 
 function refName(ref) {
   return ref?.replace('#/$defs/', '');
@@ -127,17 +135,32 @@ function renderDefinition(name) {
   });
 
   if (name === 'TransformResource') {
-    rows.push('| `TransformResource.<body>` | one transform body | yes | — | `filter`, `map`, `js`, `union`, `nest`, `join` | Reusable transform logic selected by the `type` discriminator. |');
+    const bodyTypes = defs.TransformBody.oneOf.map((variant) => resolve(variant).properties.type.const);
+    rows.push(`| \`TransformResource.<body>\` | one transform body | yes | — | ${bodyTypes.map((type) => `\`${type}\``).join(', ')} | Reusable transform logic selected by the \`type\` discriminator. |`);
   }
 
   return rows.join('\n');
 }
 
-const body = sections.map((section) => `## ${section.title}
+function renderValueDefinition(name) {
+  const definition = defs[name];
+  if (!definition) throw new Error(`Schema definition not found: ${name}`);
+  const description = descriptionOverrides[name] ?? definition.description;
+  return `| \`${name}\` | ${cell(typeOf(definition))} | — | — | — | ${cell(description)} |`;
+}
+
+const body = [
+  ...sections.map((section) => `## ${section.title}
 
 | Field | Type | Required | Default | Accepted values | Description |
 |---|---|---|---|---|---|
-${section.definitions.map(renderDefinition).join('\n')}`).join('\n\n');
+${section.definitions.map(renderDefinition).join('\n')}`),
+  `## Shared value shapes
+
+| Type | Shape | Required | Default | Accepted values | Description |
+|---|---|---|---|---|---|
+${valueDefinitions.map(renderValueDefinition).join('\n')}`,
+].join('\n\n');
 
 const generated = `---
 title: DSL fields reference
@@ -155,8 +178,12 @@ exact field name, type, required flag, default, or accepted value. Start with
 [Resource grammar](/docs/reference/dsl-grammar) to choose a resource kind, then
 use the matching table here to complete or check its YAML.
 
-The tables are generated from the \`tapstate-v1.schema.json\` shipped with the
-documented release. They describe what that release's YAML contract accepts;
+These tables describe the Cloud and v0.8 runtime resource schema. For earlier
+v0.7 self-hosted workspaces, use the schema bundled with that server and a
+matching CLI; newer fields listed here are not supported by v0.7 clients.
+
+The tables are generated from the \`tapstate-v1.schema.json\` used by the
+Cloud and v0.8 runtime. They describe what that YAML contract accepts;
 they do not prove that every declared field or surface is available in the
 current preview runtime. For the execution boundary, see [Resource grammar](/docs/reference/dsl-grammar#declaration-and-execution-are-different-checks).
 

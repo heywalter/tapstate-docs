@@ -17,26 +17,42 @@ import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
 <ConnectorProfile
   category="Databases"
   maturity="Preview"
+  maturityLabel="Preview guide and configuration contract"
   worksAs="Source"
   capabilities="Snapshot, CDC, Schema discovery"
   compatibility="Db2 LUW · Native CDC requires a Linux x86_64 tapstate runtime"
 />
 
+For Cloud version and deployment scope, check [Supported connectors](/docs/connectors#supported-connectors).
+Already prepared the database? [Connect it in the Web application](#connect-to-db2).
+
 ## Before you begin
 
-Db2 is a source-only preview connector. Register `db2` on the server before
-creating a connection. The Docker Quickstart does not install it automatically.
-See [Register and test connectors](/docs/guides/register-connectors).
+Db2 is a source-only preview connector covering Db2 LUW. For IBM i systems, use
+the separately registered [Db2 for i](/docs/connectors/db2i) preview connector;
+Db2 for z/OS is outside the current connector set, and the LUW preparation
+steps do not apply to either.
+
+In Cloud, select Db2 in **Data Sources** and allow the
+[Cluster's outbound address](/docs/manage/clusters#prepare-network-access)
+through the database firewall. Before using CDC in Cloud, confirm that your
+Cluster has the Linux x86_64 native runtime described below; installing the
+connector alone does not provide it. The alternative raw log server mode is
+experimental and is not for production use.
+
+The native-runtime installation steps below are for self-hosted operators.
+Cloud users must confirm native CDC runtime availability for their Cluster.
 
 Use a non-production database to validate your Db2 version, data types, snapshot,
-and CDC behavior with the connector artifact you register. This guide covers
-Db2 LUW, not Db2 for i or Db2 for z/OS.
+and CDC behavior with the connector artifact you register.
 
 The connector JAR includes the IBM JDBC driver and runtime client under their
 applicable license terms. Use of the connector remains subject
 to the applicable commercial connector agreement.
 
-### Source
+<span id="source" />
+
+Prepare the database for the source read mode you plan to use.
 
 Choose the outcome you need. Each tab is a complete preparation path; you do not need to combine steps from both tabs.
 
@@ -132,9 +148,9 @@ If a captured table's schema changes (DDL) later, run a table reorganization bef
 CALL SYSPROC.ADMIN_CMD('REORG TABLE APP.ORDERS');
 ```
 
-**4. Prepare the tapstate host for the native log reader**
+**4. Confirm or prepare the native log reader runtime**
 
-Verify the tapstate server satisfies the [native log reader](#native-log-reader) requirements:
+In Cloud, confirm native CDC availability for your Cluster; the Cloud image supplies the required Linux x86_64 libraries and runs as root. On a self-hosted server, verify the host satisfies the [native log reader](#native-log-reader) requirements:
 - A Linux x86_64 host (ARM64 is unsupported).
 - `libxml2.so.2` installed on the host.
 - Shared `libstdc++.so.6` preloaded before the JVM starts (`LD_PRELOAD=libstdc++.so.6`).
@@ -186,7 +202,7 @@ docker run -d --name tapstate \
   --user 0 \
   -e LD_PRELOAD=libstdc++.so.6 \
   -p 8080:8080 \
-  ghcr.io/tapstate/tapstate:0.7.0
+  ghcr.io/tapstate/tapstate:0.8.0
 ```
 
 `useNativeMiner` defaults to `false`; enable it explicitly for native CDC.
@@ -194,7 +210,92 @@ With it disabled, CDC uses a separately deployed raw log service. That path is
 experimental and requires its own network, authentication, and log-retention
 preparation.
 
-## Create a connection
+## Connect to Db2
+
+1. Open your Cluster and select **Data Sources** > **Create source**.
+2. Select **Db2** and enter a **Source ID**.
+3. Choose the read mode you prepared, then enter the connection settings below.
+
+   <span id="reference" />
+   <span id="connection-settings" />
+
+   [![Db2 connection form populated with example settings](/images/cloud/db2-form.png)](/images/cloud/db2-form.png)
+
+   The screenshots use fictional connection details. Replace them with your own.
+   The settings below include fields outside the captured area and options
+   shown only for particular connection modes.
+   Configuration keys are included for the alternative CLI/YAML workflow.
+
+   - **Connection settings**
+
+     - **Source ID (`id`)**: A stable ID for the connection, such as `orders_db2`. It cannot be renamed after creation. Required.
+     - **Read mode (`mode`)**: `snapshot` for a one-time read, or `cdc` for existing rows and later changes. Complete the matching preparation above. Select before creation.
+     - **DB Address (`host`)**: Db2 service hostname. Required.
+     - **Port (`port`)**: Database service port. Required.
+     - **Service name (`database`)**: Database name. Required.
+     - **`schema`**: Schema to discover and read. Use a separate connection for another schema. Required.
+     - **`user`**: Database account.
+     - **`password`**: Account password; a secret field.
+     - **Native log miner (`useNativeMiner`)**: Read CDC logs in-process when `true`; otherwise use the raw log service. Default: `false`. Optional.
+
+   <span id="additional-log-reader-settings" />
+
+   - **Advanced settings**
+
+     - **Readlog Bufsize (KB) (`readlogBufsize`)**: Read-log buffer size in KB. Default: `20480`. Required.
+     - **Connection String Params (`extParams`)**: Additional JDBC connection-string parameters. Optional.
+     - **`timezone`**: Time-zone selection; the empty selection uses the connector default. Explicit values range from `-11:00` to `+14:00`. Test temporal values before changing it. Optional.
+     - **grpc server host (`rawLogServerHost`)**: Raw log service hostname. Optional.
+     - **grpc server port (`rawLogServerPort`)**: Service port. Default: `50051`. Optional.
+     - **Raw log RPC timeout (s) (`rawLogServerTimeoutSeconds`)**: Raw log RPC timeout in seconds. Default: `30`. Optional.
+     - **High availability (`highAvailability`)**: Enable a raw log cluster. Default: `false`. Optional.
+     - **Raw Log Cluster (`rawNameAddress`)**: Raw log service node addresses. Optional.
+     - **Auto Lri (`autoLri`)**: Resolve the starting log record identifier automatically. Default: `true`. Optional.
+     - **Ssh Port (`sshPort`)**: Required when `autoLri: false`. Default: `22`. Required when Auto Lri is `false`.
+     - **DB2 Profile (`db2Profile`)**: Required when `autoLri: false`; Db2 profile path. Required when Auto Lri is `false`.
+     - **Is Archive Log (`archived`)**: Archive-log selection when `autoLri: false`. Default: `false`. Shown when Auto Lri is `false`.
+     - **Archive Dir (`archiveDir`)**: Required when `archived: true`; archive directory. Required when Is Archive Log is `true`.
+     - **LFH Dir (`sqlCtlDir`)**: Required when `archived: true`; LFH directory. Required when Is Archive Log is `true`.
+     - **Initial Lri (`initialLri`)**: Explicit initial log record identifier. Optional.
+     - **LRI Time Back (Day) (`timeBack`)**: LRI lookup lookback in days. Default: `7`. Optional.
+
+   - **Connection security**: Use the TLS and SSH settings offered by the connector.
+     See the [shared transport fields](/docs/guides/manage-data-sources#tls-and-ssh-connections)
+     for certificate files and SSH account settings. Keep certificate verification enabled.
+
+   Advanced capture settings require their corresponding database and runtime
+   preparation; selecting a different log reader does not install it. For
+   in-process CDC without a separate raw log service, enable **Native log miner**
+   (`useNativeMiner: true`) when **Read mode** is `cdc`.
+
+   <span id="test-and-save" />
+
+4. Select **Test connection**, review the results, and resolve failed checks.
+5. Select **Create source**, then open the saved connection and check its
+   discovered tables, columns, and keys.
+6. [Build a pipeline](/docs/guides/build-a-pipeline) to select the data and
+   destination. Creating a connection does not start data movement.
+
+A passed test confirms only the reported connection checks. Verify the initial
+output and subsequent changes for the pipeline you build.
+
+## CLI and YAML
+
+This alternative is for **self-hosted servers**. File generation and validation
+can run offline; login, apply, and connection tests require your own server.
+Cloud users should use the Web steps above. See [CLI scope](/docs/self-hosted#cli-and-automation).
+
+Use the same [connection settings](#connection-settings) as the Web form.
+In YAML, put connector-specific keys under `config`; `id` and `mode` are resource fields.
+
+### Register on a self-hosted server
+
+Register `db2` before applying the connection. The Docker Quickstart does not install it automatically. See [Register and test connectors](/docs/guides/register-connectors).
+
+### Create a connection
+
+Use this alternative when authoring a local workspace. For browser setup,
+complete the connection flow above; no local file is required.
 
 In the web application, create a Db2 source connection with the prepared
 endpoint and credentials. For file-based authoring, create this resource:
@@ -237,7 +338,7 @@ tapstate add source --non-interactive \
 
 Then select `ORDERS` in the generated resource's `tables` list.
 
-## Validate the configuration
+### Validate the configuration
 
 For a local workspace, check the resource before uploading it:
 
@@ -286,46 +387,7 @@ and a keep-state restart against your target. Follow [Build a pipeline](/docs/gu
   operations. Validate the resulting target rows rather than inferring data
   correctness from operation counts alone.
 
-## Reference
-
-### Connection settings
-
-| Field | Required | Default | Description |
-|---|---|---|---|
-| `host` | Yes | — | Db2 service hostname. |
-| `port` | Yes | — | Database service port. |
-| `database` | Yes | — | Database name. |
-| `schema` | Yes | — | Schema to discover and read. Use a separate connection for another schema. |
-| `user` | For authenticated access | — | Database account. |
-| `password` | For password authentication | — | Account password; a secret field. |
-| `useNativeMiner` | No | `false` | Read CDC logs in-process when `true`; otherwise use the raw log service. |
-| `readlogBufsize` | Yes | `20480` | Read-log buffer size in KB. |
-| `extParams` | No | — | Additional JDBC connection-string parameters. |
-| `timezone` | No | Empty | Time-zone selection; the empty selection uses the connector default. Explicit values range from `-11:00` to `+14:00`. Test temporal values before changing it. |
-
-### Additional log-reader settings
-
-The raw log endpoint and cluster fields require a prepared raw log service.
-Use the starting-position and archive settings only with the matching log
-reader setup; setting them does not prepare that setup automatically.
-
-| Field | Default | Description |
-|---|---|---|
-| `rawLogServerHost` | — | Raw log service hostname. |
-| `rawLogServerPort` | `50051` | Service port. |
-| `rawLogServerTimeoutSeconds` | `30` | Raw log RPC timeout in seconds. |
-| `highAvailability` | `false` | Enable a raw log cluster. |
-| `rawNameAddress` | — | Raw log service node addresses. |
-| `autoLri` | `true` | Resolve the starting log record identifier automatically. |
-| `sshPort` | `22` | Required when `autoLri: false`. |
-| `db2Profile` | — | Required when `autoLri: false`; Db2 profile path. |
-| `archived` | `false` | Archive-log selection when `autoLri: false`. |
-| `archiveDir` | — | Required when `archived: true`; archive directory. |
-| `sqlCtlDir` | — | Required when `archived: true`; LFH directory. |
-| `initialLri` | — | Explicit initial log record identifier. |
-| `timeBack` | `7` | LRI lookup lookback in days. |
-
-### Data compatibility
+## Data compatibility
 
 Test representative string, numeric, temporal, binary, large-object, and XML
 columns from your schema. The Db2 preview does not establish an exhaustive

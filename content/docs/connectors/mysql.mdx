@@ -21,24 +21,24 @@ import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
   maturity="GA"
   maturityLabel="Stable guide and configuration contract"
   worksAs="Source"
-  capabilities="Snapshot, CDC, Schema discovery, DDL capture"
+  capabilities="Snapshot, CDC, Schema discovery"
   compatibility="MySQL 5.0–9.x · Single node and primary-replica"
 />
 
+For Cloud version and deployment scope, check [Supported connectors](/docs/connectors#supported-connectors).
+Already prepared the database? [Connect it in the Web application](#connect-to-mysql).
+
 ## Before you begin
 
-### Connector availability
+In Cloud, select the connector in **Data Sources**, check
+[Supported connectors](/docs/connectors#supported-connectors), and allow the
+[Cluster's outbound address](/docs/manage/clusters#prepare-network-access)
+through the MySQL firewall. The registration commands below apply to servers
+you administer.
 
-The MySQL connector is registered automatically by the Quickstart script. On standalone or fresh server container deployments, the connector catalog starts empty. Confirm that MySQL is registered before authoring connections:
+<span id="source" />
 
-```text
-connectors
-register mysql
-```
-
-See [When registration is required](/docs/guides/register-connectors#when-registration-is-required).
-
-### Source
+Prepare the database for the source read mode you plan to use.
 
 Choose the outcome you need. Each tab is a complete preparation path; you do not need to combine steps from both tabs. In tapstate, a connection's `mode` describes what it can read: `snapshot` is a bounded full load and `cdc` is a change-capable source.
 
@@ -105,6 +105,8 @@ binlog_expire_logs_seconds = 604800
 # expire_logs_days = 7
 ```
 
+On Amazon RDS for MySQL (`aws-rds-mysql`), set `binlog_format = ROW` and `binlog_row_image = FULL` in the DB parameter group, enable automated backups, and retain binlogs with `CALL mysql.rds_set_configuration('binlog retention hours', 168);`.
+
 Retain Binlog files for at least seven days and longer than the largest realistic interruption or maintenance window. If `binlog-do-db` or `binlog-ignore-db` is configured, make sure the selected database is included. Restart MySQL during an approved maintenance window after changing server settings.
 
 **4. Verify the active Binlog settings**
@@ -122,15 +124,87 @@ Confirm `log_bin = ON`, `binlog_format = ROW`, and `binlog_row_image = FULL`. Al
 </SourceModeTab>
 </SourceModeTabs>
 
-## Create a connection
+## Connect to MySQL
+
+1. Open your Cluster and select **Data Sources** > **Create source**.
+2. Select **MySQL** (or **Amazon RDS for MySQL** for an RDS instance) and enter a **Source ID**.
+3. Choose the read mode you prepared, then enter the connection settings below.
+
+   <span id="reference" />
+   <span id="connection-settings" />
+
+   [![MySQL connection form populated with example settings](/images/cloud/mysql-form.png)](/images/cloud/mysql-form.png)
+
+   The screenshots use fictional connection details. Replace them with your own.
+   The settings below include fields outside the captured area and options
+   shown only for particular connection modes.
+   Configuration keys are included for the alternative CLI/YAML workflow.
+
+   - **Connection settings**
+
+     - **Source ID (`id`)**: A stable ID for the connection, such as `orders_mysql`. It cannot be renamed after creation. Required.
+     - **Read mode (`mode`)**: `snapshot` for a one-time read, or `cdc` for existing rows and later changes. Complete the matching preparation above. Select before creation.
+     - **Deployment mode (`deploymentMode`)**: Select `standalone` for one server or `master-slave` for a primary-replica list. Default: `standalone`. Optional.
+     - **Host (`host`)**: MySQL hostname or IP address. Required when Deployment mode is `standalone`.
+     - **Port (`port`)**: MySQL service port. Enter a number in the Web form. Default: `3306`. Required when Deployment mode is `standalone`.
+     - **Server address (`masterSlaveAddress`)**: Ordered array of `{ host, port }`; put the primary first. Shown when Deployment mode is `master-slave`.
+     - **`database`**: Database name. Create separate connections for separate databases. Required.
+     - **`username`**: Database account name.
+     - **`password`**: Enter the database password in the form; use a secret reference for file-based configuration.
+
+   - **Advanced settings**
+
+     - **Connection Parameter String (`addtionalString`)**: Additional connection parameters. Use this exact field spelling; do not change it to `additionalString`. Default: `useUnicode=yes&characterEncoding=UTF-8`. Optional.
+     - **`timezone`**: UTC offset for timezone-naive values, for example `+00:00` or `+08:00`. Optional.
+
+   - **Connection security**: Use the TLS and SSH settings offered by the connector.
+     See the [shared transport fields](/docs/guides/manage-data-sources#tls-and-ssh-connections)
+     for certificate files and SSH account settings. Keep certificate verification enabled.
+
+   <span id="test-and-save" />
+
+4. Select **Test connection**, review the results, and resolve failed checks.
+5. Select **Create source**, then open the saved connection and check its
+   discovered tables, columns, and keys.
+6. [Build a pipeline](/docs/guides/build-a-pipeline) to select the data and
+   destination. Creating a connection does not start data movement.
+
+A passed test confirms only the reported connection checks. Verify the initial
+output and subsequent changes for the pipeline you build.
+
+## CLI and YAML
+
+This alternative is for **self-hosted servers**. File generation and validation
+can run offline; login, apply, and connection tests require your own server.
+Cloud users should use the Web steps above. See [CLI scope](/docs/self-hosted#cli-and-automation).
+
+Use the same [connection settings](#connection-settings) as the Web form.
+In YAML, put connector-specific keys under `config`; `id` and `mode` are resource fields.
+
+### Register on a self-hosted server
+
+<span id="connector-availability" />
+
+The MySQL connector is registered automatically by the local quickstart script. On standalone or fresh server container deployments, the connector catalog starts empty. Confirm that MySQL is registered before authoring connections:
+
+```text
+connectors
+register mysql
+```
+
+See [When registration is required](/docs/guides/register-connectors#when-registration-is-required).
+
+### Create a connection
+
+Use this alternative when authoring a local workspace. For browser setup,
+complete the connection flow above; no local file is required.
 
 Tapstate stores the MySQL source as a `.tap.yml` file in the workspace.
 
 The example below creates a CDC-capable source connection. The connection's `mode` controls its read capability.
 
 ```bash
-tapstate new --non-interactive \
-  --kind source \
+tapstate add source --non-interactive \
   --connector mysql \
   --id orders_source \
   --mode cdc \
@@ -174,7 +248,7 @@ included accidentally. Continue with the [MongoDB target guide](/docs/connectors
 [pipeline reference](/docs/reference/pipeline) to complete the current product
 path.
 
-#### Use a primary-replica topology
+### Use a primary-replica topology
 
 Set `deploymentMode: master-slave`, then list the primary first. Use this path instead of standalone `host` and `port`.
 
@@ -193,7 +267,7 @@ config:
 
 For CDC from a replica, make sure it writes replicated events to its own binlog (`log_slave_updates = 1`). Check `SHOW REPLICA STATUS` (or `SHOW SLAVE STATUS` on older MySQL) and resolve replication lag before using it as a source.
 
-## Validate the configuration
+### Validate the configuration
 
 Run validation after creating or editing the connection files:
 
@@ -247,23 +321,7 @@ for the full sequence.
 - Avoid DDL on participating source tables during a snapshot. Schema changes can invalidate the snapshot or cause it to fail.
 - Validate row counts and keyed samples after a snapshot, then test `INSERT`, `UPDATE`, and `DELETE` events before opening the target to consumers.
 
-## Reference
-
-### Connection settings
-
-| Field | Required | Default | Use |
-|---|---|---|---|
-| `deploymentMode` | No | `standalone` | Select `standalone` for one server or `master-slave` for a primary-replica list. |
-| `host` | With `standalone` | — | MySQL hostname or IP address. |
-| `port` | With `standalone` | `3306` | MySQL service port. Use a quoted string in `.tap.yml`. |
-| `masterSlaveAddress` | With `master-slave` | — | Ordered array of `{ host, port }`; put the primary first. |
-| `database` | Yes | — | Database name. Create separate connections for separate databases. |
-| `username` | Yes | — | Database account name. |
-| `password` | No | — | Database password. Supply this from secret-aware environment handling. |
-| `addtionalString` | No | `useUnicode=yes&characterEncoding=UTF-8` | Additional connection parameters. Use this exact field spelling; do not change it to `additionalString`. |
-| `timezone` | No | empty | UTC offset for timezone-naive values, for example `+00:00` or `+08:00`. |
-
-### Data compatibility
+## Data compatibility
 
 | Category | Supported MySQL types |
 | --- | --- |

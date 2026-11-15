@@ -16,6 +16,11 @@ This applies to a root key, an embedded row's parent key, and an embedded array
 key. The current published path can assemble MySQL and PostgreSQL data into
 MongoDB-backed operational state.
 
+In tapstate Cloud, model nested documents in the Pipeline builder around immutable
+root, parent, and array keys. The `trackKeyChanges` field documented below is a
+`.tap.yml` configuration option for file-based pipelines on self-hosted servers
+(see [CLI and automation](/docs/self-hosted#cli-and-automation)).
+
 ## Enable tracking only on mutable branches
 
 Set `trackKeyChanges: true` on the root when a root key may change, and on each
@@ -89,7 +94,8 @@ tree:
 2. change a child parent key and verify the subtree appears only under the new
    parent;
 3. change an array key and verify there is one element at the new key; and
-4. inspect `logs` and `metrics` for failures or dead-lettered records.
+4. inspect **Monitoring** and **Logs** (or CLI `logs` and `metrics` on a
+   self-hosted server) for failures or dead-lettered records.
 
 Also test the [document size and update rate](/docs/guides/nest-throughput)
 that these moves can produce.

@@ -12,27 +12,211 @@ The tapstate control plane requires authentication for connector, artifact,
 connection, pipeline, and observation operations. Self-hosted servers use local
 accounts; Cloud uses its managed sign-in flow.
 
-The [Quickstart](/docs/overview/quickstart) performs these steps
-automatically. Use this page after a tapstate server is already running, for
-example in that playground or in an environment managed separately from these
-docs.
+The [local quickstart](/docs/overview/quickstart) covers disposable Docker
+evaluation. For a persistent self-hosted v0.8 deployment, initialize storage
+before creating the first administrator. If your server already has an account,
+go directly to the sign-in steps.
 
 ## Sign in on the web
 
-For the Playground, follow the [Web access step](/docs/overview/quickstart#3-open-the-web-application)
-and sign in as `admin` with the password saved in `tapstate-demo/.env`. The setup script creates the account.
-For another deployment, use the server URL and account supplied by its operator.
+For a self-hosted playground or cluster, open the configured service URL and
+sign in with an existing administrator or user account by entering **Username**
+and **Password**, then selecting **Sign in**. (The local
+[Docker quickstart](/docs/overview/quickstart) prints its generated workspace
+credentials when setup finishes.)
+
+[![Self-hosted sign-in page showing Username and Password fields beside the CLI workflow preview](/images/self-hosted/sign-in.png)](/images/self-hosted/sign-in.png)
 
 For Cloud, open the cluster from the Cloud application and complete its sign-in
 flow. The server exchanges the one-time code for a host-only, secure,
 HTTP-only session cookie. Use HTTPS and the assigned cluster hostname; local
 bootstrap and username/password login are unavailable in Cloud mode.
 
-The bootstrap and password-login examples below cover **self-hosted
-authentication**. A new self-hosted server has one bootstrap window for its
-first administrator. Web users do not need to repeat bootstrap.
+For a three-layer self-hosted v0.8 installation, initialize storage and create
+the first administrator through the installation address below. The older
+`/auth/bootstrap` example applies only to the v0.7 layout. Ordinary web users
+sign in with an existing account; they do not repeat installation.
 
-## Before you begin
+## Initialize storage
+
+Use these steps with a v0.8 server distribution that includes three-layer
+storage and its matching web application. Do not start a v0.8 server against an
+older v0.7 metadata database; prepare a separate installation and follow
+[Upgrade to v0.8](/docs/guides/upgrade-to-v0-8).
+
+Before starting:
+
+- [Stage the MongoDB connector before saving storage](/docs/guides/register-connectors#prepare-the-initial-storage-connector).
+  It must be available before first-administrator creation and sign-in.
+  Other source connectors can be registered after sign-in. Standalone binary
+  or JAR deployments also require JDK 21.
+- Configure [ordinary browser access](#configure-self-hosted-browser-access)
+  before starting the service. The installation page's loopback address does
+  not configure HTTPS or authorize browser login at the normal service address.
+- Prepare a MongoDB replica set or Atlas deployment reachable from the server.
+  Configuration and Durable cache require transactions; standalone MongoDB is
+  insufficient.
+- Reserve three different databases. The setup form defaults to
+  `tapstate_config`, `tapstate_cache`, and `tapstate_views`. Grant the storage
+  account read/write access, including collection and index operations, on each
+  database. For first-time setup, Durable cache must contain no collections
+  (including empty ones), and the account must be able to list collections. If
+  setup rejects an occupied Cache database, choose a fresh empty cache database
+  or inspect the existing deployment—do not wipe another installation's active
+  storage. For wholly lost Cloud or runtime cache recovery, see
+  [storage recovery](/docs/manage/storage-recovery).
+- Choose persistent local storage for the installation directory. Its parent
+  must exist and be writable by the service account; the installation directory
+  itself must not already exist. Use the same OS account to initialize and run
+  the service.
+
+From the unpacked server distribution, replace the example directory with your
+chosen path:
+
+```bash
+./bin/tapstate-server installation --initialize \
+  --tapstate.installation.directory=/var/lib/tapstate/installation
+
+./bin/tapstate-server --role=all \
+  --tapstate.installation.directory=/var/lib/tapstate/installation
+```
+
+Keep your normal service port, TLS, and connector seed configuration (in the
+`ghcr.io/tapstate/tapstate:0.8.0` container image, pass the same arguments to
+`java -jar /opt/tapstate/tapstate.jar`). These are server commands; installing
+the client CLI does not perform this setup.
+
+1. Read `managementUrl` from the owner-only `stage.json` in the installation
+   directory and open that exact loopback address. For a remote host, first
+   establish the [SSH tunnel](#access-a-remote-installation) below. Keep access
+   to this host restricted: the default local installation channel does not
+   prompt for a credential. If the deployment enables installation credentials,
+   enter the current token from `capability.json` privately when prompted.
+2. In **Set up cluster storage**, enter the MongoDB or Atlas URI. Review the
+   Configuration, Cache, and Views database names; use **Customize** to change
+   them. Use **Advanced settings** for required Configuration or Cache CA
+   bundles.
+3. Select **Connect** to test Durable cache and save the settings. The server
+   validates Configuration during setup as well. Resolve any failure shown in
+   the dialog and wait for initialization to finish. First-time cache activation
+   completes in the same running process; do not start a second server to
+   continue.
+4. At **Create the first administrator**, enter a username and password, then
+   select **Create administrator**. These are the credentials you will use to
+   sign in; the server does not supply a default password. If installation credentials are enabled,
+   run `installation --authorize --tapstate.installation.directory=...` first
+   and use the resulting first-administrator credential from `capability.json`;
+   the initial setup credential does not authorize account creation.
+5. The page directs you to the normal sign-in address. Sign in with the account
+   you just created. If the redirect fails after creation succeeded, select
+   **Open sign-in**, or open the configured normal service address yourself. Do
+   not create another administrator. The installation address is not the
+   ordinary login endpoint.
+
+Storage setup creates the default `views` target Source in the Application data
+database (`tapstate_views` by default in self-hosted setup, separate from Cloud's
+`atlas-store` Source ID). Its connection is verified asynchronously in the
+background after the runtime activates; a failed check does not block
+administrator creation or sign-in. Check its result in **Settings** before
+using this destination (see
+[Check the default destination](/docs/manage/clusters#check-the-default-destination)).
+Keep Configuration, Durable cache, and the installation directory intact for
+subsequent restarts.
+
+If administrator creation returns an unknown result, check installation status
+before submitting again. If the account already exists, use ordinary sign-in.
+If browser login is refused, check the configured origin and transport settings;
+repeating installation will not fix them.
+
+### Access a remote installation
+
+For remote setup, forward the dedicated management port over SSH using the
+same local port number. Replace both occurrences of `MANAGEMENT_PORT` with the
+port from `managementUrl`:
+
+```bash
+ssh -N -L 127.0.0.1:MANAGEMENT_PORT:127.0.0.1:MANAGEMENT_PORT user@server
+```
+
+Open the original `http://127.0.0.1:MANAGEMENT_PORT` through the tunnel. Do not
+expose this channel through a public listener or reverse proxy.
+
+### Resume an interrupted installation
+
+Reopen the original installation address and check its status before saving
+again: a request may time out after the binding was saved. If the server process
+stopped, start it with the original installation directory and deployment
+settings. Do not reset the directory, change the database names, or run
+`--initialize` again.
+
+If the saved setup offers **Retry storage activation**, use it to continue
+that operation. Activation reuses the saved databases; it does not authorize
+new bindings or bypass first-administrator authorization.
+
+If a credential-enabled installation needs fresh authorization, use:
+
+```bash
+./bin/tapstate-server installation --authorize \
+  --tapstate.installation.directory=/var/lib/tapstate/installation
+```
+
+Read the current management address and credential from the original directory.
+If first-administrator creation already completed, use ordinary sign-in. Current
+first-time cache activation completes in the same running process without a
+server restart; only legacy interrupted installations require following an
+explicit restart prompt with the same directory and settings. A public
+`/auth/bootstrap` request cannot replace installation authorization.
+
+## Configure self-hosted browser access
+
+Starting with v0.8, the web application restores a valid self-hosted session
+when you reload the page or open another tab on the same origin. It keeps the
+short-lived access token in tab memory and uses an HttpOnly cookie to obtain
+fresh tokens. Ordinary `/api/**` requests still require a Bearer token; the
+browser session cookie does not authenticate those requests by itself.
+
+For normal deployments, serve the web application and API from the same HTTPS
+origin. Configure these environment variables on the **server process**:
+
+| Variable | Configuration |
+|---|---|
+| `TAPSTATE_BROWSER_AUTH_PUBLIC_ORIGINS` | Comma-separated HTTPS origins, such as `https://workbench.example.com`. Include a non-default port when used; omit paths and trailing slashes. Required for HTTPS browser login. |
+| `TAPSTATE_BROWSER_AUTH_TRUSTED_PROXIES` | Comma-separated exact IP addresses of the immediate reverse-proxy peers connecting to the server. Leave empty without a proxy. |
+| `TAPSTATE_BROWSER_AUTH_ALLOW_INSECURE_LOOPBACK` | Defaults to `false`. Set to `true` only for isolated local HTTP development, subject to the restrictions below. |
+
+When a proxy terminates HTTPS, it must replace `X-Forwarded-Proto`,
+`X-Forwarded-Host`, and `X-Forwarded-Port` with the public request's values.
+Restrict direct access to the upstream listener. Listing an origin does not
+configure TLS or make an untrusted proxy's forwarded headers authoritative.
+Apply the settings through your deployment configuration and restart the
+server, then open the configured HTTPS origin and sign in.
+
+For local HTTP development, both the browser hostname and the immediate
+connection seen by the server must be loopback. A Docker port mapping or SSH
+tunnel alone does not establish that server-side condition. Cookies are shared
+across ports on the same hostname, so another local service can receive the
+session credential. Use this opt-in only with trusted local services and a
+trusted browser profile; prefer HTTPS with a dedicated hostname otherwise.
+
+After signing in, reload the page and open another tab at the same origin to
+check that the session restores. Sign out through the application when done.
+Sign-out revokes the session used to obtain new tokens; an already-issued
+access token can remain valid until its 15-minute expiry. An expired or revoked
+session requires another sign-in.
+
+If browser login is refused, check the public origin, transport, and immediate
+proxy address before changing credentials. A successful CLI login does not
+verify browser transport configuration. See the
+[browser endpoints](/docs/reference/rest-api#self-hosted-browser-sessions) for
+client integration details.
+
+## Legacy v0.7 bootstrap
+
+### Before you begin (v0.7)
+
+The following bootstrap example is for the **v0.7 self-hosted layout**. For a
+three-layer v0.8 installation, use [Initialize storage](#initialize-storage)
+instead.
 
 - Start a preview server with its control port bound to loopback or another protected interface.
 - Confirm `GET /healthz` returns HTTP `200` with `ok`; a broken engine returns `503`.
@@ -49,9 +233,11 @@ export TAPSTATE_URL=http://127.0.0.1:8080
 curl --fail --silent --show-error --noproxy '*' "$TAPSTATE_URL/healthz"
 ```
 
-## Create the first administrator
+<span id="create-the-first-administrator" aria-hidden="true" />
 
-Set credentials in the current shell, then call the loopback endpoint:
+### Create the first administrator (v0.7)
+
+For the v0.7 layout only, set credentials in the current shell, then call the loopback endpoint:
 
 ```bash
 export TAPSTATE_URL=http://127.0.0.1:8080
@@ -98,6 +284,19 @@ that shares one login.
 
 ## Sign in over HTTP
 
+Use an existing self-hosted account; do not repeat first-administrator setup.
+Install `curl` and `jq`, set the normal service URL and username, and read the
+password into the current shell. Use HTTPS for a remote server:
+
+```bash
+export TAPSTATE_URL=https://workbench.example.com
+export TAPSTATE_ADMIN_USER=admin
+read -s TAPSTATE_ADMIN_PASSWORD
+export TAPSTATE_ADMIN_PASSWORD
+```
+
+Then request an access token:
+
 ```bash
 TOKEN="$(
   curl --fail-with-body --silent --show-error \
@@ -126,7 +325,7 @@ sessions, see [Save a server context and session](/docs/reference/cli#save-a-ser
 
 ## Cloud sessions
 
-Cloud browser sessions and self-hosted access tokens have different lifecycles.
+Cloud browser sessions and self-hosted browser or CLI sessions have different lifecycles.
 Cloud validates and refreshes the managed session on the server; do not apply
 the self-hosted 15-minute access-token lifetime to its browser cookie.
 

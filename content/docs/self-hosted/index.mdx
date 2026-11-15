@@ -1,0 +1,116 @@
+---
+title: Self-hosting
+description: Find local evaluation, server configuration, and upgrade guides for deployments you manage
+ai:
+  kind: guide
+  id: self-hosting
+  aliases: [self-hosted tapstate, local deployment, Docker playground]
+---
+
+Use these guides when you run and maintain tapstate yourself. For the hosted
+service, start with the [Quickstart](/docs/quickstart).
+
+## Try tapstate locally
+
+The [local quickstart](/docs/overview/quickstart) starts a disposable Docker
+playground with sample MySQL, PostgreSQL, and MongoDB databases. It is an
+evaluation environment, not a production deployment. Follow the
+[order-state demo](/docs/overview/order-state-demo) to change sample rows and
+check how an assembled document changes.
+
+You do not need to install the CLI separately to run the playground. The
+[CLI installer](/docs/overview/install) installs a client, not a tapstate server.
+
+## Configure your deployment
+
+| Task | Guide |
+|---|---|
+| Initialize storage, create the first administrator, and connect a client | [Bootstrap and authentication](/docs/guides/bootstrap-and-auth#initialize-storage) |
+| Understand three-layer storage and backups | [State and storage](/docs/concepts/storage) |
+| Recover lost durable cache or rebuild affected pipelines | [Recover runtime storage](/docs/manage/storage-recovery) and [CLI storage commands](/docs/reference/cli#inspect-storage-operations) |
+| Configure members and understand recovery | [Configure a cluster](/docs/guides/cluster) |
+| Supply connector artifacts and test connections | [Register and test connectors](/docs/guides/register-connectors) |
+| Place or move Nest state in the v0.7 layout | [Move Nest state](/docs/guides/move-nest-state) |
+| Monitor runs, logs, and Prometheus or OTLP exports | [Observe self-hosted pipelines](/docs/self-hosted/observe-pipelines) |
+| Diagnose CLI, Docker playground, and server issues | [Troubleshoot self-hosted deployments](/docs/self-hosted/troubleshooting) |
+| Plan a separate v0.8 installation or back up v0.7 | [Upgrade to v0.8](/docs/guides/upgrade-to-v0-8) |
+
+These procedures assume you control the server and its storage. Plan database
+access, credentials, network exposure, monitoring, backups, and recovery for
+your environment. A successful playground run does not establish production
+capacity or availability.
+
+### Web interface in self-hosted deployments
+
+Self-hosted v0.8 servers bundle the same Cluster web workbench documented in
+[Manage data sources](/docs/guides/manage-data-sources),
+[Build a pipeline](/docs/guides/build-a-pipeline) (**Pipeline builder** and
+**DAG Designer**), [Observe a pipeline](/docs/guides/observe-a-pipeline)
+(**Views**, **Monitoring**, and **Logs**),
+[Validate pipeline data](/docs/guides/validate-pipeline-data), and
+[Alerts and notifications](/docs/manage/alerts). Four areas differ from Cloud:
+
+- **No Cloud organization console:** Self-hosted servers open directly into the
+  Cluster workbench without organization switching, billing, cluster
+  provisioning, or managed outbound Elastic IP cards ([Cloud management overview](/docs/manage)).
+- **Storage setup and sign-in:** First-time installation uses the
+  management-port setup flow ([Initialize storage](/docs/guides/bootstrap-and-auth#initialize-storage))
+  to bind three MongoDB databases (creating the default `views` destination
+  instead of `atlas-store`) and uses local username/password sign-in instead of
+  Cloud SSO or one-click sample presets.
+- **AI assistance:** Built-in **Tapstate AI** in the builder is available only
+  in Cloud; self-hosted deployments connect external AI assistants through
+  [MCP integration](/docs/reference/mcp).
+- **Alert delivery and destinations:** Self-hosted **Alert configuration**
+  provides local Email (SMTP) and HTTPS Webhook receivers and subscription
+  routes. Database preparation remains shared in the
+  [connector guides](/docs/connectors). Older v0.7 servers use an earlier web
+  application layout.
+
+[![Self-hosted v0.8 Cluster workbench Overview showing live source-to-view pipeline flow and workspace navigation](/images/self-hosted/workbench-overview.png)](/images/self-hosted/workbench-overview.png)
+
+For workspace YAML authoring, each connector guide includes CLI/YAML examples
+after its Web walkthrough. Use
+[Observe self-hosted pipelines](/docs/self-hosted/observe-pipelines) for CLI
+inspection and metrics export.
+
+## CLI and automation
+
+Use the CLI for offline workspace generation and validation, or connect it to
+a self-hosted server for scripts, automation, and manual administration.
+The server may run locally or on a remote host you administer.
+
+The CLI does not provide Cloud account sign-in. Cloud Clusters use managed
+browser sessions and do not accept the CLI's bearer-token authentication.
+The local MCP gateway uses that same CLI connection path; it is not a Cloud
+login gateway. For Cloud, use the [Web workflow](/docs/quickstart).
+
+| Task | Guide |
+| --- | --- |
+| Install a client | [Install the CLI](/docs/overview/install) |
+| Generate and validate files offline | [Create a workspace](/docs/overview/create-workspace) |
+| Apply files and run them on your server | [Apply and run a pipeline](/docs/guides/apply-and-run) |
+| Assemble multi-source documents in `.tap.yml` | [Assemble documents with nest](/docs/guides/assemble-documents-with-nest) |
+| Track mutable Nest keys in `.tap.yml` | [Handle structural key changes with nest](/docs/guides/nest-structural-key-changes) |
+| Look up commands and authentication | [CLI reference](/docs/reference/cli) |
+| Connect a local MCP-compatible agent | [MCP integration](/docs/reference/mcp) |
+| Generate configuration with an assistant | [Use tapstate docs with AI](/docs/for-ai/authoring) |
+
+Offline validation does not test database access or prove that a resource is
+supported by another deployment. Use the client and schema for your target
+server release.
+
+## Upgrade an existing deployment
+
+Read the guide for your target version before replacing server or connector
+artifacts. The v0.8 three-layer storage layout requires a separate installation
+and has no automatic migration from the older v0.7 metadata layout. Review
+backup, storage preparation, and rollback requirements before cutover.
+
+- [Upgrade to v0.8](/docs/guides/upgrade-to-v0-8)
+- [Upgrade to v0.7](/docs/guides/upgrade-to-v0-7)
+- [Upgrade to v0.6](/docs/guides/upgrade-to-v0-6)
+
+Use [v0.8 release notes](/docs/releases/v0.8) for version-specific changes and
+limits. These server upgrade procedures are separate from managing a hosted
+[Cloud Cluster](/docs/manage/clusters).

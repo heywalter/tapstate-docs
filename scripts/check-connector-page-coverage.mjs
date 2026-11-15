@@ -22,6 +22,17 @@ const coreSections = {
   reference: /^## Reference/m,
   validationExamples: /<ValidationStatusGuide\s*\/>/,
 };
+const webSections = {
+  profile: coreSections.profile,
+  beforeYouBegin: coreSections.beforeYouBegin,
+  webConnection: /^## Connect to /m,
+  createConnection: /^### Create a connection/m,
+  cliAlternative: /^## CLI and YAML/m,
+  validateConfiguration: /^### Validate the configuration/m,
+  limitations: coreSections.limitations,
+  connectionSettings: /<span id="connection-settings" \/>/,
+  dataCompatibility: /^## Data compatibility/m,
+};
 
 const internalMigrationLanguage = /(?:catalog-declared|code-backed|upstream (?:guide|page|connector|platform|baseline))/i;
 const internalEvidenceLanguage = /(?:optional approval filters|local validation boundary|connector implementation|runtime representation|resource placement[^.\n]*pending|inherited spelling|documented baseline)/i;
@@ -59,16 +70,18 @@ const directoryItems = new Map(
     }]),
 );
 const productProfiles = new Map(
-  [...directorySource.matchAll(/^\s*['"]?([\w-]+)['"]?:\s*\{\s*status:\s*'(current|roadmap|unlisted)',[\s\S]*?useAs:\s*\[([^\]]*)\],\s*modes:\s*\[([^\]]*)\]\s*\},?$/gm)]
+  [...directorySource.matchAll(/^\s*['"]?([\w-]+)['"]?:\s*\{\s*status:\s*'(current|roadmap|unlisted)',(?:\s*availability:\s*'(bundled|separately-registered)',)?[\s\S]*?useAs:\s*\[([^\]]*)\],\s*modes:\s*\[([^\]]*)\]\s*\},?$/gm)]
     .map((match) => [match[1], {
       status: match[2],
-      roles: quotedList(match[3]),
-      modes: quotedList(match[4]),
+      availability: match[3] ?? 'bundled',
+      roles: quotedList(match[4]),
+      modes: quotedList(match[5]),
     }]),
 );
 
 const expectedNavigation = [
   'index',
+  '../guides/manage-data-sources',
   ...[...productProfiles]
     .filter(([, profile]) => profile.status === 'current')
     .map(([slug]) => slug),
@@ -94,7 +107,8 @@ for (const name of pageNames) {
   const directoryItem = directoryItems.get(slug);
   const productProfile = productProfiles.get(slug);
   const isServerAuthoritative = directoryItem?.capabilityAuthority === 'server';
-  const missing = Object.entries(coreSections)
+  const isBundledWebGuide = productProfile?.status === 'current' && productProfile.availability !== 'separately-registered';
+  const missing = Object.entries(isBundledWebGuide ? webSections : coreSections)
     .filter(([section, pattern]) => section !== 'validationExamples' && !pattern.test(page))
     .map(([section]) => section);
 
@@ -158,8 +172,8 @@ for (const name of pageNames) {
   if (redundantProfileCallout.test(page)) {
     missing.push('redundant connector-profile callout');
   }
-  if (roles.includes('source') && !/^### Source\b/m.test(page)) missing.push('source section');
-  if (roles.includes('target') && !/^### Target\b/m.test(page)) missing.push('target section');
+  if (roles.includes('source') && !(/^### Source\b/m.test(page) || /<span id="source" \/>/.test(page))) missing.push('source preparation');
+  if (roles.includes('target') && !(/^### Target\b/m.test(page) || /<span id="target" \/>/.test(page))) missing.push('target preparation');
 
   let catalog;
   try {
@@ -191,6 +205,26 @@ for (const name of pageNames) {
     }
   }
 
+  if (isBundledWebGuide) {
+    const preparationAt = page.indexOf('## Before you begin');
+    const webAt = page.search(/^## Connect to /m);
+    const settingsAt = page.indexOf('<span id="connection-settings" />');
+    const testAt = page.indexOf('<span id="test-and-save" />');
+    const cliAt = page.indexOf('## CLI and YAML');
+    if (!(preparationAt < webAt && webAt < settingsAt && settingsAt < testAt && testAt < cliAt)) {
+      missing.push('reader flow must be preparation, Web settings, test/save, then optional CLI');
+    }
+    const webBody = page.slice(webAt, cliAt);
+    if (/^### /m.test(webBody)) missing.push('Web procedure must not have subsection headings');
+    const steps = [...webBody.matchAll(/^(\d+)\. /gm)].map((match) => Number(match[1]));
+    if (steps.join(',') !== '1,2,3,4,5,6') missing.push('Web procedure must contain six consecutive steps');
+    const settingsBody = page.slice(settingsAt, testAt);
+    const screenshotAt = settingsBody.indexOf('[![');
+    const fieldListAt = settingsBody.indexOf('- **Connection settings**');
+    if (screenshotAt < 0 || fieldListAt < 0 || screenshotAt > fieldListAt) {
+      missing.push('connection screenshot must precede its field list');
+    }
+  }
   const undocumentedFields = (catalog.config ?? [])
     .map((field) => field.name)
     .filter((field) => !page.includes(`\`${field}\``) && !page.includes(`${field}:`));

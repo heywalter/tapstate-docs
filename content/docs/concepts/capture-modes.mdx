@@ -60,10 +60,11 @@ Prepare and verify:
 
 ### Initial loads and recovery
 
-For a CDC source, `settings.read_mode` controls a pipeline run:
-`snapshot_only`, `cdc_only`, or `snapshot_and_cdc`. Use the modes and
-prerequisites supported by that connector; a source's `mode` and a pipeline's
-read mode describe different choices.
+In Cloud, a CDC source pipeline runs full load plus CDC (`snapshot_and_cdc`) by
+default. Underlying `.tap.yml` pipeline definitions also expose
+`settings.read_mode` with `snapshot_only`, `cdc_only`, or `snapshot_and_cdc`. Use
+the modes and prerequisites supported by that connector; a source's `mode` and
+a pipeline's read mode describe different choices.
 
 | Pipeline read mode | First run | Recovery with retained state |
 |---|---|---|
@@ -84,10 +85,10 @@ pipelines consume them. The connector can then acknowledge those changes to
 the source. Each pipeline separately records what its target has confirmed.
 A slower consumer catches up from the retained change log.
 
-A source read with `srs: false` in the pipeline uses direct capture instead.
-Its recovery progress and source acknowledgements follow that pipeline's
-target confirmations. It depends on the source retaining the changes it has
-not confirmed.
+In `.tap.yml` pipeline definitions, reading a source with `srs: false` uses
+direct capture instead. Its recovery progress and source acknowledgements
+follow that pipeline's target confirmations. It depends on the source retaining
+the changes it has not confirmed.
 
 Keep both the metadata store and the source logs required by the chosen path.
 Do not delete or restore live metadata to reset a pipeline: the source may
@@ -96,13 +97,15 @@ already have released changes that remain only in tapstate's log. See
 
 ### Resume or rerun
 
-- To stop temporarily, use `stop <pipeline-id> --keep-state`, then
-  `start <pipeline-id>`. A plain `restart <pipeline-id>` also retains state.
-- `restart <pipeline-id> --rerun` clears that pipeline's retained state before
-  starting again. Review its reset and destination write strategy first; a
-  rerun can repeat writes.
-- A stop without `--keep-state` clears the pipeline's recovery and operator
-  state. Review the confirmation before proceeding.
+- In Cloud, select **Stop** > **Stop and keep state** to pause a pipeline
+  temporarily while retaining progress for the next start.
+- Select **Stop** > **Stop and clear state** only when you intend to discard
+  recovery positions and operator state before starting fresh. Review the
+  confirmation and target write strategy first; rerunning from scratch can
+  repeat writes.
+- On a self-hosted server using the CLI, `stop <pipeline-id> --keep-state` (or
+  `restart <pipeline-id>`) retains state, while `stop <pipeline-id>` without
+  `--keep-state` or `restart <pipeline-id> --rerun` clears state.
 
 Clearing one consumer does not clear the shared chain while another consumer
 still depends on it, including the chain's completed-table history. It does
@@ -116,8 +119,9 @@ Keep a backup and inspect the failure before choosing a rerun. Upgrading does
 not repair previously unsafe recovery metadata automatically.
 
 Full load plus CDC does not promise exactly-once output or a lossless handoff
-for every connector. Verify the [v0.7 positioning limits](/docs/releases/v0.7#known-limits-and-issues)
-and test representative changes before relying on continuity.
+for every connector. Review [Preview limits](/docs/limits) and the
+[v0.7 positioning limits](/docs/releases/v0.7#known-limits-and-issues), and test
+representative changes before relying on continuity.
 
 ## Stream and API sources
 

@@ -18,7 +18,7 @@ either one or both; declaring a view does not require a serve block.
 
 ## Current preview boundary
 
-The Quickstart uses an inline `view` to materialize MySQL and
+The local quickstart uses an inline `view` to materialize MySQL and
 PostgreSQL data in the managed store. `serve.sync` delivers pipeline output to
 an external target and can coexist with a view.
 
@@ -60,6 +60,29 @@ Set optional `execution` on an inline view or the reusable View resource.
 The `view.use` reference does not accept an execution override. View sinks
 default to cluster-wide parallelism `4`; see
 [Node execution](/docs/reference/pipeline#node-execution).
+
+### View write and full-load policies
+
+These fields apply to Cloud and v0.8 runtimes (with a matching CLI and schema).
+Older v0.7 self-hosted releases can accept a different set of fields; use the
+schema bundled with your server when authoring local files.
+
+An inline View and a reusable `kind: view` accept `write_mode` (`upsert` by
+default, or `append`) and `on_full_load` (`append` by default, `clear`, or `fail`).
+The same target-policy meanings apply as for `serve.sync`. Canonical YAML omits
+these fields at their defaults.
+
+A new full load into an existing target may ask for a decision before it starts.
+Choosing clear also persists that policy. Continuing from retained state and
+CDC-only runs do not clear rows. An explicitly confirmed full rebuild after
+cache loss is a new full load and applies its selected target policy, including
+clear. See [Start checks](/docs/guides/apply-and-run#start-checks),
+[Review start checks](/docs/guides/build-a-pipeline#review-start-checks), and
+[runtime storage recovery](/docs/manage/storage-recovery).
+
+Review [Completed snapshot loads](/docs/guides/apply-and-run#completed-snapshot-loads)
+and verify actual target rows on an independent test target before using Clear
+to replace existing data.
 
 ### View schema compatibility
 
@@ -118,16 +141,23 @@ Each element requires a target connection ID in `source` and can include:
 - `ddl`: `apply`, `ignore`, or `fail`;
 - `on_full_load`: `append` (default), `clear`, or `fail`;
 - target table rename rules;
-- connector-owned `options`.
+- reserved `options` (`{}`, must be empty in this release);
 - node-level `execution` for parallelism and batching.
+
+For schema-change events, `ddl: fail` rejects the event when it reaches the
+target. Both `ignore` and `apply` skip the event; `apply` does not alter the
+target schema. These policies only act on events the source actually emits.
+Plan schema changes separately and follow the
+[Preview schema-change guidance](/docs/limits#table-and-column-changes).
 
 Sync sinks default to cluster-wide parallelism `4`. Set execution on each
 `sync` element; it is not a setting on the containing `serve` block.
 
 `on_full_load` controls existing target rows before a new full load. `append`
-keeps them, `clear` removes them, and `fail` refuses a nonempty target. Resume,
-recovery, and CDC-only runs do not clear target rows. The connector must expose
-the capabilities needed by the selected policy.
+keeps them, `clear` removes them, and `fail` refuses a nonempty target.
+Continuation from retained state and CDC-only runs do not clear target rows.
+An explicit full rebuild after cache loss applies the full-load policy.
+The connector must expose the capabilities needed by the selected policy.
 
 Before starting a pipeline that writes a View or uses `serve.sync`, discover the schema for each
 pipeline source. Applying the resources does not perform that discovery. If a
@@ -135,8 +165,10 @@ source schema is missing, the start is refused before data-plane components
 start, the pipeline reaches `FAILED`, and its failure code is
 `actuation.source-schema-not-discovered`.
 
-Discover the missing source schema and then start the pipeline again. This
-precondition applies to both View and sync outputs.
+Discover the missing source schema. If the pipeline reached `FAILED`, stop it
+with state retained, wait for `STOPPED`, then start it again; a direct start
+from `FAILED` is refused. See [Lifecycle transitions](/docs/guides/apply-and-run#lifecycle-transitions).
+This precondition applies to both View and sync outputs.
 
 #### Choose a write mode
 
@@ -169,6 +201,11 @@ serve:
         suffix: _v1
 ```
 
+Rename rules apply to the table reaching the sink. After a Nest or Join,
+that can be the assembled output's name rather than an input table name. Use
+[resolved output locations](/docs/reference/rest-api#locate-a-materialized-collection)
+to locate the resulting collection.
+
 An exact entry in `map` has priority. For every other table, tapstate applies
 `case` first and then adds `prefix` and `suffix`. Accepted `case` values are
 `upper`, `lower`, `camel`, and `pascal`.
@@ -182,5 +219,5 @@ field can name a `sync` element. The current preview does not execute
 ### `push`
 
 The Schema accepts a target connection ID in `source` and can include `id`,
-`topic`, `format`, and connector-owned `options`. The current preview does not
+`topic`, `format`, and reserved `options` (`{}`). The current preview does not
 execute `serve.push`.

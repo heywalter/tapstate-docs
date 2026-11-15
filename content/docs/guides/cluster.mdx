@@ -8,8 +8,12 @@ ai:
   aliases: [tapstate cluster, member discovery, cluster recovery]
 ---
 
-Cluster mode is opt-in. By default, tapstate runs as one member, with discovery
-disabled and the member protocol bound to `127.0.0.1`.
+This guide configures multi-member server clustering for a **self-hosted**
+tapstate deployment. To manage a hosted Cloud Cluster, see
+[Clusters](/docs/manage/clusters).
+
+Cluster mode is opt-in. By default, a self-hosted tapstate server runs as one
+member, with discovery disabled and the member protocol bound to `127.0.0.1`.
 
 <Aside type="note" title="Preview status">
   Tapstate is an evaluation preview. The `production-ha` profile enforces
@@ -136,7 +140,7 @@ on both sides.
 ### Delivery and capacity
 
 Member recovery does not provide exactly-once delivery or remove the source
-positioning limits in the [release notes](/docs/releases/v0.7#known-limits-and-issues).
+positioning limits in the [release notes](/docs/releases/v0.8#known-limits-and-issues).
 Verify target data after a recovery.
 
 Adding members does not divide the minimum heap requirement. Size each member
@@ -145,5 +149,6 @@ for the state it owns and any copies it holds for another member.
 ## Related pages
 
 - [State and storage](/docs/concepts/storage)
+- [Upgrade to v0.8](/docs/guides/upgrade-to-v0-8)
 - [Upgrade to v0.7](/docs/guides/upgrade-to-v0-7)
-- [Observe a pipeline](/docs/guides/observe-a-pipeline)
+- [Observe self-hosted pipelines](/docs/self-hosted/observe-pipelines)

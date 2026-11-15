@@ -5,22 +5,24 @@ ai:
   kind: guide
   id: install-tapstate
   maturity: preview
-  aliases: [install tapstate, tapstate CLI download, tapstate v0.7.0]
+  aliases: [install tapstate, tapstate CLI download, tapstate v0.8.0]
 ---
 
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
 import { CliServerWorkflow } from '@/components/mdx';
 
-Use the CLI for local workspace authoring, scripts, and AI integrations. For
-your first experience with tapstate, follow the [Web Quickstart](/docs/overview/quickstart).
+Use the CLI for offline workspace authoring and automation against a self-hosted
+server. It does not provide Cloud account sign-in. The local MCP gateway has
+the same server requirement; see [CLI scope](/docs/self-hosted#cli-and-automation). For
+your first experience with tapstate, follow the [Quickstart](/docs/quickstart).
 You do not need to install the CLI separately to use the web application.
 
 This page installs the CLI only. It does not install or start a tapstate server,
 open a local port, or install connector JARs.
 
 If you want to see tapstate run before installing anything, use the
-[Quickstart](/docs/overview/quickstart). Its convenience command is
+[local quickstart](/docs/overview/quickstart). Its convenience command is
 `curl -fsSL https://install.tapstate.dev/demo | sh`; the `/demo` endpoint runs the disposable
 Docker playground and does not add `tapstate` to your shell `PATH`.
 
@@ -30,19 +32,23 @@ The CLI can author and validate a local workspace without a server. A tapstate
 server runs pipelines and exposes an authenticated control plane. The server image
 also includes the web application. Open the server's base URL in a
 browser to sign in. The local Playground uses `http://127.0.0.1:8080` on its
-Docker host; see [Quickstart](/docs/overview/quickstart#3-open-the-web-application)
+Docker host; see [local quickstart](/docs/overview/quickstart#3-open-the-web-application)
 for access from another computer.
 
 <CliServerWorkflow />
 
 The CLI cannot test a database connection or move data without a server. This
 release does not publish a standalone server installer. To explore a
-server-backed path, use the disposable [Quickstart](/docs/overview/quickstart),
+server-backed path, use the disposable [local quickstart](/docs/overview/quickstart),
 which downloads its own CLI and starts the server and sample databases with
 Docker Compose. You do not need to install the CLI first.
 
-Before upgrading an existing server, read [Upgrade to v0.7](/docs/guides/upgrade-to-v0-7).
+Before upgrading an existing server, read [Upgrade to v0.8](/docs/guides/upgrade-to-v0-8).
 Installing a newer CLI does not upgrade the server or migrate its data.
+
+For self-hosted Web access on v0.8, configure the server's
+[HTTPS origin and browser session settings](/docs/guides/bootstrap-and-auth#configure-self-hosted-browser-access).
+Installing or signing in with the CLI does not configure browser access.
 
 ## Supported platforms
 
@@ -150,7 +156,7 @@ Verify the result:
 tapstate --version
 ```
 
-The command should report `tapstate 0.7.0`.
+The command should report `tapstate 0.8.0`.
 
 When the name `tap` is available, the installer also creates it as an optional
 shortcut to `tapstate`. It skips the shortcut instead of replacing an existing
@@ -192,10 +198,10 @@ set `TAPSTATE_VERSION`:
 
 ```bash
 curl -fsSL https://install.tapstate.dev/cli | \
-  TAPSTATE_VERSION=0.7.0 sh
+  TAPSTATE_VERSION=0.8.0 sh
 ```
 
-Replace `0.7.0` with another published release when you need to pin a different version.
+Replace `0.8.0` with another published release when you need to pin a different version.
 
 ### Use a different installation directory
 
@@ -210,29 +216,29 @@ The selected directory must be on your `PATH` before you can invoke `tapstate` b
 
 ### Install manually
 
-The [v0.7.0 release](https://github.com/tapstate/tapstate/releases/tag/v0.7.0) includes four platform archives, individual `.sha256` files, and a combined `checksums.txt`. Download the archive that matches your system and verify its checksum before extracting it.
+The [v0.8.0 release](https://github.com/tapstate/tapstate/releases/tag/v0.8.0) includes four platform archives, individual `.sha256` files, and a combined `checksums.txt`. Download the archive that matches your system and verify its checksum before extracting it.
 
 
 For example, on Apple silicon:
 
 ```bash
-curl -fL --retry 2 -C - -o tapstate-0.7.0-darwin-arm64.tar.gz \
-  https://github.com/tapstate/tapstate/releases/download/v0.7.0/tapstate-0.7.0-darwin-arm64.tar.gz
-curl -fL --retry 2 -C - -o tapstate-0.7.0-darwin-arm64.tar.gz.sha256 \
-  https://github.com/tapstate/tapstate/releases/download/v0.7.0/tapstate-0.7.0-darwin-arm64.tar.gz.sha256
+curl -fL --retry 2 -C - -o tapstate-0.8.0-darwin-arm64.tar.gz \
+  https://github.com/tapstate/tapstate/releases/download/v0.8.0/tapstate-0.8.0-darwin-arm64.tar.gz
+curl -fL --retry 2 -C - -o tapstate-0.8.0-darwin-arm64.tar.gz.sha256 \
+  https://github.com/tapstate/tapstate/releases/download/v0.8.0/tapstate-0.8.0-darwin-arm64.tar.gz.sha256
 
-shasum -a 256 -c tapstate-0.7.0-darwin-arm64.tar.gz.sha256
-tar -xzf tapstate-0.7.0-darwin-arm64.tar.gz
+shasum -a 256 -c tapstate-0.8.0-darwin-arm64.tar.gz.sha256
+tar -xzf tapstate-0.8.0-darwin-arm64.tar.gz
 ```
 
-The archive extracts a complete `tapstate-cli-0.7.0` bundle. Keep its `bin` and
+The archive extracts a complete `tapstate-cli-0.8.0` bundle. Keep its `bin` and
 `libexec` directories together so `tapstate mcp` can find its sidecar.
 
 If macOS blocks a manually downloaded binary after the checksum passes, remove the quarantine attribute and try again:
 
 ```bash
-xattr -d com.apple.quarantine ./tapstate-cli-0.7.0/bin/tapstate
-./tapstate-cli-0.7.0/bin/tapstate --version
+xattr -d com.apple.quarantine ./tapstate-cli-0.8.0/bin/tapstate
+./tapstate-cli-0.8.0/bin/tapstate --version
 ```
 
 ### Update or remove the CLI
@@ -259,5 +265,5 @@ authentication flow and Codex, Claude Code, and generic host examples.
 ## Next steps
 
 - [Create your own workspace](/docs/overview/create-workspace) using only the installed CLI.
-- If Docker is available, run the [Quickstart](/docs/overview/quickstart), then [explore the order-state demo](/docs/overview/order-state-demo).
-- Review the [v0.7 release notes](/docs/releases/v0.7) before evaluating the runtime.
+- If Docker is available, run the [local quickstart](/docs/overview/quickstart), then [explore the order-state demo](/docs/overview/order-state-demo).
+- Review the [v0.8 release notes](/docs/releases/v0.8) before evaluating the runtime.

@@ -21,8 +21,8 @@ import { PreparationStep, PreparationSteps, SourceModeTab, SourceModeTabs } from
   maturity="GA"
   maturityLabel="Stable guide and configuration contract"
   worksAs="Source"
-  capabilities="Snapshot, CDC, schema discovery"
-  compatibility="PostgreSQL 9.4–16 · Logical replication with pgoutput"
+  capabilities="Snapshot, CDC, Schema discovery"
+  compatibility="PostgreSQL 9.4–16 (Snapshot) · PostgreSQL 10–16 (CDC with pgoutput)"
 />
 
 Use PostgreSQL as a current tapstate source for an initial full load and
@@ -30,23 +30,27 @@ ongoing change data capture (CDC). The documented preview path uses
 PostgreSQL logical replication with `pgoutput` and writes the resulting
 operational state to MongoDB.
 
-PostgreSQL is a source in the current preview. This page does not make it a
-published tapstate target.
+This guide covers PostgreSQL as a source. PostgreSQL is not a Cloud write
+target. A self-hosted server can accept a registered sink-capable PostgreSQL
+connector; acceptance alone does not establish verified write support. Validate
+the target behavior and data types for your workload before relying on it.
+
+For Cloud version and deployment scope, check [Supported connectors](/docs/connectors#supported-connectors).
+Already prepared the database? [Connect it in the Web application](#connect-to-postgresql).
 
 ## Before you begin
 
-### Connector availability
+In Cloud, select the connector in **Data Sources**, check
+[Supported connectors](/docs/connectors#supported-connectors), and allow the
+[Cluster's outbound address](/docs/manage/clusters#prepare-network-access)
+through the PostgreSQL firewall. The registration commands below apply to servers
+you administer.
 
-The PostgreSQL connector is registered automatically by the Quickstart script. On standalone or fresh server container deployments, the connector catalog starts empty. Confirm that PostgreSQL is registered before authoring connections:
+<span id="source" />
 
-```text
-connectors
-register postgres
-```
+Prepare the database for the source read mode you plan to use.
 
-See [When registration is required](/docs/guides/register-connectors#when-registration-is-required).
-
-### Prepare a source database
+<span id="prepare-a-source-database" />
 
 Choose the outcome you need. Each tab is a complete preparation path; you do not need to combine steps from both tabs. In tapstate, `snapshot` copies the rows that exist when the run starts, while `cdc` performs that initial copy and then follows PostgreSQL changes from WAL.
 
@@ -113,9 +117,9 @@ GRANT SELECT ON TABLES TO tapstate;
 </PreparationStep>
 <PreparationStep title="Use the documented pgoutput path">
 
-The current preview path uses [`pgoutput`](https://www.postgresql.org/docs/current/protocol-logical-replication.html), PostgreSQL's built-in logical replication output plugin. It does not require a server plugin installation.
+The current preview CDC path uses [`pgoutput`](https://www.postgresql.org/docs/current/protocol-logical-replication.html), PostgreSQL's built-in logical replication output plugin, which requires **PostgreSQL 10 or later**. PostgreSQL 9.4–9.6 supports `Snapshot` reads only on this documented path and does not include `pgoutput`.
 
-The connector catalog can expose additional connector-owned values, but this guide does not treat them as equivalent runtime paths. Use `pgoutput` unless a later tapstate release documents another path.
+The connector catalog can expose additional connector-owned values, but this guide does not treat them as equivalent runtime paths. Use `pgoutput` on PostgreSQL 10–16 unless a later tapstate release documents another path.
 
 </PreparationStep>
 <PreparationStep title="Configure logical WAL capacity">
@@ -129,13 +133,13 @@ max_replication_slots = 10
 max_wal_senders = 10
 ```
 
-Allow the replication account in `pg_hba.conf`, using an address range and authentication method that match your security policy:
+Allow the tapstate account in `pg_hba.conf` to reach the source database (`database_name`), using an address range and authentication method that match your security policy:
 
 ```text
-host  replication  tapstate  10.0.0.0/24  scram-sha-256
+host  database_name  tapstate  203.0.113.10/32  scram-sha-256
 ```
 
-Restart PostgreSQL during an approved maintenance window when the changed server parameters require it. The values above are examples, not tapstate defaults.
+Initial snapshot reads and `pgoutput` logical replication both connect to the actual source database name (`database_name`), not the `replication` pseudo-database used for physical replication. In Cloud, use your Cluster's [outbound IP](/docs/manage/clusters#prepare-network-access) with `/32`; on self-hosted deployments, use your tapstate server's host or network CIDR. Restart PostgreSQL during an approved maintenance window when the changed server parameters require it. The values above are examples, not tapstate defaults.
 
 </PreparationStep>
 <PreparationStep title="Make update and delete keys available">
@@ -156,9 +160,99 @@ tables before enabling CDC in production-like environments.
 </SourceModeTab>
 </SourceModeTabs>
 
-## Create a connection
+## Connect to PostgreSQL
 
-tapstate stores a PostgreSQL source connection as a `.tap.yml` file in the
+1. Open your Cluster and select **Data Sources** > **Create source**.
+2. Select **PostgreSQL** and enter a **Source ID**.
+3. Choose the read mode you prepared, then enter the connection settings below.
+
+   <span id="reference" />
+   <span id="connection-settings" />
+
+   [![PostgreSQL connection form populated with example settings](/images/cloud/postgresql-form.png)](/images/cloud/postgresql-form.png)
+
+   The screenshots use fictional connection details. Replace them with your own.
+   The settings below include fields outside the captured area and options
+   shown only for particular connection modes.
+   Configuration keys are included for the alternative CLI/YAML workflow.
+
+   - **Connection settings**
+
+     - **Source ID (`id`)**: A stable ID for the connection, such as `orders_postgres`. It cannot be renamed after creation. Required.
+     - **Read mode (`mode`)**: `snapshot` for a one-time read, or `cdc` for existing rows and later changes. Complete the matching preparation above. Select before creation.
+     - **Deployment mode (`deploymentMode`)**: Choose one endpoint for a single server, or an ordered host/port list for a prepared primary/standby deployment. Default: `standalone`. Optional.
+     - **Host (`host`)**: PostgreSQL host for standalone mode. Required when Deployment mode is `standalone`.
+     - **Port (`port`)**: PostgreSQL port for standalone mode. Default: `5432`. Required when Deployment mode is `standalone`.
+     - **`database`**: Database name. Required.
+     - **`schema`**: Schema to discover. Required.
+     - **`user`**: Database account.
+     - **`password`**: Database password or secret reference.
+     - **`logPluginName`**: Incremental method for the documented logical-replication path. Default: `pgoutput`. Optional.
+     - **Server address (`masterSlaveAddress`)**: Host and port list for a primary/standby deployment. Shown when Deployment mode is `master-slave`.
+
+   - **Advanced settings**
+
+     - **`timezone`**: Session timezone used for temporal conversion. Optional.
+     - **Allow setting up replication sessions (`allowReplication`)**: Whether the connection may use PostgreSQL replication. Default: `true`. Optional.
+     - **Part publication (`partPublication`)**: Per-table or partial publication setting. Default: `false`. Optional.
+     - **Global publication name (`globalPublicationName`)**: Publication name for the global-publication setting. Default: `dbz_publication`. Required.
+     - **`extParams`**: Additional connection parameters accepted by the connector. Optional.
+     - **Pgto Server Host (`pgtoHost`)**: Helper host for a physical-WAL path. Default: `127.0.0.1`. Optional.
+     - **Pgto Server Port (`pgtoPort`)**: Helper port for a physical-WAL path. Default: `9876`. Optional.
+     - **Default Wal log total size(MB) (`defaultWalLogSize`)**: Connector WAL-size monitor threshold. Default: `102400`. Optional.
+     - **Check CDC slave (`checkCdcSlave`)**: Whether the connector checks CDC standby state; defaults to `false`. Default: `false`. Optional.
+     - **EDB TDE key file (`walTdeKey`)**: EDB transparent-data-encryption key file used by connector-owned WAL handling. Optional.
+     - **EDB TDE key password (`walTdeKeyPassword`)**: Secret password for the EDB TDE key file. Optional.
+     - **TDE key wrap algorithm (`walTdeKeyWrapAlgorithm`)**: TDE key wrapping algorithm: `auto`, `aes-256-cbc`, or `aes-128-cbc`; defaults to `auto`. Default: `auto`. Optional.
+
+   - **Connection security**: Use the TLS and SSH settings offered by the connector.
+     See the [shared transport fields](/docs/guides/manage-data-sources#tls-and-ssh-connections)
+     for certificate files and SSH account settings. Keep certificate verification enabled.
+
+   Advanced capture settings require their corresponding database and runtime
+   preparation; selecting a different log reader does not install it.
+
+   <span id="additional-catalog-fields" />
+
+   <span id="test-and-save" />
+
+4. Select **Test connection**, review the results, and resolve failed checks.
+5. Select **Create source**, then open the saved connection and check its
+   discovered tables, columns, and keys.
+6. [Build a pipeline](/docs/guides/build-a-pipeline) to select the data and
+   destination. Creating a connection does not start data movement.
+
+A passed test confirms only the reported connection checks. Verify the initial
+output and subsequent changes for the pipeline you build.
+
+## CLI and YAML
+
+This alternative is for **self-hosted servers**. File generation and validation
+can run offline; login, apply, and connection tests require your own server.
+Cloud users should use the Web steps above. See [CLI scope](/docs/self-hosted#cli-and-automation).
+
+Use the same [connection settings](#connection-settings) as the Web form.
+In YAML, put connector-specific keys under `config`; `id` and `mode` are resource fields.
+
+### Register on a self-hosted server
+
+<span id="connector-availability" />
+
+The PostgreSQL connector is registered automatically by the local quickstart script. On standalone or fresh server container deployments, the connector catalog starts empty. Confirm that PostgreSQL is registered before authoring connections:
+
+```text
+connectors
+register postgres
+```
+
+See [When registration is required](/docs/guides/register-connectors#when-registration-is-required).
+
+### Create a connection
+
+Use this alternative when authoring a local workspace. For browser setup,
+complete the connection flow above; no local file is required.
+
+Tapstate stores a PostgreSQL source connection as a `.tap.yml` file in the
 workspace.
 
 ### Source connection
@@ -167,8 +261,7 @@ The example below creates a CDC-capable source connection. The connection's
 `mode` controls its read capability.
 
 ```bash
-tapstate new --non-interactive \
-  --kind source \
+tapstate add source --non-interactive \
   --connector postgres \
   --id orders_postgres \
   --mode cdc \
@@ -207,7 +300,17 @@ Use `mode: cdc` only after completing the WAL, plugin, publication, and
 replication preparation. The mode does not by itself prove that those database
 prerequisites are ready.
 
-## Validate the configuration
+### Additional configuration
+
+These fields are not part of the connection form described above. They are
+configuration-file settings; prepare the corresponding runtime before using them.
+
+| Key | Use |
+| --- | --- |
+| `walArchiveDir` | Optional WAL archive directory; no default. |
+| `walArchiveRestoreCommand` | Optional WAL archive restore command; no default. |
+
+### Validate the configuration
 
 ```bash
 tapstate validate --workdir tapstate-work
@@ -299,6 +402,7 @@ unsafe, tapstate refuses recovery rather than skipping it. See
 ## Limitations
 
 - Replication slots retain WAL until consumers advance. Monitor `pg_replication_slots` and disk use, and remove a slot only after confirming that no task still depends on it.
+- Logical replication with `pgoutput` requires PostgreSQL 10 or later; PostgreSQL 9.4–9.6 is limited to `Snapshot` reads on the documented path.
 - Tables without a suitable replica identity can produce incomplete keys for updates and deletes. `REPLICA IDENTITY FULL` increases WAL volume and should be evaluated on busy tables.
 - Capturing changes from partitioned parent tables requires PostgreSQL 13+ with `pgoutput`.
 - The current preview does not make a DDL-capture compatibility promise.
@@ -307,50 +411,7 @@ unsafe, tapstate refuses recovery rather than skipping it. See
 - Do not drop an inactive slot merely because it is inactive; a stopped pipeline may still depend on its position. Remove it only after the owning pipeline has been retired or reset.
 - Configure server-side encryption as required and use the TLS connection options available in your tapstate environment.
 
-## Reference
-
-### Connection settings
-
-The documented current path uses the fields below. The local demo relies on
-the connector's default `pgoutput` behavior and does not pre-create a slot or
-publication. For another deployment, verify that behavior with a staged table
-and its intended database account.
-
-| Field | Required | Default | Use |
-|---|---:|---|---|
-| `deploymentMode` | No | `standalone` | Standalone addressing for the documented path. |
-| `host` | Yes | — | PostgreSQL host for standalone mode. |
-| `port` | Yes | `5432` | PostgreSQL port for standalone mode. |
-| `database` | Yes | — | Database name. |
-| `schema` | Yes | — | Schema to discover. |
-| `user` | No | — | Database account. |
-| `password` | No | — | Database password or secret reference. |
-| `logPluginName` | No | `pgoutput` | Incremental method for the documented logical-replication path. |
-| `timezone` | No | Empty | Session timezone used for temporal conversion. |
-| `allowReplication` | No | `true` | Whether the connection may use PostgreSQL replication. |
-
-### Additional catalog fields
-
-The catalog recognizes the fields below, including decoder and publication
-settings inherited from the underlying connector. They are not required by the
-documented `pgoutput` path and are not used by the Quickstart. Do not use them
-to infer another published PostgreSQL deployment mode.
-
-| Field | Use |
-|---|---|
-| `partPublication` | Per-table or partial publication setting. |
-| `globalPublicationName` | Publication name for the global-publication setting. |
-| `extParams` | Additional connection parameters accepted by the connector. |
-| `masterSlaveAddress` | Host and port list for a primary/standby deployment. |
-| `pgtoHost` | Helper host for a physical-WAL path. |
-| `pgtoPort` | Helper port for a physical-WAL path. |
-| `defaultWalLogSize` | Connector WAL-size monitor threshold. |
-| `checkCdcSlave` | Whether the connector checks CDC standby state; defaults to `false`. |
-| `walArchiveDir` | Optional WAL archive directory; no default. |
-| `walArchiveRestoreCommand` | Optional WAL archive restore command; no default. |
-| `walTdeKey` | EDB transparent-data-encryption key file used by connector-owned WAL handling. |
-| `walTdeKeyPassword` | Secret password for the EDB TDE key file. |
-| `walTdeKeyWrapAlgorithm` | TDE key wrapping algorithm: `auto`, `aes-256-cbc`, or `aes-128-cbc`; defaults to `auto`. |
+## Data compatibility
 
 ### Database-side data reference
 

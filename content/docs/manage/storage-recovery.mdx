@@ -1,0 +1,122 @@
+---
+title: Recover runtime storage
+description: Identify the recovery scope, coordinate with Cloud support, and rebuild only the affected pipelines
+ai:
+  kind: guide
+  id: cloud-storage-recovery
+---
+
+Use storage recovery when a diagnosis shows that a pipeline has lost the state
+it needs to resume. Recovery may reread source data and clear or rewrite target
+tables. For a Cloud Cluster, [contact support](/docs/manage/organizations#open-support)
+to confirm the scope and any required isolation before you proceed. On a
+self-hosted v0.8 deployment, your administrator coordinates member isolation and
+runs the same recovery workflow in the Cluster web workbench or via the CLI.
+
+## Check the problem first
+
+A **Failed** pipeline does not by itself mean that storage must be rebuilt.
+Check its **Logs** and **Monitoring** pages and the storage status in
+**Settings** > **State store**.
+
+- **Application data: Check expired** means the previous connection check is
+  no longer current. Select **Refresh status** below the status cards to check
+  the default destination again.
+- For a connection failure, restore access to the original database, including
+  its credentials, network access, and TLS settings. Recovery does not fix a
+  blocked IP address or an unavailable database.
+- For missing checkpoints, cache data, or shared logs, preserve the error and
+  ask support which recovery scope applies. Do not empty a database, replace
+  its binding, or delete recovery records to make a failed check pass.
+
+Provide the Cluster and pipeline IDs, error code, time of failure, and any
+existing recovery operation ID. Do not include passwords or connection URIs
+containing credentials. See [Troubleshooting](/docs/guides/troubleshooting)
+for other causes of pipeline failure.
+
+## Open the recovery controls
+
+1. Enter the affected Cluster from [tapstate Cloud](https://cloud.tapstate.com/) (or sign in directly to your self-hosted Cluster web workbench).
+2. Open the account menu at the bottom of the sidebar and select **Settings**.
+   Use the Cluster settings, not the organization console's Settings page.
+3. On **State store**, expand **Recover runtime storage and pipelines**.
+
+The available scopes depend on the Cluster's storage state. Choose the scope
+identified by the diagnosis; an option's presence is not a recommendation to run it.
+
+[![Recover runtime storage and pipelines section in Settings > State store showing rebuild scope options, identity inputs, Preview impact, and Check original result](/images/self-hosted/state-store-recovery.png)](/images/self-hosted/state-store-recovery.png)
+
+| Scope | When it applies | What to check |
+| --- | --- | --- |
+| **One pipeline full rebuild** | One pipeline needs a full rebuild and the required surrounding storage is available. | Enter exactly one pipeline ID, even though the field says **Resource IDs, separated by commas**. Review the source requirements and target policy. |
+| **One shared log storage scope** | A shared capture log needs recovery. | Obtain both the **Original shared capture identity** and **Original physical log identity** from the diagnosis. The server determines the affected pipelines; do not guess these identities from a source name. |
+| **Runtime storage for the cluster** | The Cluster requires recovery after its durable cache is lost. | Coordinate isolation with support first. This option is not shown in the normal **Storage admitted** state. Follow the procedure below. |
+
+For a shared-log recovery, have support review the affected pipelines and
+required source data before confirming. A single-pipeline rebuild must not be
+used to reset a shared log that other pipelines still need.
+
+## Review a full rebuild
+
+Once the scope and prerequisites are confirmed, select **Preview impact**.
+This creates or updates a recovery operation record; it does not start the
+rebuild. Keep the returned operation ID.
+
+Before confirming, review the affected pipelines and the displayed target
+handling. The source must still be available for the required full read.
+
+- **CLEAR** clears the selected target tables before loading them again.
+- **APPEND** keeps existing rows and uses the configured write mode. It does
+  not guarantee that replayed data will be deduplicated.
+- **FAIL** refuses a full load into populated target tables.
+
+Confirm only the displayed scope and policy you intend to run. If the preview
+becomes stale, recheck the same operation and review the updated impact before
+confirming. A full rebuild is a new read of source data; it does not recover
+lost historical change events.
+
+## Restore storage and rebuild pipelines
+
+For a wholly lost durable cache, storage recovery and pipeline rebuilding are
+two separate operations. Configuration and its original keys and bindings must
+remain intact. If Configuration is damaged or its keys are missing, contact
+support; this procedure cannot reconstruct them.
+
+1. Have Cloud support coordinate stopping and isolating all old Cluster
+   members, including preventing them from restarting (on self-hosted
+   deployments, your administrator must stop and isolate all old server
+   instances and prevent them from restarting). Confirm that their
+   source and target connections and in-flight writes have ended. Stopping a
+   pipeline or closing the browser is not enough.
+2. When support has prepared the recovery member (or once your administrator
+   starts the single self-hosted recovery server), sign in and open the recovery
+   controls. Select **Runtime storage for the cluster**, then **Preview impact**.
+3. Review all affected pipelines. Accept the isolation statement only after
+   support (or your self-hosted administrator) has verified those prerequisites,
+   then select **Confirm runtime storage recovery**.
+4. Keep the operation ID and use **Check original result** to follow that
+   operation. When storage recovery completes, affected pipelines remain
+   stopped; they do not restart automatically.
+5. Select **Select one pipeline to rebuild**. Preview its impact, review its
+   source requirements and target policy, then select **Confirm full rebuild**
+   only if you intend to run that pipeline. Repeat separately for each pipeline
+   you need to recover. Ordinary **Start** cannot resume from a lost checkpoint.
+
+## Check the result
+
+If a request times out or the page closes, use **Check original result** with
+the saved operation ID. An unknown result is not proof that nothing happened.
+Do not submit a new operation to bypass an unresolved result. If recovery or
+cleanup fails, retain the ID and error and have support investigate; keep any
+required isolation in place.
+
+Check each rebuilt pipeline in [Monitoring](/docs/guides/observe-a-pipeline).
+After its initial load finishes, compare actual destination records with known
+source records. For CDC pipelines, also verify subsequent source changes and
+related records. Use [data validation](/docs/guides/validate-pipeline-data) where
+applicable. Storage recovery completing, a pipeline starting, and its output
+being correct are separate checks.
+
+For a deployment you operate yourself, your administrator owns member isolation,
+backups, and cutover; see [Self-hosting](/docs/self-hosted) and
+[CLI storage recovery commands](/docs/reference/cli#inspect-storage-operations).

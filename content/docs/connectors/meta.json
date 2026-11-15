@@ -1,4 +1,14 @@
 {
-  "title": "Connectors",
-  "pages": ["index", "mysql", "postgresql", "oracle", "sqlserver", "db2", "mongodb"]
+  "title": "Connect data sources",
+  "pages": [
+    "index",
+    "../guides/manage-data-sources",
+    "mysql",
+    "postgresql",
+    "oracle",
+    "sqlserver",
+    "db2",
+    "mongodb",
+    "db2i"
+  ]
 }

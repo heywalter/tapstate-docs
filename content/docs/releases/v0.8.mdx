@@ -1,0 +1,146 @@
+---
+title: v0.8
+description: Three-layer storage, pipeline start checks, Unwind identity handling, embedded alerts, data validation, and Db2 for i preview in v0.8.
+ai:
+  kind: reference
+  id: release-v0_8
+  maturity: preview
+  aliases: [tapstate v0.8, tapstate v0.8.0, tapstate release notes]
+---
+
+Released November 13, 2026 · Preview v0.8.0
+
+`v0.8` introduces separate configuration, durable cache, and application storage;
+pipeline start checks; `Unwind` identity handling; filtered-row removal on
+updates; embedded alerts; dataset validation; and a source-only Db2 for i
+preview. Use this preview with non-production systems and sample data. The
+server runs as a single member by default; cluster mode remains opt-in.
+
+See the [GitHub releases](https://github.com/tapstate/tapstate/releases) for
+native CLI archives, individual `.sha256` files, `checksums.txt`, and
+`platform-minimums.txt`.
+
+## Before upgrading
+
+- **Deploy a separate three-layer installation.** There is no automatic
+  migration from the `v0.7` single-store metadata layout and
+  no mixed-version operation. Preserve existing databases, keyrings, and backups
+  instead of pointing a `v0.8` server at a `v0.7` database.
+- **Match CLI, server, and web versions.** Use the `v0.8` CLI with a `v0.8`
+  server and its bundled web application. `v0.7` clients cannot answer `v0.8`
+  start-check decisions or run three-layer recovery commands.
+- **Configure self-hosted browser transport.** Serve the web application and API
+  from an allowed HTTPS origin (`TAPSTATE_BROWSER_AUTH_PUBLIC_ORIGINS`), and
+  list TLS-terminating proxies in `TAPSTATE_BROWSER_AUTH_TRUSTED_PROXIES`. Plain
+  HTTP browser login is disabled outside explicit local loopback opt-in. See
+  [Configure self-hosted browser access](/docs/guides/bootstrap-and-auth#configure-self-hosted-browser-access).
+- **Review unattended start policies and runtime defaults.** Nonempty targets and
+  full-load policies can require explicit start-check decisions (`-y` applies
+  saved permitted policies and never bypasses blocking findings); choosing
+  **Clear** saves `on_full_load: clear` on that sink. Snapshot-only runs now
+  transition to `COMPLETED` once drained, and the server defaults to UTC unless
+  JVM `user.timezone` is set.
+
+Follow [Upgrade to v0.8](/docs/guides/upgrade-to-v0-8) for preparation,
+verification, and cutover steps.
+
+## What changed
+
+### Storage, recovery, and alerts
+
+- **Separate configuration, cache, and application storage.** Cloud supplies
+  Configuration and connects Atlas cache and application databases; self-hosted
+  setup initializes three empty databases on the management channel before
+  creating the first administrator and verifying the default `views` destination
+  asynchronously. See [State and storage](/docs/concepts/storage) and
+  [Initialize storage](/docs/guides/bootstrap-and-auth#initialize-storage).
+- **Recover lost cache storage selectively.** Recovering a wholly lost cache
+  leaves affected pipelines stopped so you can confirm each full rebuild
+  separately. See [Storage recovery](/docs/manage/storage-recovery).
+- **Monitor alerts and notification delivery.** Inspect active faults, recovery
+  evidence, alert rules, and maintenance silences. Cloud uses managed
+  notifications; self-hosted administrators configure Email and HTTPS Webhook
+  receivers. See [Alerts and notifications](/docs/manage/alerts).
+
+### Authoring, transforms, and validation
+
+- **Check target state before starting.** Web, CLI, REST, and MCP clients inspect
+  target and full-load findings before execution. A nonempty target can require
+  a choice; blocking findings require a correction. See
+  [Start checks](/docs/guides/apply-and-run#start-checks).
+- **Preserve Unwind identity and filtered results.** `Unwind` configures element
+  keys and checks target keys, indexes, and permissions without rewriting
+  existing documents on field renames. `Filter` removes rows from keyed targets
+  when updates stop matching, given full before images and delete-safe
+  expressions. See [Unwind](/docs/reference/transforms#unwind) and
+  [Maintain a filtered result](/docs/reference/transforms#maintain-a-filtered-result).
+- **Draft with AI and validate datasets.** Cloud **Tapstate AI** drafts
+  pipelines—including blank starts and `Union` steps—for review before saving,
+  while the local quickstart can write an MCP configuration for external agents.
+  Dataset validation runs on-demand or scheduled row-count, association-key, and
+  all-column checks. See [Build with AI](/docs/guides/build-a-pipeline#build-with-ai),
+  [Connect your own AI agent](/docs/overview/quickstart#connect-your-own-ai-agent),
+  and [Validate pipeline data](/docs/guides/validate-pipeline-data).
+
+### Connections, observability, and connectors
+
+- **Update connections without re-entering secrets.** Structured connection
+  edits preserve omitted secrets for the same connector and expose declared TLS
+  or SSH settings. Cloud Clusters also report their outbound IPv4 address for
+  firewall allowlists. See
+  [Edit saved credentials](/docs/reference/rest-api#edit-saved-credentials).
+- **Track current-run snapshot progress.** Snapshot observations separate source
+  reading from target delivery, with measured counts and optional estimates. See
+  [Observe a pipeline](/docs/guides/observe-a-pipeline) and
+  [Read snapshot progress](/docs/self-hosted/observe-pipelines#read-snapshot-progress).
+- **Evaluate Db2 for i as a source.** The separately registered `db2i`
+  connector supports snapshot and journal CDC as a source-only Preview. See
+  [Db2 for i](/docs/connectors/db2i) for preparation and limits.
+
+### Other fixes
+
+- MongoDB `Unwind` checks query index declarations through the connector without
+  requiring `$indexStats.spec`; partial filters, sparse behavior, and collation
+  remain outside these checks.
+- Whole-pipeline deletion checks both applied artifacts and draft revisions,
+  refusing conflicting edits rather than discarding them. See
+  [Delete a pipeline and its draft](/docs/reference/rest-api#delete-a-pipeline-and-its-draft).
+- Snapshot, CDC, and recovery preserve additional field types and numeric or
+  temporal precision; unsupported nested map keys produce a diagnostic instead
+  of silently overwriting entries.
+- Rerunning the local quickstart against a running stack no longer treats an
+  already-running sample pipeline as a failed start.
+
+## Known limits and issues
+
+This release remains an evaluation preview.
+
+- **Verify target data on non-production systems.** Validate actual target rows
+  and changes—including full-load clears and filter update/re-entry cycles—on
+  dedicated test databases rather than relying on connection tests, preview
+  samples, or pipeline status alone.
+- **Start checks are point-in-time.** Findings reflect target state at
+  inspection time. A warning that target rows could not be checked does not
+  prove the target is empty, and a passing check does not guarantee later writes.
+- **Existing Unwind targets are not rewritten.** Changing `Unwind` keys or field
+  names does not migrate existing target documents. Review target keys and
+  indexes before writing to populated collections.
+- **Delivery, cluster, and join limits still apply.** At-least-once delivery,
+  unauthenticated cluster member traffic (keep on a private network), restricted
+  `Join` SQL shapes, and preview connector boundaries continue from `v0.7`. See
+  [Preview limits](/docs/limits) and
+  [v0.7 known limits](/docs/releases/v0.7#known-limits-and-issues).
+
+## Get started
+
+- Run the [local quickstart](/docs/overview/quickstart), then
+  [build a pipeline](/docs/guides/build-a-pipeline) with your own data.
+- Read [Upgrade to v0.8](/docs/guides/upgrade-to-v0-8) before deploying alongside
+  an existing server.
+- [Install the CLI](/docs/overview/install) for scripts and AI integrations.
+- Use the
+  [v0.8.0 release assets](https://github.com/tapstate/tapstate/releases/tag/v0.8.0)
+  for binaries and checksums.
+- Review the
+  [complete changelog](https://github.com/tapstate/tapstate/compare/v0.7.0...v0.8.0)
+  for the commit and PR history.

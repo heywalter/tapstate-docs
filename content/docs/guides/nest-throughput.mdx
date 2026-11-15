@@ -26,8 +26,11 @@ with later changes because the document key may no longer exist.
 This is final-state delivery, not an audit stream of every intermediate
 version. It fits an upserting target such as the published MongoDB path. If a
 consumer must receive every version, a normal folded `nest` path is not an
-appropriate contract. `root.mode: append` avoids folding, but it changes the
-target semantics and must be evaluated with representative data.
+appropriate contract. Setting `root.mode: append` on the `nest` step in
+`.tap.yml` disables folding inside `nest` (and must be evaluated with
+representative data); changing **Write strategy** to `append` in Cloud **Pipeline
+builder** only switches the downstream target writer to insert-only writes and
+does not disable `nest` folding.
 
 The 50 ms window is preview behavior, not a latency or throughput service-level
 objective. Do not size a production deployment from this value.
@@ -45,6 +48,25 @@ Whole-document writes make both document size and fan-out important. A source
 table can have modest row sizes while its assembled document is too large for
 the target or too expensive to rewrite at its peak update rate.
 
+## Estimate workload demand
+
+Use these analytical relationships against your own hardware and target measurements:
+
+- **One root, sink side (`whole-document bytes / window`):** With the default
+  `50 ms` leading-edge window, one root is emitted at most `1000 / window` times
+  per second (about `20` sends/s at `50 ms`), while the sink writes one batch in
+  flight of up to `1,024` documents. Setting `root.mode: append` disables
+  folding on that `nest`.
+- **One root, state side (`state write bandwidth / whole-document bytes`):** The
+  send window does not reduce state writes. Every input change updates durable
+  state immediately, and each window flush writes once more to save the
+  flushed state.
+- **Whole pipeline, state bandwidth (`total event rate × average whole-document bytes`):**
+  Applies across all roots together, even when no single root is hot.
+- **Whole pipeline, state writes per second (`total event rate × (average hops crossed + 1)`):**
+  Grows with nesting depth rather than document size, because a leaf update
+  crosses intermediate levels on its way to the root.
+
 ## Test the target behavior
 
 Use a non-production environment that matches the intended schema and indexes.
@@ -56,9 +78,9 @@ Test at least:
 - inserts, updates, deletes, and structural key changes where enabled; and
 - target reads that confirm consumers see the expected final document.
 
-Watch `metrics`, `logs`, target write latency, source retention, CPU, memory,
-and storage. A `running` pipeline is not enough evidence: verify target data
-and investigate any dead-lettered records or repeated failures.
+Watch **Monitoring** and **Logs**, target write latency and Atlas metrics, and
+source log retention. A `running` pipeline is not enough evidence: verify target
+data and investigate any dead-lettered records or repeated failures.
 
 ## Keep the document model bounded
 
@@ -67,13 +89,32 @@ tree. When an assembled document can grow without a practical bound, split the
 consumer model or use a different materialization shape. Increasing a memory
 budget cannot make an oversized document safe to assemble or store.
 
-The preview does not publish a production throughput SLO. Cluster operation
-does not remove per-member memory requirements; see [Configure a cluster](/docs/guides/cluster).
-Treat measured capacity as deployment-specific and repeat these tests after
-changing the source schema, document shape, target indexes, or server version.
+When configuring capacity fields on a `nest` step in `.tap.yml` (see
+[DSL field reference](/docs/reference/dsl-fields)):
+
+- **`entries_in_memory`:** Deployment default is `4,000` entries per level; an
+  explicit override must be a positive integer of at least `271` and must match
+  across all `nest` steps in the same pipeline. Additional entries spill to the
+  configured durable backing layer, and validation reports
+  `nest.state-far-exceeds-memory-budget` or
+  `nest.capacity-estimate-incomplete` when discovered row counts outgrow the
+  configured budget or lack table counts.
+- **`max_elements_per_document`:** Deployment default is `20,000` embedded
+  elements in one assembled document; exceeding the configured ceiling fails the
+  pipeline.
+
+The preview does not publish a production throughput SLO. In Cloud, review
+[Cluster plans](/docs/manage/billing#plans-and-trial) and [Preview limits](/docs/limits);
+on a self-hosted deployment, cluster operation does not remove per-member memory
+requirements (see [Configure a cluster](/docs/guides/cluster)). Treat measured
+capacity as deployment-specific and repeat these tests after changing the source
+schema, document shape, target indexes, or server version.
 
 ## Next steps
 
-- [Assemble documents with nest](/docs/guides/assemble-documents-with-nest)
-- [Handle structural key changes with nest](/docs/guides/nest-structural-key-changes)
+- [Build a pipeline](/docs/guides/build-a-pipeline)
+- [Observe a pipeline](/docs/guides/observe-a-pipeline)
 - [`nest` transform reference](/docs/reference/transforms#nest)
+- [Assemble documents with nest](/docs/guides/assemble-documents-with-nest) and
+  [Handle structural key changes with nest](/docs/guides/nest-structural-key-changes)
+  (self-hosted `.tap.yml` pipelines)

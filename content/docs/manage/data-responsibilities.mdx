@@ -1,0 +1,154 @@
+---
+title: Data security and responsibilities
+description: Understand Cloud data ownership, database access, credentials, backups, and retention
+ai:
+  kind: guide
+  id: data-responsibilities
+  aliases: [Cloud data ownership, Atlas responsibility, source permissions]
+---
+
+A Cloud pipeline uses resources managed by tapstate and databases that you
+connect. Identify who manages each resource, who pays for it, and what must be
+retained before running a pipeline against application data.
+
+For personal information handling and privacy requests, read the
+[Privacy Policy](https://tapstate.com/legal/privacy). For the terms covering
+personal data processed through your pipelines, read the
+[Data Processing Addendum](https://tapstate.com/legal/data-processing-addendum).
+
+## Identify who manages each resource
+
+| Resource | Management and cost considerations |
+|---|---|
+| Hosted Cluster and its platform-provided databases | Tapstate provisions these with the subscription and reclaims them when it ends. Review the [plan and subscription terms](/docs/manage/billing). |
+| Source databases you connect | You manage database access, CDC prerequisites, log retention, and the provider's charges. |
+| Atlas cache and application databases in your own account | You manage the Atlas project, database users, network access, backups, and provider billing. Keep the durable cache for recovery; connecting these databases does not transfer ownership or billing to tapstate. |
+
+A tapstate trial applies to the Cloud subscription. It does not change billing
+for a source database or an Atlas project you manage separately. Likewise,
+canceling tapstate does not cancel those providers' subscriptions.
+
+Before choosing storage, confirm which resource a displayed storage allowance
+covers. Do not apply a platform-managed storage allowance to an Atlas database
+in your own account or treat it as a backup allowance.
+
+## Protect access to your data
+
+- Use a dedicated database account with the permissions in its connector guide.
+  Keep Atlas cache and output permissions scoped to the databases the Cluster uses.
+- Allow the [Cluster outbound IP](/docs/manage/clusters#prepare-network-access)
+  through database network controls. Use TLS with certificate verification;
+  do not treat an IP allowlist as a replacement for database authentication.
+- Enter credentials in the connection form. Exclude passwords, private keys,
+  and connection URIs from shared screenshots, support tickets, and AI prompts.
+- Manage organization access in [Settings](/docs/manage/organizations), and
+  review who can use the Cluster before connecting production databases.
+- Arrange and verify backups for databases you control. Pipeline checkpoints
+  and a running status do not prove that a backup exists or can be restored.
+
+For pricing, trials, purchases, and refunds, use [Pricing and billing](/docs/manage/billing).
+
+## Prepare the databases you connect
+
+For each source, provide a reachable endpoint and a database account with the
+permissions required by its [connector guide](/docs/connectors). For CDC,
+configure and retain the source logs needed to follow changes. Plan log
+retention around outages and the time it may take to resume processing.
+
+For an Atlas destination, choose the database and collection that tapstate may
+write. Configure network access and database permissions for the
+[Cluster's outbound address](/docs/manage/clusters#prepare-network-access).
+Use a separate destination for evaluation so test writes cannot change an
+application's collection.
+
+Keep credentials within the connection setup workflow. Do not place connection
+URIs containing passwords in screenshots, support messages, or documentation.
+
+## Distinguish configuration, recovery state, and output
+
+Source and pipeline definitions describe what tapstate should run. Recovery
+positions and operator state let it continue processing. Materialized output is
+the data written for consumers. These have different purposes; a copy of one
+is not automatically a backup of the others.
+
+Three-layer Cloud setup uses platform-provided Configuration and your Atlas
+Durable cache and Application data databases. Keep the cache separate from
+output and retain it while pipelines depend on its recovery state. An earlier
+Cluster's Atlas output connection does not relocate its internal metadata.
+
+Do not use the older [Move Nest state](/docs/guides/move-nest-state) procedure
+for a three-layer installation. See [State and storage](/docs/concepts/storage)
+for backup boundaries.
+
+## Verify the data you use
+
+Before connecting a consumer, compare known source records with the actual
+output. Check keys, transformed values, related rows, and deletes as applicable.
+A preview, a passed connection test, or a **Running** status does not establish
+that all intended changes reached the destination.
+
+Use an independent test environment for write and recovery checks. The
+[Build a pipeline](/docs/guides/build-a-pipeline#5-check-the-result) guide
+includes a small parent/child example with explicit update checks; use
+[Observe a pipeline](/docs/guides/observe-a-pipeline) to investigate missing or
+stale results.
+
+## AI provider data
+
+If you configure **Tapstate AI**, generation sends your prompt, the draft
+configuration, and the included discovered schemas to that provider. Table and
+column names, types, keys, and expressions can contain sensitive information.
+Use a provider approved by your organization for this data. Do not paste
+passwords, private keys, connection strings, or customer records into prompts.
+
+Provider settings belong to the current organization and Cluster. A connection
+check contacts the provider without saving the settings. The application does
+not return the saved API key to the panel. Check your provider's usage limits and charges before sending requests.
+See [Build with AI](/docs/guides/build-a-pipeline#build-with-ai) for the workflow.
+
+## Plan for retention and cancellation
+
+Identify what must remain available if the Cluster stops or its subscription
+ends. Review backups and exports for databases you control before changing
+infrastructure or subscriptions. Do not treat pipeline recovery state as a
+substitute for a database backup.
+
+[Canceling a subscription](/docs/manage/billing#cancel-a-subscription) schedules
+its end; it does not immediately remove the Cluster. At the end of the current
+trial or paid period, the platform terminates the associated Cluster and
+reclaims its platform-provided databases. Cleanup deletes those databases,
+including any configuration, recovery state, or output stored there.
+
+For a three-layer installation, the platform-managed Configuration database
+contains the Cluster identity, keys, and saved definitions. Preserve the
+configuration you need before it is reclaimed. Durable cache and Application
+data in your own Atlas account are separate from that platform allocation;
+manage their retention, backups, and deletion through your database provider.
+On an earlier layout, platform allocations may also hold recovery state or
+output. Check the actual storage layout before planning cancellation.
+
+Databases in your own accounts require a separate decision. Cancellation does
+not cancel your Atlas service or replace its backup and deletion controls.
+Check which collections tapstate writes, retain the output you need, and manage
+those resources through the database provider. A tapstate cancellation status
+alone is not evidence that customer-managed data was deleted or backed up.
+
+Before ending a subscription:
+
+1. Identify the affected Cluster, pipelines, applications, and period end.
+2. Preserve the source and pipeline definitions needed to recreate the work.
+   Store any required credentials separately in your credential manager.
+3. Back up or export required output using the database's own tools, and check
+   that you can read the retained copy.
+4. Decide which customer-managed databases to keep, and review their billing
+   and access separately after the pipeline stops.
+
+For privacy or data-deletion requests, contact
+[privacy@tapstate.com](mailto:privacy@tapstate.com). Identify the organization
+and the category of data involved; do not include database credentials or
+sensitive records in your initial message. Canceling a subscription is not the
+same as requesting deletion of an account or billing records.
+
+Contact [support](/docs/manage/billing#get-help) about backup and restore
+options before relying on recovery after cancellation. Preserve required data
+before the subscription ends.

@@ -1,6 +1,6 @@
 ---
 title: Assemble documents with nest
-description: Build and maintain one document from related MySQL and PostgreSQL tables
+description: Author a multi-source nest pipeline in .tap.yml and apply it with the tapstate CLI
 ai:
   kind: guide
   id: assemble-documents-with-nest
@@ -8,36 +8,24 @@ ai:
   aliases: [tapstate nest tutorial, document assembly, nested mongodb document, cross-source assembly, mysql postgresql assembly]
 ---
 
-import { CardGrid, LinkCard } from '@/components/mdx';
+Use `nest` when an application needs one current document from related tables,
+including tables in different database engines. The transform builds each
+document during the initial load and updates it whenever either source commits
+a change.
 
-Use `nest` when an application needs one current document but the source data is
-split across related tables, including tables in different database engines. The
-transform builds the document during the initial load and updates it as either
-source emits later changes.
-
-This guide uses a MySQL `orders` root table and a PostgreSQL `shipments` child
-table. It assumes the Quickstart or another non-production server is
-running, the MySQL, PostgreSQL, and MongoDB connector artifacts are registered,
-and both source connections pass a server-side test.
-
-<CardGrid>
-<LinkCard
-  title="Handle structural key changes"
-  description="Use before images and key tracking when a root, parent, or array key can change."
-  href="/docs/guides/nest-structural-key-changes"
-/>
-<LinkCard
-  title="Plan capacity and delivery"
-  description="Size whole-document writes and test final-state delivery with representative changes."
-  href="/docs/guides/nest-throughput"
-/>
-</CardGrid>
+For the visual Cloud workflow using **Pipeline builder** (**Array**,
+**Document**, and **Flatten**), follow
+[Build a pipeline](/docs/guides/build-a-pipeline). Use this guide when authoring
+`.tap.yml` workspace files and applying them with the `tapstate` CLI on a local
+workspace or self-hosted server. Cloud Clusters authenticate with browser
+sessions and do not accept CLI bearer tokens; see
+[CLI scope](/docs/self-hosted#cli-and-automation).
 
 ## 1. Choose the document root
 
 Start with the entity that should produce one output document. In this example,
-each `orders.id` becomes one materialized document. Every shipment carries the
-parent identity in `shipments.order_id`:
+each `orders.id` becomes one materialized document, and every shipment row
+carries its parent key in `shipments.order_id`:
 
 ```text
 orders.id  1 ─────< shipments.order_id  1
@@ -45,11 +33,21 @@ orders.id  1 ─────< shipments.order_id  1
 
 `nest` follows parent identity. It is not a general lookup or SQL join. If a
 child row does not carry the key that points to its parent, redesign the source
-shape or choose a different document root.
+shape or choose a different root.
 
-## 2. Select the source tables
+For mutable parent, root, or array keys on a self-hosted pipeline, configure
+[structural key tracking](/docs/guides/nest-structural-key-changes) when source
+before images are available.
 
-Create one CDC-capable source connection for each database engine:
+## 2. Declare both sources in `.tap.yml`
+
+Prepare both source databases using the [MySQL](/docs/connectors/mysql) and
+[PostgreSQL](/docs/connectors/postgresql) guides (for a PostgreSQL child table
+that can be updated or deleted, set `REPLICA IDENTITY FULL` before starting
+CDC).
+
+Create one CDC-capable source file for each database engine, keeping secrets in
+environment variables:
 
 ```yaml title="tapstate-work/source/orders_db.tap.yml"
 version: tapstate/v1
@@ -85,15 +83,10 @@ mode: cdc
 tables: [shipments]
 ```
 
-Keep credentials out of committed files. See the [MySQL](/docs/connectors/mysql)
-and [PostgreSQL](/docs/connectors/postgresql) guides for permissions and
-connection fields. For a PostgreSQL child table that can be updated or deleted,
-configure `REPLICA IDENTITY FULL` before starting CDC.
+## 3. Define the `nest` pipeline and `view`
 
-## 3. Define the document tree
-
-Map short aliases to the source table streams, choose the root key, and describe
-where each child belongs:
+Define the pipeline, mapping short aliases to the source table streams, choosing
+the root key, and describing where each child belongs:
 
 ```yaml title="tapstate-work/pipeline/order_pipeline.tap.yml"
 version: tapstate/v1
@@ -125,21 +118,22 @@ view:
 ```
 
 Here, `on` means `shipments.order_id` must equal `orders.id`. `as: array`
-creates `shipments: []` when an order has no children. Use `as: object` only
-when the relationship has at most one child.
+creates `shipments: []` when an order has no children. Use `as: object` when
+the relationship has at most one child, or an
+[`as: flat` embed](/docs/reference/transforms#flat-embeds) when one related
+row's fields should sit directly on the parent. On v0.8, optional
+`state.database` selects a separate cache database at creation time; moving an
+existing Nest's state ([Move Nest state](/docs/guides/move-nest-state)) applies
+only to legacy v0.7 single-store deployments. For larger trees, you can also
+set optional `entries_in_memory` (deployment default `4,000`, minimum `271`,
+consistent across all `nest` steps in a pipeline) and `max_elements_per_document`
+(deployment default `20,000`) bounds; see
+[Plan nest capacity and delivery behavior](/docs/guides/nest-throughput).
 
-The `view` materializes `order_state` in the preview's managed store. No `serve`
-block or MongoDB target connection is required for this path.
+## 4. Validate, discover, apply, and verify
 
-For one related row whose fields should sit directly on the parent, use an
-[`as: flat` embed](/docs/reference/transforms#flat-embeds). Keep the array form
-above for multiple shipments. To change where this Nest keeps its durable
-state, follow [Move Nest state](/docs/guides/move-nest-state).
-
-## 4. Discover both source schemas, then apply the pipeline
-
-Validate locally, apply each source, discover its schema, and then apply the
-complete workspace before starting the pipeline:
+Validate locally, apply each source to your self-hosted server, discover its
+schema, apply the complete workspace, and start the pipeline:
 
 ```text
 tapstate validate --workdir tapstate-work
@@ -155,31 +149,21 @@ start order_pipeline
 status order_pipeline
 ```
 
-The first two `apply` commands store the connections before discovery. The
-final `apply` stores the pipeline after discovery has supplied both sources'
-field types. Expressions that read `after.<field>` or `before.<field>` follow
-the same order.
+The first two `apply` commands store the connections before discovery. The final
+`apply` stores the pipeline after discovery has supplied both sources' field
+types. Verify the run and assembled output before treating delivery as healthy:
 
-## 5. Verify initial state and CDC
+1. Check `status order_pipeline`, `logs order_pipeline`, and
+   `metrics order_pipeline` (including any `nestDeadLettered.<namespace>` counts;
+   see [Observe self-hosted pipelines](/docs/self-hosted/observe-pipelines)).
+2. Check the materialized `order_state` view for one document per order with
+   embedded `shipments`.
+3. Test a PostgreSQL shipment insert, update, and delete alongside a MySQL
+   order update, confirming the expected document updates in place.
 
-Do not treat an accepted `start` command as proof that data moved. Verify all of
-the following:
-
-1. `status order_pipeline` remains `running`.
-2. `logs order_pipeline` has no unresolved coded failure.
-3. `metrics order_pipeline` shows processed records and no unexplained
-   `nestDeadLettered.<namespace>` changes.
-4. The materialized `order_state` contains one document per order and the
-   expected number of embedded shipments.
-5. A PostgreSQL shipment insert, update, and delete updates the expected MySQL
-   order document. A MySQL order update keeps its embedded shipments.
-
-A nest writes the assembled document as a unit. Include a document near the
-expected maximum size in capacity and latency tests; a backing state layer
-cannot make one oversized document fit.
-
-For whole-document delivery behavior, peak-change planning, and a practical
-test matrix, see [Plan nest capacity and delivery behavior](/docs/guides/nest-throughput).
+A `nest` writes the assembled document as a unit. Include a document near the
+expected maximum size in capacity and latency tests—see
+[Plan nest capacity and delivery behavior](/docs/guides/nest-throughput).
 
 ## Current limits
 
@@ -188,11 +172,10 @@ test matrix, see [Plan nest capacity and delivery behavior](/docs/guides/nest-th
 - `nest` does not perform arbitrary lookups; use the separately declared
   [`join` transform](/docs/reference/transforms#join) for stream-to-stream
   joins between a driving fact table and dimension sources.
-- The server defaults to one member; [cluster mode](/docs/guides/cluster) is
-  opt-in. The release does not provide production recovery guarantees.
+- Self-hosted servers default to one member with opt-in
+  [cluster mode](/docs/guides/cluster). The preview does not provide production
+  recovery guarantees.
 
-Continue with [Observe a pipeline](/docs/guides/observe-a-pipeline) and the
-[`nest` reference](/docs/reference/transforms#nest) for runtime signals and every
-field. Use [Handle structural key changes with nest](/docs/guides/nest-structural-key-changes)
-and [Plan nest capacity and delivery behavior](/docs/guides/nest-throughput) for
-the operational boundaries that apply to the example.
+Continue with the [`nest` reference](/docs/reference/transforms#nest) for every
+YAML field, [Handle structural key changes with nest](/docs/guides/nest-structural-key-changes),
+and [Plan nest capacity and delivery behavior](/docs/guides/nest-throughput).

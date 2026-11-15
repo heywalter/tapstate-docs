@@ -14,8 +14,25 @@ open the upgraded store.** Back up before upgrading; changing the image tag
 back does not restore compatibility.
 
 This procedure is for operators of an existing self-hosted deployment. For a
-new disposable environment, use the [Quickstart](/docs/overview/quickstart).
+new disposable environment, use the [local quickstart](/docs/overview/quickstart).
 Tapstate v0.7 remains a preview for evaluation.
+
+## Compatibility changes
+
+- Data version `12` encrypts Source configurations; preserve the original keyring
+  with backups. Older servers cannot read the upgraded store.
+- Legacy pipeline-wide execution settings no longer affect execution; review
+  node-level tuning.
+- Cloud image user and persistent-volume ownership changed; review the image
+  and rollback sections before reusing a working volume.
+
+## When to use this guide
+
+This guide covers compatibility changes introduced in v0.7. Use it when
+crossing that version boundary with an existing deployment. Dedicated upgrade
+guides describe changes that require migration or operator action; they are
+not created for every minor release. Review the release notes supplied with
+your target server before proceeding.
 
 ## Before you begin
 
@@ -128,5 +145,5 @@ deployment has been verified.
 
 - [State and storage](/docs/concepts/storage)
 - [Capture modes](/docs/concepts/capture-modes)
-- [Observe a pipeline](/docs/guides/observe-a-pipeline)
+- [Observe self-hosted pipelines](/docs/self-hosted/observe-pipelines)
 - [v0.7 release notes](/docs/releases/v0.7)

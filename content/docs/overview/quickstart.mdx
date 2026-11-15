@@ -1,5 +1,5 @@
 ---
-title: Quickstart
+title: Local quickstart
 description: Run the disposable Docker playground and inspect assembled cross-source operational state in one guided flow
 ai:
   kind: guide
@@ -11,6 +11,9 @@ ai:
 
 import { QuickstartDataFlow } from '@/components/mdx';
 
+For the hosted service, use the [Quickstart](/docs/quickstart). This page runs
+the open-source Docker playground on your own machine.
+
 Run one disposable tapstate data path without installing the CLI or preparing
 your own databases. The playground captures MySQL orders and PostgreSQL
 shipments, assembles them into one order document, and materializes the result
@@ -20,7 +23,9 @@ When you finish, you will have a running `order_pipeline`, a checked initial
 result in MongoDB, and a web session for exploring the pipeline.
 
 This quickstart is an evaluation environment, not a server installation or
-production deployment. Use sample data only.
+production deployment. Use sample data only. The playground tracks the latest
+pinned CLI and server release (`0.8.0`); for manual self-hosted installation,
+use [Initialize storage](/docs/guides/bootstrap-and-auth#initialize-storage).
 
 ## Why assemble this state
 
@@ -66,14 +71,23 @@ curl -fsSL https://install.tapstate.dev/demo | sh
 
 The script starts MySQL, PostgreSQL, MongoDB, and a tapstate server. It then:
 
-1. creates a local administrator;
-2. registers the MySQL, PostgreSQL, and MongoDB connectors;
+1. prepares the MongoDB connector and initializes storage;
+2. asks you to choose an administrator username and password, then registers the source connectors;
 3. applies and discovers both source connections;
 4. applies and starts `order_pipeline`;
 5. waits for the assembled initial state.
 
 The command can take several minutes the first time while Docker downloads the
 images.
+
+Enter the administrator credentials at the terminal prompts. Press Enter at
+`Administrator username [admin]:` to use `admin`, or enter another username.
+You must supply a password; there is no default password. It is hidden as you
+type and is not saved in `.env`. Keep the credentials for browser
+and CLI sign-in; when rerunning against existing volumes, use the existing
+administrator account. For non-interactive runs, supply `TAPSTATE_ADMIN_USER`
+and `TAPSTATE_ADMIN_PASSWORD` through your environment's secret mechanism.
+Do not put passwords in command arguments or committed scripts.
 
 For an unreliable connection, save the script before running it so you can inspect and rerun the same file:
 
@@ -111,8 +125,11 @@ ssh -N -L 127.0.0.1:18080:127.0.0.1:8080 user@linux-host
 ```
 
 Replace `user@linux-host` with your SSH login for the Docker host.
-Sign in as `admin` with `TAPSTATE_ADMIN_PASSWORD` from the generated
-`tapstate-demo/.env` file. Keep that file private.
+
+Sign in with the administrator username and password you set during setup.
+If you accepted the default username at the terminal prompt, use `admin`.
+For a non-interactive installation, use the credentials supplied through
+`TAPSTATE_ADMIN_USER` and `TAPSTATE_ADMIN_PASSWORD`.
 
 The sample is already configured and running. You do not need to create a
 connection, author a workspace, or start another pipeline to complete this
@@ -128,9 +145,11 @@ status and metrics; **Logs** shows recent pipeline messages.
 In **Views**, open `order_state` and select **Documents** to browse a sample of
 its stored documents.
 
-![Documents tab in the order_state view showing a sample order with its related shipments](/images/guides/build-a-pipeline/v0.7-view-documents.jpg)
+[![Documents tab in the order_state view showing 5 sample rows and an assembled order document with shipments](/images/self-hosted/quickstart-view-documents.png)](/images/self-hosted/quickstart-view-documents.png)
 
-For a complete creation workflow, see [Build a pipeline](/docs/guides/build-a-pipeline).
+To author your own pipeline files for a local or self-hosted server, see
+[Create a workspace](/docs/overview/create-workspace) and
+[Assemble documents with nest](/docs/guides/assemble-documents-with-nest).
 
 ## 4. Understand the result
 
@@ -157,14 +176,62 @@ The web application lets you inspect the pipeline, metrics, logs, and a sample
 of stored documents. The setup script verifies the initial result directly in
 MongoDB before reporting success.
 
+## Connect your own AI agent
+
+After confirming the initial result, you can connect an MCP-compatible AI agent
+to build another pipeline in this disposable playground.
+
+The v0.8 playground setup can generate `tapstate-demo/tapstate-mcp.json`. Check
+that the file exists before configuring your agent. If the file is absent,
+complete [manual MCP setup](/docs/reference/mcp#authenticate-the-host) and
+enable [write tools](/docs/reference/mcp#write-tools) before asking an agent
+to create or start a pipeline. The local data demo can succeed without this file.
+
+The generated file contains a **write token** scoped to the playground. Keep it
+private and out of version control. Connect only a host you trust to make
+changes in this environment; do not give it your administrator password.
+
+Install the tapstate authoring skills for your agent:
+
+```bash
+npx --yes skills add tapstate/tapstate-skills
+```
+
+When `tapstate-mcp.json` exists, launch an installed Claude Code client from
+the `tapstate-demo` directory (if you used the saved-script steps above, you
+are already in that directory):
+
+```bash
+claude --mcp-config tapstate-mcp.json
+```
+
+For another MCP host, add the file's `tapstate` server entry to its local MCP
+settings, keeping its executable path, environment, and arguments together. The
+JAR gateway needs Java 21 or newer; a script-generated Docker fallback needs
+Docker running. See [MCP integration](/docs/reference/mcp#use-the-playground-configuration).
+
+For example, ask:
+
+> Create a separate pipeline named shipment_status_pipeline that keeps a live
+> copy of fulfillment_db.shipments with only id, carrier, and status in a new
+> shipment_status view. Preserve order_pipeline. Show me the proposed changes
+> before applying them, then start the new pipeline and verify its stored rows.
+
+Inspect proposed resource names and mappings before approving changes. Confirm
+six initial shipment records and compare actual field values with the source.
+An agent response or `RUNNING` status alone does not confirm correct output;
+test controlled source inserts, updates, and deletes as shown in
+[Explore the order-state demo](/docs/overview/order-state-demo).
+
 ## Next steps
 
 - [Explore the order-state demo](/docs/overview/order-state-demo) to change both source databases and watch the document stay current.
-- [Build a pipeline](/docs/guides/build-a-pipeline) with your own connections in the web application.
+- [Create a workspace](/docs/overview/create-workspace) and [apply and run](/docs/guides/apply-and-run) `.tap.yml` pipelines against your own databases on a self-hosted server.
+- To switch to the hosted service instead, follow [Build a pipeline](/docs/guides/build-a-pipeline) in tapstate Cloud (requires a Cloud Cluster and MongoDB Atlas storage).
 - Learn how [connections and connectors](/docs/concepts/connections-and-connectors) and [capture modes](/docs/concepts/capture-modes) fit the pipeline.
 - Prepare an external system with its [connector guide](/docs/connectors).
 - For scripts or AI integrations, use the optional [CLI](/docs/overview/install) or [MCP gateway](/docs/reference/mcp).
-- Use [Troubleshooting](/docs/guides/troubleshooting) if the success line or assembled document does not appear.
+- Use [Troubleshoot self-hosted deployments](/docs/self-hosted/troubleshooting#troubleshoot-the-local-docker-quickstart) if the success line or assembled document does not appear.
 
 ## Keep, stop, or remove the playground
 

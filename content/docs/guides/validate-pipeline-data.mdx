@@ -1,0 +1,167 @@
+---
+title: Validate pipeline data
+description: Compare source and destination data, inspect differences, and schedule full validation in the web application
+ai:
+  kind: guide
+  id: validate-pipeline-data
+  maturity: preview
+  aliases: [data validation, full validation, row count, association keys, data consistency]
+---
+
+Use **Data validation** to compare source and destination tables and investigate
+missing records or differing values. Save the comparison once, run it manually,
+and schedule later checks against the same configuration. This workflow is
+available in both tapstate Cloud and the self-hosted v0.8 web workbench.
+
+## Before you start
+
+- Publish the pipeline and finish its initial synchronization. Check
+  [Monitoring](/docs/guides/observe-a-pipeline) for target-confirmed completion.
+- Keep the selected source and destination data stable during the comparison.
+  Let outstanding changes reach the destination before starting. Validation
+  reads the databases separately; it does not create a shared point-in-time
+  snapshot or automatically verify that writes have stopped.
+- Use direct one-to-one source-to-destination mappings. Multiple table pairs
+  and renamed destination tables are supported. Paths through Nest, filters,
+  or other transforms are not supported by this full-validation workflow.
+  For those outputs, compare the expected transformed records as described in
+  [Build a pipeline](/docs/guides/build-a-pipeline#5-check-the-result).
+- Make sure both connections can read the selected tables. Saving checks the
+  mapping and keys; execution also checks the connector's native read support,
+  data types, and resource limits. A working synchronization connection alone
+  does not establish that every validation method is supported.
+
+Managed Views—such as the [Quickstart](/docs/quickstart) Order 360 demo, even
+with a single input table—are not direct source-to-destination table copies.
+Verify those outputs directly in **Views** > **Documents** as shown in
+[Build a pipeline](/docs/guides/build-a-pipeline#5-check-the-result).
+
+Validation reads business data; it does not repair differences. Starting or
+stopping validation does not start or stop the pipeline.
+
+## 1. Choose the tables and method
+
+1. In **Pipelines**, open the published pipeline and select **Data validation**.
+2. Open **Configuration**. Review the source and destination table pairs derived
+   from the saved pipeline. If discovery is missing, refresh the source schema
+   in **Data Sources** and return to the page.
+3. Choose a method:
+
+   | Method | What it checks |
+   |---|---|
+   | **Row count** | Exact native record counts on both sides. Equal counts do not establish equal keys or values. Association fields are not required. |
+   | **Association keys** | Matches records by confirmed physical fields to find missing, extra, or duplicate identities. It does not compare all business values. |
+   | **All business columns** | Matches records by the confirmed fields, then compares their business values and types. |
+
+4. Review **Participating**, **Excluded**, and **Needs configuration**. Use
+   **Exclude** for tables outside this check, or **Restore** to include them
+   again. Selecting rows or filtering the list does not change participation.
+   Exclusions take effect after saving and do not change synchronization.
+
+[![Data validation Configuration view showing comparison methods, Table pairs filters, and Precheck and recommend keys](/images/self-hosted/data-validation.png)](/images/self-hosted/data-validation.png)
+
+## 2. Confirm the mapping and save
+
+1. Select **Precheck and recommend keys**. Review the resolved destination
+   names, especially when the pipeline renames tables. A suggested mapping
+   still needs server validation; listing an output does not make a transform
+   path eligible for a direct comparison.
+2. For **Association keys** or **All business columns**, review **Source
+   association fields** and **Destination association fields** for every
+   participating pair. Use the actual physical field names. For a compound
+   key, select **Add component** and pair each source component with its
+   destination field in the same order.
+3. Confirm that these fields identify corresponding records. Do not assume a
+   generated destination `_id` matches a source `id`. If field suggestions are
+   unavailable, enter the physical names and let precheck validate them.
+4. Select **Save and confirm keys**. Resolve any refusal before continuing.
+   Wait for **Configuration saved and read back**. Saving does not start a run.
+
+For example, a direct copy from `orders` to `orders_copy` that retains `id`
+uses source `id` → destination `id`. A compound identity such as
+`tenant_id` and `order_id` needs both matching components.
+
+After changing the method, scope, or keys, save again before running or
+scheduling. If another editor changed the saved definition, select
+**Reload saved definition**, review it, and confirm the intended configuration.
+
+## 3. Run the comparison
+
+1. Select **Start full validation** from Configuration. The **Run validation**
+   button elsewhere returns you to Configuration so you can review it first.
+2. Follow **Latest result** and **Full run status**. Table read progress shows
+   which tables are waiting, being read, or finished reading. Finished reads
+   alone do not mean the report is complete.
+3. Wait for a final report and inspect its result. If the request is unconfirmed,
+   use **Refresh progress** and, when offered, **Retry original start**. Do not
+   submit a separate run to resolve an unknown result.
+
+To stop a check, select **Stop this run** and confirm. Its report remains
+incomplete. The pipeline and any saved validation schedule continue unchanged.
+
+## 4. Inspect the result
+
+Check the method, table scope, configuration revision, and read window before
+interpreting the result. A previous run may remain visible while a new start
+is refused or still pending.
+
+| Result | Meaning and next step |
+|---|---|
+| **No differences observed in this completed full run** | No differences were found within the selected method, scope, and read window. For Row count, this means only that counts matched. |
+| **Differences observed in this completed full run** | Inspect the affected table pairs and records. Check data stability and the mapping before concluding that synchronization failed. |
+| **Full run finished with table failures** | Some tables could not be fully checked. Read their execution details and resolve the reported cause before rerunning. |
+| **Incomplete** or **In progress** | Retained observations are partial. An empty problem list is not a passing result. |
+
+For key or column comparisons, select an affected table name to open its
+record list. Select a reported problem to inspect the record's source and
+destination values. Field details distinguish
+missing fields, values that were not retained, type differences, and unequal
+values. Diagnostic samples are bounded; a missing sample does not establish
+that the record itself was absent.
+
+Use **History** to open earlier reports. Their mappings and observations belong
+to those runs, even after you edit the current configuration. No retained report
+can mean that a result is not yet available or has expired; it is not a clean
+comparison.
+
+If differences remain after checking the mapping and stabilizing the data,
+compare the named records directly in both databases. Use
+[Monitoring and Logs](/docs/guides/observe-a-pipeline) to investigate delivery,
+then rerun validation after resolving the cause.
+
+## 5. Schedule later checks
+
+1. Save the comparison configuration, then select **Schedule**.
+2. Choose **Fixed interval** or **Cron expression** and an explicit
+   **Execution time zone**, such as `Asia/Singapore`. Cron uses five Unix
+   fields; for example, `0 2 * * *` means daily at 02:00 in the selected zone.
+3. Review **Next five planned times**. Wait for a successful preview of the
+   current inputs before saving.
+4. Set **Full-run history retention** from 1 to 100 ended runs; the default is
+   10. Failed and stopped runs count toward this limit. Reducing it may remove
+   older reports.
+5. Select **Save and enable schedule** to enable future checks. **Save
+   configuration** preserves the current On or Off setting. Check the saved
+   schedule and next due time afterward.
+
+Enabling a schedule does not run it immediately. Busy, late, and missed
+occurrences are skipped without catch-up. Choose times when initial sync has
+finished and the datasets can remain stable; scheduling does not enforce
+those conditions.
+
+**Disable schedule** prevents future scheduled starts but does not stop a run
+already admitted. **Stop this run** leaves the schedule enabled. To stop both,
+disable the schedule and stop the current run separately.
+
+## Resolve a blocked check
+
+| Symptom | Action |
+|---|---|
+| A table needs configuration | Review discovery, the physical table mapping, and required association fields. Exclude it only if it is intentionally outside the check. |
+| Precheck or execution rejects a key, type, or read capability | Read the reported reason. Correct the mapping or use a supported method. Do not treat a fallback Row count result as a value comparison. |
+| **Full slot busy** or **Capacity unavailable** | Check the current run and wait for capacity before retrying. Repeated submissions do not enlarge the available capacity. |
+| Saving or starting has an unconfirmed outcome | Read the original operation's state. Use the offered original-operation retry instead of starting over. |
+| Reading progress fails | Retry the read and inspect its timestamp. The last received observation does not establish the current run's outcome. |
+| A report has no retained differences but is incomplete | Resolve the stop or failure and run a complete check before drawing a conclusion. |
+
+For automation, see the [Data validation API](/docs/reference/rest-api#data-validation).

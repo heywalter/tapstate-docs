@@ -9,8 +9,7 @@ function sections(nodes: Node[], prefix: string): Node[] {
       section = {
         type: 'folder',
         $id: `${prefix}-${result.length}`,
-        name: node.name === 'Set up and run' ? 'Build and run'
-          : node.name === 'Interfaces' ? 'CLI and APIs' : node.name,
+        name: node.name,
         collapsible: true,
         defaultOpen: false,
         children: [],
@@ -31,6 +30,8 @@ function expandable(node: Node): Node {
     const labels: Record<string, string> = {
       '/docs/overview/order-state-demo': 'Order-state demo',
       '/docs/connectors': 'Overview',
+      '/docs/self-hosted': 'Overview',
+      '/docs/manage': 'Overview',
     };
     return labels[node.url] ? { ...node, name: labels[node.url] } : node;
   }
@@ -41,32 +42,13 @@ function expandable(node: Node): Node {
     : node.children;
   return {
     ...folder,
-    name: node.$ref?.folder === 'concepts' ? 'Concepts' : node.name,
     collapsible: true,
     children: sections(children, node.$id ?? 'docs-section').map(expandable),
   };
 }
 
 export function organizeDocsNavigation(root: Root): Root {
-  const children = sections(root.children, 'docs-navigation').flatMap((section): Node[] => {
-    if (section.type !== 'folder') return [expandable(section)];
-    if (section.name === 'Product guides' || section.name === 'Build and operate') {
-      return section.children.flatMap((node) =>
-        node.type === 'folder' && node.$ref?.folder === 'guides'
-          ? sections(node.children, 'docs-guides').map(expandable)
-          : [expandable(node)]);
-    }
-    if (section.name === 'Releases') return section.children.map(expandable);
-    if (section.name === 'Developers and AI') {
-      return [{
-        ...section,
-        children: section.children.flatMap((node) =>
-          node.type === 'folder' && node.$ref?.folder === 'reference'
-            ? sections(node.children, 'docs-reference').map(expandable)
-            : [expandable(node)]),
-      }];
-    }
-    return [expandable({ ...section, defaultOpen: section.name === 'Get started' })];
-  });
-  return { ...root, children };
+  // Metadata owns the reader hierarchy, including references to existing pages
+  // in other folders. Do not flatten groups based on their display labels.
+  return { ...root, children: root.children.map(expandable) };
 }

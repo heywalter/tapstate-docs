@@ -1,0 +1,283 @@
+---
+title: Observe self-hosted pipelines
+description: Inspect pipeline status, metrics, snapshot progress, recent history, logs, and Prometheus or OTLP exports on a self-hosted tapstate server
+ai:
+  kind: guide
+  id: observe-self-hosted-pipelines
+  maturity: preview
+  aliases: [CLI status, CLI metrics, Prometheus export, OTLP export, logs follow]
+---
+
+Use these CLI commands, REST or WebSocket endpoints, and server export settings
+to inspect pipelines on a self-hosted tapstate server. Cloud Clusters
+authenticate with browser sessions rather than CLI bearer tokens; for Cloud
+Web inspection, see [Observe a pipeline](/docs/guides/observe-a-pipeline).
+
+| Surface | Question | Storage boundary |
+|---|---|---|
+| Status | What is known about lifecycle intent and runtime state? | Pipeline catalog and latest available observation |
+| Metrics | What numeric run statistics and per-table positions are available? | Latest store-backed observation |
+| Snapshot | What per-table initial-load progress is available? | Latest store-backed observation |
+| History | How did output rates and selected-table lag change? | Retained samples, 15 days by default |
+| Explanation | What does the latest observation say about a failure or lack of progress? | Interpretation of current evidence |
+| Logs | What did this process recently report for the pipeline? | Bounded node-local log tail |
+
+## Read status
+
+```text
+status orders_to_operational_state
+status orders_to_operational_state --watch
+```
+
+States include:
+
+- `NEW`: known to the server, with no runtime observation yet;
+- `RUNNING`: executing;
+- `PAUSED`: intentionally paused;
+- `STOPPED`: stopped; checkpoints may be retained or cleared, depending on the stop request;
+- `COMPLETED`: the bounded run has finished; the runtime waits for the
+  graph to drain and the target to acknowledge its writes;
+- `FAILED`: the running job stopped unexpectedly.
+
+The status response separates three facts:
+
+| Field | Meaning |
+|---|---|
+| `state` / `observedState` | Runtime state. Before the first observation, `state` is `NEW` and `observedState` is omitted. |
+| `desiredState` | The requested lifecycle intent, when available. |
+| `displayState` | The display phase, which can include `DRAFT`, `NOT_STARTED`, or `STARTING`. |
+
+A saved draft can have `displayState: DRAFT` and `hasArtifact: false`. In Web
+and REST status responses, an applied pipeline whose catalog state is `NEW` has
+`displayState: NOT_STARTED`, and a start request can show
+`displayState: STARTING` before the first runtime observation (an older v0.7
+CLI prints only the underlying runtime `state`). Display phases do not create an
+`observedAt` timestamp. Once an observation exists, `observedAt` records when it
+was captured; inspect its freshness alongside logs and confirmed target
+progress.
+
+When a job fails, the CLI status output includes `failureCode` and
+`failureMessage` with the `FAILED` state. `failureCode` is the stable machine
+key; `failureMessage` is the reader-facing explanation. Healthy states omit
+these fields.
+
+`status --watch` uses an authenticated WebSocket and emits runtime state
+changes. For a known pipeline with no observation, it stays open without
+inventing an initial state event. An unknown ID is refused. A failure frame
+carries the same failure fields. A normal connection drop may be re-attached,
+but a coded server refusal ends the watch and reports the code. Press
+<kbd>Ctrl</kbd>+<kbd>C</kbd> to stop watching without stopping the pipeline.
+
+### Read the execution plan
+
+When available, status includes a `plan` describing requested and effective
+parallelism for each node, member counts, and batching. `awaitingRebalance`
+lists cluster members that joined after the run was planned and have no part
+of it until rebalance. Use the effective plan when checking execution; a
+requested parallelism is a cluster-wide target, not a count per member.
+
+For sink nodes, `nodes[].resources` reports `writers`, `connectorMode`
+(`isolated` or `shared`), `connectorInstances`, `bufferedRecords`, and
+`edgeQueueRecords`. Because each connector instance manages its own pool,
+measured database connection ceilings per instance are up to `2` (`MySQL`,
+`PostgreSQL`, `SQL Server`) or `3` (`MongoDB`, `Oracle`). See
+[Pipeline reference](/docs/reference/pipeline).
+
+## Explain a lack of progress
+
+In a connected session, run `explain <pipeline-id>`. The explanation uses the
+same failure and freshness evidence as status. It can identify an old
+observation or sustained lack of confirmed progress; `NO_MATCH` means no rule
+matched, not that delivery is healthy.
+
+A stale observation and a stalled pipeline are different conditions. The
+explanation considers an observation older than 30 seconds stale. Stall
+pressure requires at least 60 seconds without frontier movement; a brief
+pause alone is insufficient. Compare source activity, confirmed target
+positions, logs, and target records before restarting anything.
+
+A table still in its initial load is not diagnosed as `FRONTIER_STALLED`
+solely because its frontier is pinned. The explanation checks target-confirmed
+load completion first and includes per-table stages and row counts when
+available. A landed table can still be diagnosed as stalled.
+
+If no observation exists, the read returns `monitor.no-observation`. Missing
+evidence must not become a healthy state in a dashboard.
+
+## Read metrics
+
+```text
+metrics orders_to_operational_state
+```
+
+Numeric metrics form an open map. The REST response reports target-confirmed
+positions separately as `targetAckedPosition`, keyed by table. Its
+`positionsNotCollected` field names positions the runtime does not measure;
+do not infer them from the positions it does return. Structured `facts` include
+measurement types, units, timestamps, and attributes when available.
+
+For a pipeline that uses `nest`, the runtime reports one
+`nestDeadLettered.<namespace>` entry for each namespace that could not place
+changes into a document. The entry is absent when that namespace has no
+discarded changes; the runtime does not emit one aggregate `dead_lettered` key.
+Check the pipeline logs for the failure code and affected key. If you need a
+pipeline-wide total, sum the namespace entries in your client.
+
+An absent metric is unavailable, not zero. Do not build a strict parser that
+rejects new metric keys.
+
+Unlike status, metrics, snapshot, and explanation reads require a runtime
+observation. An applied pipeline without one returns `monitor.no-observation`.
+A draft without a published artifact returns `lifecycle.unknown-pipeline`.
+
+### Nest state and cold-layer metrics
+
+For pipelines using `nest`, read both the flat counters and the structured
+`facts` array returned by `GET /api/pipelines/{id}/metrics`:
+
+- **Cold-layer key counters:** `tapstate.pipeline.nest.key.accesses` and
+  `tapstate.pipeline.nest.cold.keys` (projected in the flat map as
+  `nestStateKeyAccesses.<namespace>` and `nestStateColdKeys.<namespace>`) count
+  deduplicated keys requested by operations and cold loaders. Compute cold share
+  from window deltas rather than dividing `tapstate.pipeline.nest.backfills` by
+  `tapstate.pipeline.nest.accesses`. The built-in cold-layer alert triggers at
+  `>= 50%` cold share over at least `100` accesses and clears after two
+  measured windows below `40%`.
+- **State-commit and root-rendering metrics:** Join structured `facts` entries
+  on `tapstate.nest.namespace` against `tapstate.pipeline.nest.namespace.info`
+  to resolve the step ID, document path, and state map:
+
+| Metric | Type | What it measures |
+|---|---|---|
+| `tapstate.pipeline.nest.roots.rendered` | Counter | Whole root documents handed downstream. |
+| `tapstate.pipeline.state.commit.groups` | Counter | Successful state-store write calls. |
+| `tapstate.pipeline.state.commit.keys` | Histogram | Keys per successful write call. |
+| `tapstate.pipeline.state.commit.round_trips` | Histogram | Synchronous backend commands per successful write call. |
+| `tapstate.pipeline.state.commit.duration` | Histogram | Seconds from store call to acknowledgement. |
+| `tapstate.pipeline.state.evictions` | Counter | Local in-memory state-map evictions. |
+
+Target-acknowledged output counters reflect confirmed writes; sink-driven
+counts describe a different stage. Source-read, buffered, and
+target-confirmed positions are different facts. The CLI renders serialized
+positions as opaque fingerprints; these can identify a change but do not
+reveal a binlog coordinate or LSN. A write-back summary also hides opaque
+coordinates. Raw `position` JSON remains the format used for position edits.
+See [CLI position commands](/docs/reference/cli#inspect-and-adjust-checkpoint-positions).
+
+## Read snapshot progress
+
+```text
+snapshot orders_to_operational_state
+```
+
+The snapshot REST endpoint (and v0.8 CLI) returns `initialLoad`, with
+current-run progress for every table requiring an initial load (the older v0.7
+CLI `snapshot` command reads the legacy `snapshot` map):
+
+| Stage | Meaning |
+|---|---|
+| `PENDING` | The table is waiting for its initial load. |
+| `READING` | The source is being read. |
+| `LANDING` | Source reading finished; target delivery is still outstanding. |
+| `LANDED` | The target confirmed the table's initial load. |
+
+The N/M total counts target-confirmed tables out of all tables requiring an
+initial load for this run. It is not a row percentage. Measured rows and
+estimated totals are separate; either can be unavailable. Estimates never
+establish completion.
+
+`SNAPSHOTTING` means initial loading is outstanding. `MIXED` means some
+tables have landed and can follow CDC while others still load. `STREAMING`
+identifies the CDC phase; `cdc_only` does not request an initial snapshot. A
+finished `snapshot_only` run is `COMPLETED`, not streaming.
+
+Progress belongs to the execution that produced it. Missing or stale readings
+must stay unknown, and a replacement run must not inherit another run's
+partial counts. Completed snapshot-only runs can retain final progress after
+their active execution plan is removed.
+
+The CLI and legacy snapshot fields also report per-table progress. For
+chain-backed initial loads, confirmed
+completion can survive a replacement run or member takeover. The current
+run's `snapshot.rows.read.<table>` counter can therefore differ from the
+persisted completion count. This retained completion does not apply to
+`snapshot_only` runs.
+
+A missing total must not be interpreted as 0% or 100%. Compare target counts
+and representative keyed samples; an empty `snapshot` result alone does not
+establish success or failure.
+
+## Read recent history
+
+Choose a time range that contains your run. For example:
+
+```text
+metrics orders_to_operational_state --from 2026-09-29T01:00:00Z --to 2026-09-29T02:00:00Z --resolution 5m --table orders
+```
+
+History reports target-confirmed output rates and lag for explicitly selected
+tables. Lag is the age of the last source event acknowledged by the target, not a
+count of queued rows. Omitting `--table` omits table lag.
+
+- Sampling defaults to once per 60 seconds; retention defaults to 15 days.
+  Operators can change `tapstate.metrics.history.sample-interval` and
+  `tapstate.metrics.history.retention`.
+- Read the effective range and retention cutoff. Old samples may have expired.
+- Keep resets and gaps visible. A missing rate or `NO_RETAINED_SAMPLES` is not
+  zero throughput. Two adjacent samples from a run that has not delivered any
+  records can establish a measured zero rate, even before outbound counters
+  first appear.
+- Continue with `nextCursor` while repeating the original query. Cursors expire
+  after 10 minutes; restart the query if one expires. Results are eventually
+  consistent, not a fixed audit snapshot.
+
+See [History parameters](/docs/reference/rest-api#pipeline-history) for limits,
+resolutions, and error handling, or use
+[`pipeline_metrics_history`](/docs/reference/mcp#pipeline-history-and-explanations)
+from an AI agent.
+
+## Export metrics
+
+Export is optional. Without an OTLP endpoint or Prometheus port, the server
+starts neither exporter. These settings do not disable built-in observations.
+
+| Server property | Default | Use |
+|---|---|---|
+| `tapstate.metrics.export.otlp.endpoint` | Unset | Collector URL; include `/v1/metrics` for HTTP/protobuf. |
+| `tapstate.metrics.export.otlp.protocol` | `http-protobuf` | Use `http-protobuf` or `grpc`. |
+| `tapstate.metrics.export.otlp.interval` | `60s` | Push interval. |
+| `tapstate.metrics.export.prometheus.port` | Unset | Enable a separate scrape listener on this port. |
+| `tapstate.metrics.export.prometheus.host` | `127.0.0.1` | Interface for the scrape listener. |
+
+Prometheus export has no built-in authentication and can expose pipeline,
+table, and namespace identifiers. If a scraper needs another bind address,
+restrict access to that network. It does not use the control API's bearer token.
+
+## Read and follow logs
+
+```text
+logs orders_to_operational_state
+logs orders_to_operational_state --follow
+```
+
+Logs are a bounded tail from the node serving the request. They are not a durable audit history or an aggregated multi-node log. An empty log result is valid when the pipeline has not logged on that node.
+
+Self-hosted servers default the MongoDB driver's `org.mongodb.driver` logger
+to `WARN`, keeping routine topology and connection-setting messages out of the
+normal stream. Operators can temporarily override it with
+`logging.level.org.mongodb.driver=INFO` in server configuration when diagnosing
+a driver problem. Restore the normal level afterward and remove credentials
+or sensitive data before sharing logs.
+
+### Connector log forwarding
+
+Connector and PDK runtime logs are forwarded into the pipeline's log stream under the connector identifier (`io.tapstate.connector.<connector-id>`). Connector warnings and errors are preserved in the stream, while verbose debug chatter is filtered to protect the bounded tail. This enables operators to diagnose driver disconnects, authorization errors, retry loops, and schema anomalies directly via `logs` without host-level log access.
+
+`logs --follow` opens an authenticated WebSocket and sends newly observed lines. Under a burst, a bounded tail can re-send a line when it re-tails after eviction; consumers should tolerate duplicates. A normal connection drop may be re-attached, but a server close carrying a coded refusal terminates the follow operation and reports the code instead of reconnecting indefinitely.
+
+## Related pages
+
+- [Observe a pipeline in Cloud](/docs/guides/observe-a-pipeline)
+- [Troubleshoot self-hosted deployments](/docs/self-hosted/troubleshooting)
+- [CLI reference](/docs/reference/cli)
+- [REST API preview](/docs/reference/rest-api)

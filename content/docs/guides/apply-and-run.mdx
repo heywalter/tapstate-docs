@@ -8,8 +8,9 @@ ai:
   aliases: [tapstate apply, tapstate start pipeline, tapstate pause resume stop]
 ---
 
-Use this guide for CLI authoring and automation. For the web workflow, see
-[Build a pipeline](/docs/guides/build-a-pipeline).
+Use this guide for CLI authoring and automation on a **self-hosted server**. For the web workflow, see
+[Build a pipeline](/docs/guides/build-a-pipeline). The CLI examples cover
+the v0.8 client and self-hosted authentication. The CLI cannot use a Cloud browser session to apply these files.
 
 `apply` validates resource files and stores them on the server. Lifecycle
 commands then request the state that the runtime converges toward. Applying a
@@ -76,9 +77,72 @@ start orders_to_operational_state
 status orders_to_operational_state --watch
 ```
 
-`start` writes a `RUNNING` intent at the latest applied pipeline revision. `status --watch` reports observed runtime state, which can lag the command briefly.
+Before accepting `start`, a v0.8 server runs read-only checks against the
+applied revision and the intended load. Once those checks allow it, `start`
+writes a `RUNNING` intent. `status --watch` reports observed runtime state,
+which can lag the command briefly.
 
 Verify data at the destination. A lifecycle command succeeding proves that the intent was accepted, not that rows arrived.
+
+For Cloud Web confirmations, see [Review start checks](/docs/guides/build-a-pipeline#review-start-checks).
+Those controls share the same start-check concepts as these self-hosted CLI commands.
+
+## Start checks
+
+These checks require the v0.8 server and matching clients. See
+[upgrade requirements](/docs/releases/v0.8#before-upgrading).
+
+Start checks apply to explicit starts from the Web, CLI, REST, and MCP. Read
+the report before deciding how to continue:
+
+| Finding | Effect |
+|---|---|
+| `PASS` | The check allows the start. |
+| `WARN` | The start may continue, but the reported condition needs review. An unavailable or timed-out check is not a passed check. |
+| `CONFIRM` | Answer the offered question before the server accepts the start. |
+| `BLOCK` | Correct the condition; answering other questions cannot override the refusal. |
+
+### Existing rows in a target
+
+A new full load copies rows that exist at the source now. It cannot remove
+rows deleted from the source while the pipeline was stopped if those rows are
+kept in the target. The `target-not-empty` check asks what to do when the
+configured `on_full_load: append` policy would keep a nonempty target:
+
+- **Keep** acknowledges the existing rows and starts with the current policy.
+- **Clear**, when offered, removes the target's existing rows before the full
+  load and saves `on_full_load: clear` on the writing element, which also
+  changes what later full loads do. Use it only when all affected target data
+  may be removed.
+
+A target configured with `on_full_load: fail` blocks the start if nonempty. An
+empty target, one already configured to clear, a resume, or a CDC-only run
+does not ask this question. If the writing element comes from a shared View or
+Serve definition, the start offers **Keep** only; update the shared definition
+separately if its policy should change.
+
+In the CLI, inspect checks without starting:
+
+```text
+start orders_to_operational_state --checks-only -o json
+```
+
+It exits successfully only when nothing requires confirmation or blocks the
+start. At a terminal, pressing Enter, canceling, or reaching end of input
+leaves the pipeline unchanged. In a script, pass an offered decision explicitly:
+
+```text
+start orders_to_operational_state --decide target-not-empty=keep
+```
+
+This example retains existing rows. `-y` answers remaining questions by
+continuing as configured (`on_full_load`); it does not mean “clear every target”
+and does not override a block. See [Start-check options](/docs/reference/cli#start-check-options).
+
+The server re-evaluates checks on each attempt. If the definition changes,
+refresh the report before answering. Automatic recovery from retained state
+does not ask these questions or clear targets. A start request whose response
+was lost should be checked through `status` before another attempt.
 
 ## Lifecycle transitions
 
@@ -87,13 +151,18 @@ Verify data at the destination. A lifecycle command succeeding proves that the i
 | `start` | `NEW`, `STOPPED`, `COMPLETED` | `RUNNING` | Starts at the latest applied revision, using retained progress when available. |
 | `pause` | `RUNNING` | `PAUSED` | Retains the current revision and in-run progress. |
 | `resume` | `PAUSED` | `RUNNING` | Continues from retained progress. Compatible edits can rebuild the run at the latest revision. |
-| `stop` | `RUNNING`, `PAUSED`, `FAILED` | `STOPPED` | Asks for confirmation, then clears this pipeline's recovery position and operator state. |
-| `stop --keep-state` | `RUNNING`, `PAUSED`, `FAILED` | `STOPPED` | Retains recovery positions and operator state for the next run. |
+| `stop` | `RUNNING`, `PAUSED`, `FAILED`, `COMPLETED` | `STOPPED` | Asks for confirmation, then clears this pipeline's recovery position and operator state. |
+| `stop --keep-state` | `RUNNING`, `PAUSED`, `FAILED`, `COMPLETED` | `STOPPED` | Retains recovery positions and operator state for the next run. |
 
 An illegal transition returns `lifecycle.illegal-transition`. If edits cannot
 reuse a paused pipeline's state, `resume` returns
 `lifecycle.incompatible-revision`. Review the change and decide whether the
 next run can retain state or needs a full reload.
+
+After whole-cache recovery, affected pipelines remain stopped and require
+separate [full-rebuild confirmation](/docs/manage/storage-recovery). The
+ordinary `start` and `resume` commands cannot bypass that requirement, even when
+the pipeline's visible state is `STOPPED`.
 
 A lifecycle request can be accepted before the runtime finishes the transition.
 Before starting again, wait for the status API's `observedState` to reach
@@ -120,6 +189,19 @@ Do not start directly from `FAILED`. Keeping state does not repair an invalid
 recovery position; investigate recovery diagnostics before retrying or clearing
 progress.
 
+## Completed snapshot loads
+
+A snapshot-only run reaches `COMPLETED` after the graph drains and its target
+writes are confirmed. Final progress remains visible and runtime resources are
+released. Snapshot-and-CDC and CDC-only runs remain continuous and do not
+complete just because their initial snapshot finished.
+
+For the Cloud Web restart behavior, see
+[Completed snapshot restarts](/docs/guides/build-a-pipeline#completed-snapshot-restarts).
+When testing restarts or **Clear** against an existing destination, verify actual
+target rows on an independent test target rather than relying on `FULL_LOAD` or
+`COMPLETED` status alone.
+
 ## Verify the outcome
 
 Use all three evidence types:
@@ -136,6 +218,7 @@ See [State and storage](/docs/concepts/storage) and [Configure a cluster](/docs/
 
 ## Next steps
 
-- [Observe a pipeline](/docs/guides/observe-a-pipeline)
-- [Troubleshooting](/docs/guides/troubleshooting)
-- [Current preview boundaries](/docs/releases/v0.7#known-limits-and-issues)
+- [Observe self-hosted pipelines](/docs/self-hosted/observe-pipelines)
+- [Troubleshoot self-hosted deployments](/docs/self-hosted/troubleshooting)
+- [v0.8 release limits](/docs/releases/v0.8#known-limits-and-issues)
+- [Cloud Preview limits](/docs/limits)

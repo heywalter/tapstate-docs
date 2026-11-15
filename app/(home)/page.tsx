@@ -37,8 +37,8 @@ const tasks = [
   {
     eyebrow: 'Try tapstate',
     title: 'Run the quickstart',
-    description: 'Start the sample environment, sign in on the web, and explore an order pipeline.',
-    href: '/docs/overview/quickstart',
+    description: 'Open a Cloud Cluster, build an order pipeline, and check the result in Atlas.',
+    href: '/docs/quickstart',
     linkLabel: 'Start the quickstart',
     icon: TerminalSquare,
   },
@@ -47,27 +47,27 @@ const tasks = [
 const popularConnectors = [
   { label: 'MySQL', href: '/docs/connectors/mysql' },
   { label: 'PostgreSQL', href: '/docs/connectors/postgresql' },
-  { label: 'MongoDB', href: '/docs/connectors/mongodb' },
+  { label: 'MongoDB and Atlas', href: '/docs/connectors/mongodb' },
 ];
 
 const currentConnectors = [
   {
     label: 'MySQL',
-    role: 'Current source',
+    role: 'Source preparation',
     description: 'Capture an initial load and ongoing changes.',
     href: '/docs/connectors/mysql',
     icon: Database,
   },
   {
     label: 'PostgreSQL',
-    role: 'Current source',
+    role: 'Source preparation',
     description: 'Capture an initial load and logical-replication changes.',
     href: '/docs/connectors/postgresql',
     icon: Database,
   },
   {
-    label: 'MongoDB',
-    role: 'Current target',
+    label: 'MongoDB and Atlas',
+    role: 'Target preparation',
     description: 'Maintain application-ready operational state.',
     href: '/docs/connectors/mongodb',
     icon: Layers3,
@@ -75,6 +75,18 @@ const currentConnectors = [
 ];
 
 const secondaryLinks = [
+  {
+    title: 'Manage your Cluster',
+    description: 'Find its status, prepare network access, and open the workspace.',
+    href: '/docs/manage/clusters',
+    icon: Layers3,
+  },
+  {
+    title: 'Self-hosting',
+    description: 'Run the local playground or configure a deployment you manage.',
+    href: '/docs/self-hosted',
+    icon: TerminalSquare,
+  },
   {
     title: 'Resource reference',
     description: 'Fields, syntax, and complete examples for tapstate resources.',
@@ -114,7 +126,7 @@ export default function HomePage() {
               Capture, transform, and serve operational data.
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-7 text-fd-muted-foreground md:text-lg md:leading-8">
-              Tapstate is an open-source unified operational data engine. It builds and maintains live operational state from production databases for applications, APIs, automation, and AI agents.
+              Tapstate captures database changes and maintains current results for applications and AI agents. Start with the web application in tapstate Cloud, or run the open-source engine yourself.
             </p>
 
             <div className="mx-auto mt-8 max-w-2xl">
@@ -170,9 +182,9 @@ export default function HomePage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="m-0 text-xs font-semibold uppercase tracking-[0.15em] text-fd-primary">Connector guides</p>
-            <h2 className="mb-0 mt-3 text-3xl font-semibold tracking-[-0.035em]">Start with the current data path.</h2>
+            <h2 className="mb-0 mt-3 text-3xl font-semibold tracking-[-0.035em]">Prepare the systems you connect.</h2>
             <p className="mb-0 mt-3 max-w-2xl text-base leading-7 text-fd-muted-foreground">
-              The current preview captures MySQL and PostgreSQL changes and materializes assembled operational state in MongoDB.
+              Find database permissions, capture prerequisites, and connection guidance. Check connector availability in your Cluster before preparing a workload.
             </p>
           </div>
           <ArrowLink href="/docs/connectors">View all connectors</ArrowLink>
@@ -207,9 +219,9 @@ export default function HomePage() {
         <div className="mx-auto grid max-w-6xl gap-8 px-5 py-14 md:px-8 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.72fr)] lg:items-center lg:gap-16 lg:py-16">
           <div>
             <p className="m-0 text-xs font-semibold uppercase tracking-[0.15em] text-fd-primary">Continue building</p>
-            <h2 className="mb-0 mt-3 text-3xl font-semibold tracking-[-0.035em]">From a valid connection to a reviewable workspace.</h2>
+            <h2 className="mb-0 mt-3 text-3xl font-semibold tracking-[-0.035em]">Build, observe, and manage your data path.</h2>
             <p className="mb-0 mt-3 max-w-2xl text-base leading-7 text-fd-muted-foreground">
-              Use the reference when you need exact resource syntax, and troubleshooting when a prepared system still does not validate as expected.
+              Use the web guides for daily operation, manage your Cluster and subscription, or look up resource syntax for automation.
             </p>
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               {secondaryLinks.map((item) => {

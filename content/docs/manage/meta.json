@@ -1,0 +1,13 @@
+{
+  "title": "Manage Cloud",
+  "pages": [
+    "index",
+    "organizations",
+    "clusters",
+    "storage-recovery",
+    "alerts",
+    "billing",
+    "data-responsibilities",
+    "../limits"
+  ]
+}

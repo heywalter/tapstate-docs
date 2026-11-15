@@ -1,0 +1,206 @@
+---
+title: Alerts and notifications
+description: Inspect Cluster alerts, configure rules and maintenance silences, and manage organization email alert policies
+ai:
+  kind: guide
+  id: alerts-and-notifications
+  maturity: preview
+  aliases: [alert center, alert rules, notification delivery, silence, webhook, email alerts]
+---
+
+Use the Cluster workspace to inspect active faults, adjust detection rules, and
+pause notifications during maintenance. Use the organization console to
+configure email alert policies and check recipient delivery history.
+
+## Inspect an alert
+
+1. Open **Alerts** in the Cluster sidebar.
+2. Use **Active** to find current problems. Filter by
+   severity or search for the affected resource.
+3. Open an alert. Check its occurrence time, last observation, decision evidence,
+   and troubleshooting guidance. Read the captured exception when available.
+4. Investigate the affected pipeline, source, node, or storage. For a pipeline,
+   use [Monitoring and Logs](/docs/guides/observe-a-pipeline), then check actual
+   source and destination records.
+5. After correcting the problem, check for fresh recovery evidence in
+   **Recovered**. Opening an alert does not acknowledge or resolve it.
+
+[![Cluster alert center showing an active pipeline observation warning](/images/cloud/cluster-alerts.png)](/images/cloud/cluster-alerts.png)
+
+Use **Alert configuration** to reach rules and silence settings. The account
+menu's **Settings** > **Alert configuration** opens the same configuration area.
+
+The built-in alert types cover:
+
+| Alert | What to investigate |
+|---|---|
+| Pipeline execution failed | The pipeline error and recent logs. |
+| Pipeline observation stale | Whether the runtime is still publishing observations. |
+| Source connection failed | Database availability, credentials, and network access. |
+| Cluster node unavailable | The node and its connection to other members. |
+| Required storage unavailable | Access to the original storage and its health. |
+
+Recovery is automatic when fresh evidence satisfies the rule. Missing observations
+leave recovery unknown. A rule being disabled or a resource being removed can
+end an alert administratively; check the history reason before treating that
+as a repaired workload.
+
+Select **Alert diagnostics** at the top of **Alerts** to inspect detection
+coverage and notification-system status in the side panel. No active alerts
+does not prove complete coverage or correct data. A fully stopped process
+cannot immediately report its own outage.
+
+## Adjust a rule
+
+1. From **Alerts**, open **Alert configuration** > **Rules**. You can also
+   open **Alert configuration** from the Cluster's **Settings**.
+2. Edit a rule, or select **Create** and choose an **Alert type**.
+3. Choose its resource scope. Use all current resources of the selected kind,
+   or select specific resources. A resource recreated with the same name needs
+   a new selection.
+4. Review the severity, fault and recovery persistence, and any type-specific
+   parameters. Keep **Enabled** selected if the rule should detect problems.
+5. Select **Save and activate**, then check the saved rule in the list.
+
+Use an account allowed to manage rules. If a save reports a conflict, reload the saved
+rule and review the intervening changes before trying again.
+
+A synthetic rule example helps explain its timing. It does not test a real
+source, save the rule, or send a notification.
+
+## Pause notifications during maintenance
+
+1. Open **Alert configuration** > **Silence & inhibition**, then select **Create**.
+2. Enter a reason, select the affected resource scope, and set the start time
+   and duration. The time picker uses the browser's displayed time zone.
+3. Add a repeat interval and end time only if the silence should recur.
+4. Select **Save and activate** and check the saved window.
+5. Use **End silence early** when the maintenance finishes ahead of schedule.
+
+Silence pauses notifications while detection and alert history continue. It
+does not pause pipelines or mark a fault as recovered. Check the scope and
+schedule if an expected notification is missing.
+
+## Configure organization email alerts
+
+Cluster rules detect faults and emit events, while external email routing is
+configured at the organization level:
+
+1. Return to the organization console (select the organization name above the
+   Cluster in the sidebar) and open **Alerts** > **Alert policies**. Only an
+   organization administrator can manage alert policies.
+2. Select **New policy**, or **Edit** an existing policy.
+3. Enter a policy **Name** and **Event types** (`*` for all events, or
+   comma-separated prefixes such as `pipeline.*`).
+4. Choose the **Minimum severity** (**Info**, **Warning**, or **Critical**) and
+   enter comma-separated email addresses in **Recipients**.
+5. Set **Cooldown (seconds)** (default `300`) to limit repeated notifications.
+   Optionally configure **Quiet hours start (HH:mm)**, **Quiet hours end
+   (HH:mm)**, and **Timezone** to pause email notifications during those hours.
+6. Keep **Enabled** selected and select **Save**.
+
+[![Organization alert policy form with a fictional recipient address](/images/cloud/alert-policy.png)](/images/cloud/alert-policy.png)
+
+Replace the example recipient with the intended email addresses before saving.
+A saved policy configures future delivery; verify actual delivery separately.
+
+## Check Cloud notifications
+
+Cloud-managed Clusters send events through the Cloud notification service.
+The Cluster's **Subscription routes** tab explains that Cloud manages external
+notifications; local receivers, templates, delivery tests, and manual retry
+controls are unavailable inside the Cluster workspace.
+
+Trace notifications across both workspaces:
+
+- In the Cluster workspace under **Notification deliveries**, **Cloud accepted
+  the event** confirms only that the Cluster handed the event to the Cloud
+  service. It does not confirm that an email reached a recipient.
+- In the organization console under **Alerts**, open **Events** to verify that
+  Cloud received the event, then open **Delivery history** to check each
+  recipient's email delivery attempt.
+
+Retain the Cloud event ID when contacting [support](/docs/manage/billing#get-help)
+about a missing or failed delivery.
+
+## Configure self-hosted notifications
+
+Self-hosted v0.8 administrators can configure Email (SMTP) and HTTPS Webhook
+receivers locally. A receiver defines where to send a message; a subscription
+route selects which alerts to send and when. These routes are unrelated to Cloud
+billing.
+
+### Add and test a receiver
+
+1. Open **Alert configuration** > **Receivers** and select **Create**.
+2. Choose the channel and enter its connection settings. For Email, supply the
+   SMTP host, port, required encryption, sender, and recipients. For Webhook,
+   supply an HTTPS endpoint. Configure authentication and certificate trust as
+   required by the receiving service.
+3. Select **Send test message**. For Email, choose one recipient for this test.
+   This sends a real, fixed test message using the current form.
+4. Check the result and the receiving service. A test does not save the form.
+5. Select **Save and activate** to retain the receiver for notification routes.
+
+[![New receiver form in Settings > Alert configuration showing Email SMTP fields, retry policy, Send test message, and Save and activate](/images/self-hosted/alert-receivers.png)](/images/self-hosted/alert-receivers.png)
+
+If the test result is unknown, inspect the receiver before starting another
+test; it may already have received the first message. Tests do not retry
+automatically. Saved passwords, private CA material, and full Webhook URLs are
+not shown again. Keep the original private material when retaining an existing
+configuration, or supply the required replacement fields together.
+
+### Create a notification route
+
+1. Open **Subscription routes** and select **Create**.
+2. Choose the resource scope, alert types, and severities. An empty type or
+   severity selection matches all values in that category.
+3. Select the saved receivers and review grouping, initial wait, change
+   interval, and reminder interval.
+4. Use **Preview matching alerts** to check the scope. Use the content preview
+   to inspect the message. Neither preview sends a notification.
+5. Select **Save and activate**, then check subsequent **Notification deliveries**.
+
+For related failures, **Configure inhibition** can pause a dependent alert's
+notifications while its root cause remains active. Inhibition belongs to a
+route and requires a currently proven resource dependency. Both alerts remain
+visible; disabling a route or adding inhibition does not disable detection.
+
+## Interpret delivery results
+
+On Cloud:
+
+| Result | Meaning and next step |
+|---|---|
+| **Cloud accepted the event** (Cluster) | Cloud accepted the event for routing. Open **Alerts** > **Delivery history** in the organization console to inspect email delivery. |
+| **Sent** (Organization) | Cloud handed the email to the mail provider for that recipient. Check spam filters or mailbox rules if the message is missing. |
+| **Pending** or **Sending** | Queued or in flight. Refresh **Delivery history** before taking another action. |
+| **Failed** or **Dead** | Delivery failed or exhausted retries. Inspect the reported cause and retain the Cloud event ID for support. |
+
+If a Cloud event has no entry in **Delivery history**, check the organization
+policy's event types, minimum severity, cooldown, and quiet hours. Events
+filtered out or suppressed by these settings do not create email delivery
+records. Also check active Cluster silence windows under **Silence & inhibition**
+when a notification is missing. Local receiver tests and manual retries are
+not available in Cloud.
+
+On self-hosted v0.8 deployments:
+
+| Result | Meaning and next step |
+|---|---|
+| **Queued** or **In flight** | A result is still pending. Check the original delivery. |
+| **Provider accepted** | The provider accepted the send. Verify receipt separately when needed. |
+| **Waiting to retry** | Another automatic attempt is scheduled within the existing policy. |
+| **Unknown result** | Acceptance could not be confirmed. Check the receiver before retrying. |
+| **Attempts exhausted**, **Expired**, or **Non-retryable result** | Inspect the error and fix its cause before considering another attempt. |
+| **Paused** or **Cancelled** | Check notification eligibility, permissions, and configuration. |
+
+On self-hosted deployments, **Authorize another bounded cycle** is available
+only for eligible deliveries. Review the duplicate-message risk before
+confirming. A retry keeps the original target, content, and deadline; changing
+a receiver does not rewrite an old delivery.
+
+If an expected self-hosted notification is missing, check the alert itself, the
+saved route and receiver, any silence or inhibition, and the delivery result in
+that order. For Cluster-level automation, see the
+[alert API](/docs/reference/rest-api#alerts-and-notifications).

@@ -13,6 +13,13 @@ An assistant can discover the tapstate docs, draft `.tap.yml` resources,
 explain connector preparation, and repair validation errors. Keep the workflow
 human-reviewable and run commands in your own environment.
 
+For the assistant built into Cloud, follow [Build with AI](/docs/guides/build-a-pipeline#build-with-ai).
+The file-based workflow below uses a local CLI for a self-hosted server; it
+does not authenticate to Cloud. Give the assistant your server
+and CLI versions as well as the documentation: Cloud resource fields are not
+automatically accepted by older CLI versions (such as v0.7) or a server on
+another release. Validate against the schema bundled with the target server.
+
 ## Recommended workflow
 
 ```text

@@ -1,68 +1,82 @@
 ---
-title: Connector guides
-description: Configure database sources, including the Db2 preview, and prepare MongoDB operational-state targets.
+title: Connect data sources
+description: Configure database sources, including Db2 and Db2 for i previews, and prepare MongoDB operational-state targets.
 sidebar:
   order: 1
 ai:
   kind: guide
   id: connector-directory
-  aliases: [connector directory, connector catalog, connector matrix, connector compatibility, data source preparation]
+  aliases: [connector directory, connector catalog, connector matrix, connector compatibility, data source preparation, Cloud support matrix, database compatibility, supported databases, RDS, Atlas tiers]
 ---
 
 import { ConnectorDirectoryMatrix } from '@/components/mdx';
 
-The current tapstate preview publishes MySQL, PostgreSQL, Oracle,
-SQL Server, and Db2 as source engines and MongoDB as the operational-state
-target. Sources support an initial snapshot followed by CDC. The Quickstart demonstrates
-one pipeline that assembles MySQL orders and PostgreSQL shipments into a MongoDB document.
+Use these guides to prepare database permissions, authentication, network
+access, and capture settings, then add the connection in your Cloud Cluster.
 
-Select a current connector to prepare its external system and author the
-connection resource. Before using a real endpoint, run a
-[server-side connection test](/docs/guides/register-connectors#test-a-connection).
+Start with the [Quickstart](/docs/quickstart) to explore supplied sample
+databases and Atlas storage, or follow [Build a pipeline](/docs/guides/build-a-pipeline)
+to connect your own database tables. For self-hosted servers, also see
+[Register and test connectors](/docs/guides/register-connectors).
+
+## Supported connectors
+
+These seven guides cover the published connector catalog: six guides cover the
+eight connector IDs in the standard Cloud distribution (MySQL includes RDS
+preparation, and MongoDB covers both MongoDB and Atlas destinations), and
+[Db2 for i](/docs/connectors/db2i) (`db2i`) is a source-only Preview that
+requires separate [connector registration](/docs/guides/register-connectors)
+before use.
 
 <ConnectorDirectoryMatrix />
 
-## Documentation status
+**Guide maturity** indicates the stability of each guide and its configuration
+contract (`GA` vs `Preview`), not a production SLA for the Cloud Preview runtime.
+Validate your specific database version, edition, and data types against a
+non-production workload before relying on a path, and review
+[Preview limits](/docs/limits). Before testing connectivity, allow the
+[Cluster's outbound address](/docs/manage/clusters#prepare-network-access)
+through your database firewall. Snapshot-only reads do not require database CDC
+logging ([Capture modes](/docs/concepts/capture-modes)). A shared creation form
+may display **Read mode** on a destination connection, which does not extend its
+Cloud role; connector availability in an existing Cluster also depends on its
+deployed distribution.
 
-The directory uses a status separate from **Maturity**:
+## Managed database services
 
-- **Current path** means the connector has a published role in the current
-  product path. MySQL, PostgreSQL, Oracle, SQL Server, and the Db2 preview are current sources;
-  MongoDB is the current target.
+| Service | Cloud scope |
+| --- | --- |
+| Amazon RDS for MySQL | Source-only Preview through `aws-rds-mysql`. Follow the [MySQL source prerequisites](/docs/connectors/mysql#source) and configure RDS binlog retention with `mysql.rds_set_configuration`. Confirm your RDS engine version and parameter group settings before use. |
+| Amazon RDS for PostgreSQL, Oracle, or SQL Server | Confirm the exact managed service with support before use. The base database guide is not a managed-service compatibility guarantee. |
+| Azure SQL Database and Azure SQL Managed Instance | Outside the standard Cloud connector set. Self-managed SQL Server compatibility does not extend to these managed services. |
 
-Other connector preparation material is not published in this public
-documentation site and is not presented as a supported workflow.
+For a compatibility request, include the provider, database product, version,
+edition, and required read mode. Do not include credentials.
 
-**GA** and **Preview** describe guide or configuration-contract maturity. They
-do not change the documentation status or prove that an artifact is bundled or
-registered.
+## Connection workflow
 
-## Maturity labels
+1. Check [Supported connectors](#supported-connectors) and complete your
+   database guide’s prerequisites, including the Cluster’s network access,
+   database permissions, and CDC configuration.
+2. In your Cluster, open **Data Sources** > **Create source** and select the
+   connector. **Overview** > **Add Databases** provides another entry point.
+3. Use the guide’s **Connection settings** section: screenshot first, then
+   required and advanced fields. Run **Test connection**, resolve failed checks,
+   and select **Create source**.
+4. Open the source and check its discovered tables and keys. You can now
+   [build a pipeline](/docs/guides/build-a-pipeline#2-create-a-draft) using them.
 
-- **GA** means the connector guide and configuration contract are mature.
-- **Preview** means the guide or configuration contract can still change.
+See [Manage data sources](/docs/guides/manage-data-sources) for TLS and SSH
+settings, later connection tests, edits, and schema refresh. Adding a connection
+makes its tables available to the builder; a pipeline controls which data is read
+and how it is written to Atlas.
 
-Maturity does not mean that a connector JAR is bundled with every tapstate
-release or that every listed role and mode is available in the current product
-path.
+## Self-hosted servers
 
-## Connector distribution and lifecycle
-
-Tapstate manages connector artifacts and licenses separately from the core server image:
-
-- **Self-hosted base images** start without connector JARs. The Cloud image stages a fixed connector set separately from the core runtime.
-- **Quickstart automation** downloads and registers MySQL, PostgreSQL, and MongoDB. Register Oracle, SQL Server, or Db2 explicitly when needed.
-- **Persistence across upgrades** keeps registered connector metadata and bytes in the backend store. Re-registering identical bytes is an idempotent no-op. Treat a different JAR as a connector upgrade: retain the old artifact, test the replacement, and plan any affected pipeline restart.
-- **Offline seeding** lets an operator mount pre-staged JARs in `TAPSTATE_CONNECTORS_SEED_DIR` for registration at startup. In a cluster, use one entry member for registration to avoid concurrent-registration ambiguity.
-
-See [Register and test connectors](/docs/guides/register-connectors) for CLI syntax, remote mirrors, and offline workflows.
-
-## How to read roles and modes
-
-Hover a label or its information icon to see its exact meaning.
-
-- **Source** reads from the listed system in the shown mode.
-- **Target** writes data to the listed system.
-- **Snapshot** reads the selected data once. **CDC** starts with existing data,
-  then captures later committed changes.
-- A dash means a read mode does not apply to the published target role.
+Cloud Clusters stage a fixed connector set automatically. Self-hosted server
+containers (`ghcr.io/tapstate/tapstate:0.8.0`) and standalone binary or JAR
+deployments start without bundled connector JARs—mount verified connector
+artifacts in `/var/lib/tapstate/connectors` (`TAPSTATE_CONNECTORS_SEED_DIR`,
+including `mongodb` for the default `views` store) or register them explicitly
+(including Preview connectors such as `db2i`); see
+[Register and test connectors](/docs/guides/register-connectors).

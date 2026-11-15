@@ -1,0 +1,62 @@
+---
+title: Manage Cloud
+description: Find organization management, Cluster operations, and pipeline monitoring in the Cloud consoles
+ai:
+  kind: guide
+  id: manage-cloud
+  aliases: [Cloud administration, organization console, Cluster workspace]
+---
+
+Cloud has two workspaces. The **organization console** manages hosted resources
+and subscriptions. A **Cluster workspace** manages the data connections,
+pipelines, and output Views that run in that Cluster.
+
+## Organization console
+
+Sign in at [cloud.tapstate.com](https://cloud.tapstate.com/) and check the
+organization name in the sidebar.
+
+[![Organization Overview with resource cards and management navigation](/images/cloud/organization-overview.png)](/images/cloud/organization-overview.png)
+
+| Page | Use it to |
+| --- | --- |
+| Overview | Find Clusters and review available usage summaries. **Usage data unavailable** means no usable reading, not zero activity. |
+| [Clusters](/docs/manage/clusters) | Create or open a Cluster, check resource status and runtime version, and copy its outbound IP. |
+| [Alerts](/docs/manage/alerts#configure-organization-email-alerts) | Review Cloud events, email alert policies, and recipient delivery history. |
+| [Plans & billing](/docs/manage/billing) | Review the trial, billing period, renewal, and cancellation for a subscription. |
+| [Settings](/docs/manage/organizations) | Review the account and organization, sign-in methods, and organization invitations. |
+| [Support](/docs/manage/organizations#open-support) | Submit a support request or follow your existing tickets. |
+
+Select a ready Cluster to enter its workspace. A Cluster marked **Ready** has
+provisioned resources; inspect its pipelines separately before relying on data.
+
+## Cluster workspace
+
+The sidebar identifies the current Cluster. Select **Back to organization
+view** above it to return to the organization console.
+
+| Page | Use it to |
+| --- | --- |
+| Overview | Continue storage and source setup or open a sample workflow. |
+| [Data Sources](/docs/guides/manage-data-sources) | Add and test connections, inspect tables and keys, and refresh discovered schema. |
+| [Pipelines](/docs/guides/manage-pipelines) | Find a task, open its builder or monitoring workspace, and manage its lifecycle. |
+| Views | Inspect stored outputs and sample documents. See [Check a View](/docs/guides/observe-a-pipeline#check-a-views-observation). |
+| [Alerts](/docs/manage/alerts#inspect-an-alert) | Investigate Cluster faults and manage detection rules or maintenance silences. |
+| Settings | Open the account menu at the bottom of the sidebar, then select **Settings** for Cluster configuration. See [Clusters](/docs/manage/clusters). |
+
+Opening a pipeline replaces the main sidebar with **Build**, **Logs**,
+**Monitoring**, and **Data validation**. Select **Pipelines** at the top to
+return to the Cluster's main navigation.
+
+## Self-hosted deployments
+
+The organization console, Cloud subscriptions, provisioned Clusters, and Cloud
+email delivery policies apply to the hosted service. They are not server
+administration steps for a local deployment.
+
+For a server you manage, use [Self-hosting](/docs/self-hosted),
+[Bootstrap and authentication](/docs/guides/bootstrap-and-auth), and
+[Configure a cluster](/docs/guides/cluster). Database permissions and CDC
+preparation stay in the shared [connector guides](/docs/connectors); their
+CLI/YAML sections describe workspace authoring. Web controls can differ by
+self-hosted release.
