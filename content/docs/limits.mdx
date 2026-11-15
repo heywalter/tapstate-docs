@@ -1,0 +1,106 @@
+---
+title: Preview limits
+description: Understand Cloud availability, network, delivery, and schema-change limits before starting a workload
+ai:
+  kind: reference
+  id: preview-limits
+  maturity: preview
+  aliases: [Cloud limitations, high availability, PrivateLink, delivery guarantees, schema changes]
+---
+
+Cloud Preview is intended for evaluation. Use independent test databases and
+check destination data before relying on a pipeline for an application.
+
+## Availability and maintenance
+
+A Cloud Cluster runs on one runtime node. It has no standby node for automatic
+failover. A node restart interrupts its pipelines. Plan a maintenance window
+for upgrades; do not assume a rolling, zero-downtime update.
+
+Keep source logs long enough to cover an interruption and the time needed to
+catch up. Resume depends on the retained source history and pipeline state.
+If recovery reports missing history, preserve the state and investigate before
+resetting the pipeline. See [Capture modes](/docs/concepts/capture-modes).
+
+## Region and network access
+
+Cloud Preview uses AWS Singapore (`ap-southeast-1`). Choose databases whose
+network access and latency are suitable for that region.
+
+Database connections use public network access. PrivateLink is not part of the
+preview. Restrict allowlists to the Cluster's outbound address and use TLS
+where the connector offers it. If the source form offers an SSH tunnel, its
+SSH host must be reachable from the Cluster; the tunnel is not a PrivateLink
+connection. See [network access](/docs/manage/clusters#prepare-network-access).
+
+A database reachable from your laptop may still be unreachable from the
+Cluster. Check the database or SSH host's firewall rules, not just your local
+connection.
+
+## Delivery and recovery
+
+Delivery is at-least-once: records can be replayed after a retry or recovery.
+Use stable keys and key-based updates when the destination should contain one
+current record per key. Insert-only writes can leave duplicates after replay.
+
+At-least-once delivery does not protect against a source change that the
+connector never reads. Some connector paths can miss changes between the
+snapshot and CDC starting position. Test changes made during initial load and
+across a pause/resume cycle and a stop-with-state-retained/start cycle before
+relying on continuity.
+
+A **Running** status means the pipeline is executing. It does not prove that
+all source changes reached the destination. Compare counts, keys, values, and
+later updates. See [Observe a pipeline](/docs/guides/observe-a-pipeline).
+
+## Table and column changes
+
+Do not assume that a database schema change will update a running pipeline or
+its destination automatically. DDL support depends on the connector and the
+change being made.
+
+- Avoid changing participating tables during an initial snapshot.
+- After a schema change, refresh the source schema and review affected field
+  mappings, row keys, and relationships before running the pipeline again.
+- Db2 for i CDC does not carry DDL changes. Coordinate rediscovery and any
+  required reload with the database administrator; see
+  [Db2 for i](/docs/connectors/db2i).
+- Db2 LUW can require a table reorganization after a schema change. Follow its
+  [source guide](/docs/connectors/db2#limitations).
+- For Oracle and SQL Server, check the connector's
+  [Oracle limits](/docs/connectors/oracle#limitations) or
+  [SQL Server limits](/docs/connectors/sqlserver#limitations) before scheduling
+  schema changes.
+
+Source DDL is not applied automatically to the target schema.
+For file-based `serve.sync` definitions, `ddl: fail` rejects a schema-change
+event when it reaches the target. Both `ddl: ignore` and `ddl: apply` skip the
+event. None of these settings enables DDL capture in a connector that cannot
+produce those events. See [View and Serve](/docs/reference/view-and-serve#sync).
+
+## Databases and destinations
+
+Use [Supported connectors](/docs/connectors#supported-connectors) to choose a source.
+Cloud's setup flow uses an Atlas destination. It does not offer arbitrary
+relational write targets, and a connector listed in a preparation guide may
+need additional setup in Cloud.
+
+Db2 LUW CDC requires a prepared native runtime. Db2 for i (`db2i`) is a
+separately registered source-only Preview connector—not pre-bundled in the
+default Cloud setup or local playground—and retains its own Preview limits.
+RDS MySQL also retains its Preview limits; do not treat managed variants or
+separately registered previews as interchangeable with the base database setup.
+
+## Version-specific issues
+
+Before reloading a target, review [start checks](/docs/guides/build-a-pipeline#review-start-checks)
+and the [completed-snapshot restart limitation](/docs/guides/build-a-pipeline#completed-snapshot-restarts).
+For filtered MySQL results, test the full match → nonmatch → match cycle; see
+[filtered result limitations](/docs/reference/transforms#maintain-a-filtered-result).
+Self-hosted deployments have their own
+[v0.8 known limits and issues](/docs/releases/v0.8#known-limits-and-issues)
+and [v0.7 release limits](/docs/releases/v0.7#known-limits-and-issues).
+
+For a failed connection or stalled pipeline, start with
+[Troubleshooting](/docs/guides/troubleshooting). Stopping a pipeline does not
+cancel the Cloud subscription or remove databases you manage separately.

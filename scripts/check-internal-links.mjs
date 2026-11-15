@@ -11,6 +11,19 @@ const sourceRoots = [
 ];
 const docFiles = (await readdir(docsRoot, { recursive: true }))
   .filter((name) => /\.(?:md|mdx)$/.test(name));
+const directorySource = await readFile(new URL('../lib/connector-directory.ts', import.meta.url), 'utf8');
+const profilesBlock = directorySource.match(
+  /export const connectorProductProfiles[\s\S]*?=\s*\{([\s\S]*?)\n\};/,
+)?.[1] ?? '';
+const publicConnectorSlugs = new Set(
+  [...profilesBlock.matchAll(/^\s*['"]?([\w-]+)['"]?:\s*\{\s*status:\s*'(current|roadmap)'/gm)]
+    .map((match) => match[1]),
+);
+const isPublishedDocFile = (name) => {
+  if (!name.startsWith('connectors/') || name === 'connectors/index.mdx') return true;
+  const slug = name.replace(/^connectors\//, '').replace(/\.(?:md|mdx)$/, '');
+  return publicConnectorSlugs.has(slug);
+};
 const routes = new Map();
 
 function routeFor(name) {
@@ -33,6 +46,7 @@ function headingSlug(value) {
 }
 
 for (const name of docFiles) {
+  if (!isPublishedDocFile(name)) continue;
   const source = await readFile(new URL(name, docsRoot), 'utf8');
   const anchors = new Set();
   const duplicateCounts = new Map();
@@ -58,8 +72,11 @@ for (const root of sourceRoots) {
     if (!/\.(?:md|mdx|ts|tsx|json)$/.test(entry)) continue;
     const file = new URL(entry, root);
     if (!(await stat(file)).isFile()) continue;
-    const source = await readFile(file, 'utf8');
     const relative = path.relative(new URL('..', import.meta.url).pathname, file.pathname);
+    if (relative.startsWith('content/docs/') && !isPublishedDocFile(relative.slice('content/docs/'.length))) {
+      continue;
+    }
+    const source = await readFile(file, 'utf8');
     const links = [
       ...source.matchAll(/(?:href=["']|\]\()(?<url>\/docs[^)"'\s]*)/g),
     ];

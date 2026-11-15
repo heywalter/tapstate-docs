@@ -1,0 +1,74 @@
+---
+title: Manage pipelines
+description: Find Cloud pipelines, review their status, and safely stop or update them
+ai:
+  kind: guide
+  id: manage-pipelines
+  aliases: [pipeline list, task management, stop pipeline, update pipeline]
+---
+
+Use **Pipelines** inside a Cloud Cluster to manage pipelines you have created.
+For a new pipeline, follow [Build a pipeline](/docs/guides/build-a-pipeline).
+For CLI operations on a server you manage, see [Apply and run](/docs/guides/apply-and-run).
+
+## Find the right pipeline
+
+Search by resource name, then check the source, destination, status, and last
+error. Confirm the destination before changing a pipeline that writes business data.
+
+[![Pipelines list showing a running Order 360 pipeline and its source and destination](/images/cloud/pipelines.png)](/images/cloud/pipelines.png)
+
+Open the resource name to enter its workspace. Active and failed pipelines open in
+**Monitoring**; drafts and stopped pipelines open in **Build**. Use **Edit** to reach
+the builder directly, but an active pipeline's configuration remains read-only.
+
+## Choose the next action
+
+| Situation | Action |
+| --- | --- |
+| Draft or not started | Review the configuration and preview in Build, then [publish and start](/docs/guides/build-a-pipeline#4-publish-and-start). |
+| Starting | Wait for a runtime observation. If the response was lost, read the existing pipeline's status before repeating the request. |
+| Running | Check Monitoring and actual output. Running alone does not prove initial load has finished. |
+| Failed | Read Logs and the reported error, correct the cause, then review start checks before retrying. |
+| Stopped | Review the configuration and retained progress before starting again. |
+| Unknown or stale observation | Refresh and inspect observation age, Logs, and Cluster alerts. Do not treat missing figures as zero. |
+
+For definitions of the metrics and progress messages, use
+[Observe a pipeline](/docs/guides/observe-a-pipeline).
+
+## Use the pipeline workspace
+
+- **Build** contains the configuration and preview.
+- **Monitoring** shows runtime observations, initial-load progress, and output activity.
+- **Logs** provides recent execution messages and captured errors.
+- **Data validation** compares supported direct-copy mappings. It does not
+  validate assembled documents or transformed outputs; see
+  [Validate pipeline data](/docs/guides/validate-pipeline-data).
+
+Select **Pipelines** at the top of the sidebar to return to the main workspace.
+Open **Views**, select the output, and inspect **Documents** to check what was
+actually stored. Source input counts and destination document counts need not
+match when a pipeline assembles several rows into one document.
+
+## Stop and update a pipeline
+
+1. Select **Stop** in the pipeline actions.
+2. Choose **Stop and keep state** to retain progress for a later run. Use
+   **Stop and clear state** only when you intend to discard recovery positions
+   and operator state.
+3. Wait for **Stopped**. Open **Build**, edit the configuration, and wait for
+   the draft to save.
+4. Review the preview and [start checks](/docs/guides/build-a-pipeline#review-start-checks),
+   then start the pipeline and verify the resulting observations and data.
+
+Stopping does not delete destination documents or cancel a Cloud subscription.
+Clearing state is different from clearing target records. Preserve the current
+state while investigating uncertain results.
+
+## Investigate a problem
+
+Keep the Cluster and pipeline identifiers, action time and timezone, status,
+error text, and recent logs. Check [Cluster alerts](/docs/manage/alerts) and
+[troubleshooting](/docs/guides/troubleshooting) before restarting or clearing
+state. For hosted infrastructure or subscription issues, return to the
+organization console and open [Support](/docs/manage/organizations#open-support).

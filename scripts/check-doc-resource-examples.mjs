@@ -12,6 +12,8 @@ if (!classpath) {
 }
 
 const java = process.env.TAPSTATE_JAVA ?? 'java';
+// A release-native CLI can validate workspaces while matching JARs parse individual resources.
+const cliBinary = process.env.TAPSTATE_CLI_BINARY;
 const docsDir = new URL('../content/docs/', import.meta.url);
 const helper = new URL('./ValidateDslExample.java', import.meta.url);
 const files = (await readdir(docsDir, { recursive: true }))
@@ -66,7 +68,9 @@ for (const name of files) {
     await Promise.all(workspaceResources.map(({ yaml }, index) => (
       writeFile(path.join(workspace, `example-${index + 1}.tap.yml`), yaml)
     )));
-    const result = spawnSync(java, ['-cp', classpath, 'io.tapstate.cli.Cli', 'validate', workspace], {
+    const result = spawnSync(cliBinary ?? java, cliBinary
+      ? ['validate', workspace]
+      : ['-cp', classpath, 'io.tapstate.cli.Cli', 'validate', workspace], {
       encoding: 'utf8',
       maxBuffer: 1024 * 1024,
     });

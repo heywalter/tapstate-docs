@@ -1,4 +1,4 @@
-import { source, getPageImage, getPageMarkdownUrl, getPublicDocPages, isPublicDocPage } from '@/lib/source';
+import { source, getPageImage, getPageMarkdownUrl, getPublicDocPages, isPublicDocPage, getDocumentationSection } from '@/lib/source';
 import {
   DocsBody,
   DocsDescription,
@@ -17,16 +17,6 @@ import {
   getConnectorProductProfile,
 } from '@/lib/connector-directory';
 
-const sectionInfo: Record<string, { label: string; href: string }> = {
-  overview: { label: 'Get started', href: '/docs/overview/what-is-tapstate' },
-  concepts: { label: 'Understand tapstate', href: '/docs/concepts/dsl' },
-  connectors: { label: 'Connectors', href: '/docs/connectors' },
-  guides: { label: 'Build and operate', href: '/docs/guides/bootstrap-and-auth' },
-  reference: { label: 'Reference', href: '/docs/reference/dsl-grammar' },
-  releases: { label: 'Release notes', href: '/docs/releases/v0.5' },
-  'for-ai': { label: 'AI-ready docs', href: '/docs/for-ai/llms' },
-};
-
 type DocsPageProps = {
   params: Promise<{
     slug?: string[];
@@ -44,7 +34,7 @@ export default async function Page(props: DocsPageProps) {
   const isProductOverview = page.url === '/docs/overview/what-is-tapstate';
   const pageDescription = page.data.description;
   const canonicalUrl = new URL(page.url, docsBaseUrl).toString();
-  const section = sectionInfo[page.slugs[0]];
+  const section = getDocumentationSection(page.url);
   const connectorDocumentationStatus = page.slugs[0] === 'connectors' && page.slugs.length > 1
     ? getConnectorDocumentationStatus(page.slugs[1])
     : undefined;

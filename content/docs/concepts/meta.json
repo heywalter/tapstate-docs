@@ -1,5 +1,5 @@
 {
-  "title": "Understand tapstate",
+  "title": "Concepts",
   "pages": [
     "[Use cases](/docs/overview/use-cases)",
     "[Architecture](/docs/overview/architecture)",
@@ -7,6 +7,6 @@
     "capture-modes",
     "dsl",
     "storage",
-    "[tapstate vs. a streaming stack](/docs/overview/vs-streaming-stack)"
+    "[Tapstate vs. a streaming stack](/docs/overview/vs-streaming-stack)"
   ]
 }

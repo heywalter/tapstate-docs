@@ -1,21 +1,11 @@
 {
   "title": "Build and operate",
   "pages": [
-    "---Set up and run---",
     "build-a-pipeline",
-    "bootstrap-and-auth",
-    "upgrade-to-v0-7",
-    "upgrade-to-v0-6",
-    "cluster",
-    "register-connectors",
-    "apply-and-run",
-    "---Document assembly---",
-    "assemble-documents-with-nest",
-    "move-nest-state",
-    "nest-structural-key-changes",
-    "nest-throughput",
-    "---Operate and troubleshoot---",
+    "manage-pipelines",
     "observe-a-pipeline",
-    "troubleshooting"
+    "validate-pipeline-data",
+    "troubleshooting",
+    "nest-throughput"
   ]
 }

@@ -9,11 +9,14 @@ ai:
   aliases: [tapstate yaml reference, tapstate dsl grammar, tapstate resource syntax]
 ---
 
-Tapstate resources are YAML files named `*.tap.yml`. Each file contains one
-`version: tapstate/v1` resource.
+Tapstate resources are described by the `version: tapstate/v1` declarative
+contract. In tapstate Cloud, the visual [Pipeline builder](/docs/guides/build-a-pipeline)
+generates and publishes these resources for you (select **Inspect Plan** in
+**Build** to view **DSL Preview**). On a local workspace or self-hosted server,
+author each resource as a YAML file named `*.tap.yml`.
 
 Use the Schema and connector catalog bundled with the same tapstate version as
-your CLI. This site does not yet publish a stable, versioned Schema URL.
+your CLI or server. This site does not yet publish a stable, versioned Schema URL.
 
 ## Workspace layout
 
@@ -28,7 +31,7 @@ tap-work/
 └── serve/
 ```
 
-`tapstate new` writes `<workspace>/<kind>/<id>.tap.yml`. `tapstate validate`
+`tapstate add <kind>` writes `<workspace>/<kind>/<id>.tap.yml`. `tapstate validate`
 accepts a workspace directory or one resource file.
 
 ## Resource kinds
@@ -43,6 +46,11 @@ accepts a workspace directory or one resource file.
 
 A string reference resolves by resource ID. Top-level IDs must be unique in the
 workspace and cannot contain `.`.
+
+The transform reference includes [Unwind](/docs/reference/transforms#unwind)
+for expanding arrays into keyed rows. Inline and reusable Views can declare
+[write and full-load policies](/docs/reference/view-and-serve#view-write-and-full-load-policies).
+Use these fields only with a matching server and schema version.
 
 ## Minimal runnable shape
 
@@ -126,9 +134,9 @@ both; a view-only pipeline still materializes records and does not need `serve`.
 
 | Surface | Schema/validator | Current preview runtime |
 |---|---|---|
-| Resource kinds | `source`, `pipeline`, `transform`, `view`, `serve` | The Quickstart declares `source` + `pipeline` with an inline `view`. |
-| Transforms | `filter`, `map`, `js`, `union`, `nest`, `join` | `filter`, `map`, `js`, `union`, and `nest` are wired. `join` is wired in preview under `engine: builtin` with a single driving fact source, unique dimension keys, and no fan-out. |
-| Serve declarations | `sync`, `query`, `push` | `serve.sync` delivers to an external target; the Quickstart's managed view does not need a `serve` block. Do not infer an executable runtime surface from Schema acceptance alone. |
+| Resource kinds | `source`, `pipeline`, `transform`, `view`, `serve` | The local quickstart declares `source` + `pipeline` with an inline `view`. |
+| Transforms | `filter`, `map`, `js`, `union`, `unwind`, `nest`, `join` | `filter`, `map`, `js`, `union`, `unwind`, and `nest` are wired. `join` is wired in preview under `engine: builtin` with a single driving fact source, unique dimension keys, and no fan-out. |
+| Serve declarations | `sync`, `query`, `push` | `serve.sync` delivers to an external target; the local quickstart's managed view does not need a `serve` block. Do not infer an executable runtime surface from Schema acceptance alone. |
 | Connector fields | Connector-specific keys are allowed structurally; known catalog fields can receive additional checks. | A catalog entry does not prove that a connector artifact is installed, registered, or available in the current release. |
 
 ## Validation model
@@ -167,16 +175,20 @@ patterns, even if a YAML parser happens to accept the input form.
   still parse but have no runtime effect. See [Node execution](/docs/reference/pipeline#node-execution).
 - Unknown top-level fields are rejected. Views no longer accept `schema:` in
   v0.6; remove the block from local resources before applying them.
-- A Nest accepts `state.database` for durable state placement and `as: flat`
-  for an embed without a wrapper. See [Transform reference](/docs/reference/transforms#nest)
+- In self-hosted deployments, a Nest accepts `state.database` for durable state
+  placement; Cloud manages Nest state in Durable cache and rejects authored
+  `nest.state` (`control.state-database-unavailable`). `as: flat` embeds fields
+  without a wrapper. See [Transform reference](/docs/reference/transforms#nest)
   for cardinality, field collisions, and migration requirements.
 - Each Join alias must resolve to one physical table, not a transform step or
   table pattern. See [Join input restrictions](/docs/reference/transforms#join-input-restrictions).
-- Connector-owned `config`, `options`, and `experimental` maps can accept
-  extension fields.
+- Source `config` accepts connector-owned fields, and `experimental` accepts
+  unversioned extension fields. `options` maps are reserved for engine-owned
+  options and have an empty vocabulary in this release; non-empty keys fail
+  validation with `dsl.unknown-field`.
 - `experimental` fields do not carry the v1 compatibility guarantee.
 - Use the Schema and catalog from the same release as the runtime you deploy.
 
-To explore a running example, [run the Quickstart](/docs/overview/quickstart).
+To explore a running example, [run the local quickstart](/docs/overview/quickstart).
 For connector metadata and external-system preparation, use the
 [connector directory](/docs/connectors).

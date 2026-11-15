@@ -17,20 +17,31 @@ The API has no stable OpenAPI publication or versioned URL namespace yet; pin
 the tapstate release and treat request and response compatibility as
 prerelease.
 
-Use the web application for interactive work. Use REST for integrations that
-handle authentication, coded errors, and contract changes.
+Use the web application for interactive work. This page documents the Cluster
+control-plane API (`/api/**` and `/auth/**` on a Cluster or self-hosted server).
+Cloud organization, subscription, and Cluster-provisioning actions on
+`https://cloud.tapstate.com` use a separate `/v1/api/**` service (such as
+stabilizing a Cluster's outbound address) and are not part of the Cluster
+runtime contract below.
+
+Several Cluster endpoints below—including three-layer storage operations, data
+validation, alert management, start checks, and whole-pipeline deletion—serve
+Cloud and v0.8 self-hosted runtimes and are unavailable in v0.7 self-hosted
+builds. Check the deployment notes in each section rather than assuming a v0.7
+server exposes every route. Use REST for integrations that handle
+authentication, coded errors, and contract changes.
 
 ## Base URLs and authentication
 
-Public endpoints and self-hosted sign-in endpoints:
+Public endpoints and sign-in endpoints:
 
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/healthz` | Process/engine liveness: `200 ok`, or `503 broken` after engine loss. |
 | `GET` | `/version` | Report the server release and its versioned contracts. |
-| `GET` | `/.well-known/tapstate` | Read issuer, cluster identity, API version, and authentication modes before presenting a cached credential. |
+| `GET` | `/.well-known/tapstate` | Read issuer, cluster identity, API version, and self-hosted authentication modes before presenting a cached credential. In Cloud, authenticate with the managed browser session rather than selecting a mode from `supportedAuthModes`. |
 | `GET` | `/connector-icons/{id}` | Read icon bytes for a registered connector; returns 404 if unavailable. |
-| `POST` | `/auth/bootstrap` | Create the first administrator from loopback, once. |
+| `POST` | `/auth/bootstrap` | First-administrator bootstrap from loopback for the v0.7 self-hosted layout; v0.8 three-layer installations use `/installation/first-admin` on the dedicated management channel. |
 | `POST` | `/auth/login` | Exchange username/password for a short-lived bearer token; it can also create a revocable user session. |
 
 ### Read the server version
@@ -44,15 +55,16 @@ curl -sS http://127.0.0.1:8080/version
 
 ```json
 {
-  "version": "0.7.0",
+  "version": "0.8.0",
   "dslVersions": ["tapstate/v1"],
-  "dataVersion": 12
+  "dataVersion": 3
 }
 ```
 
 `version` identifies the server release. `dslVersions` lists the accepted
 authoring grammars, and `dataVersion` identifies the control-store schema.
-The example shows v0.7.0 after its startup migrations. Use the reported values
+The example shows a v0.8.0 three-layer Configuration store (v0.7 single-store
+deployments report `dataVersion: 12`). Use the reported values
 when checking an upgrade; installing a newer CLI does not change them.
 
 Use `/healthz` for process/engine liveness. An engine lost to out-of-memory
@@ -67,13 +79,25 @@ Authorization: Bearer <token>
 
 See [Bootstrap and authenticate](/docs/guides/bootstrap-and-auth) for the request sequence.
 
-Cloud uses the managed browser session instead of the self-hosted bearer and
-local-user flow. Endpoint availability depends on the deployment mode.
+Cloud Cluster workspaces authenticate `/api/**` requests with the
+`__Host-tapstate-cloud-session` cookie established by `/auth/exchange` instead
+of bearer tokens or local users. Sending an `Authorization` header to a Cloud
+Cluster is refused with HTTP `401`. For state-changing methods (`POST`, `PUT`,
+`PATCH`, `DELETE`), cookie-authenticated requests must pass same-origin checks:
+if an `Origin` header is present, a single matching origin is required; when
+`Origin` is absent, `Sec-Fetch-Site` must be absent, `same-origin`, or `none`.
+Endpoint availability depends on the deployment mode.
 
 | Method | Path | Purpose |
 |---|---|---|
 | `GET` | `/api/auth/me` | Read the authenticated identity; the response is not cacheable. |
-| `GET` | `/api/cluster/context` | Read the cluster context from the current Cloud session; Cloud only. |
+| `GET` | `/api/cluster/context` | Read Cloud session identity and current cluster network context; Cloud only. |
+
+`GET /api/auth/me` returns `mode`, `principal`, `scopes`, `username`, and
+`email`. Cloud reports `username: null` and an email only when the managed
+session supplies one. Self-hosted accounts report their username; `email` is
+that username only when it has an email-address form, otherwise `null`.
+Neither nullable field is a stable identity key or proof of email verification.
 
 Cloud sign-in also exposes these system routes:
 
@@ -89,12 +113,14 @@ return non-cacheable responses.
 
 ### Create and use a user session
 
-These endpoints manage local user sessions on a self-hosted server.
+These endpoints manage local user sessions on a self-hosted server, and
+`/auth/logout` also clears the Cloud session cookie when called on a Cloud
+Cluster.
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/auth/session` | Exchange a saved user session for a fresh bearer token. |
-| `POST` | `/auth/logout` | Revoke a saved user session. |
+| `POST` | `/auth/session` | Exchange a saved self-hosted user session for a fresh bearer token. |
+| `POST` | `/auth/logout` | Revoke a saved self-hosted session (`TapstateSession` header) or clear the Cloud session cookie. |
 
 `POST /auth/login` remains compatible with callers that send only `username`
 and `password`: its `token` is the short-lived bearer credential for `/api/**`.
@@ -122,7 +148,64 @@ Authorization: TapstateSession <sessionToken>
 The response has the ordinary access-token fields (`token`, `accessExpiresAt`,
 `issuer`, `principal`, and `scopes`); use its `token` as the `Bearer` value for
 `/api/**`. Send the same `TapstateSession` header to `POST /auth/logout` to
-revoke the session. A successful logout returns HTTP `204`.
+revoke a self-hosted session. On a Cloud Cluster without an `Authorization`
+header, `POST /auth/logout` clears the `__Host-tapstate-cloud-session` cookie
+and returns HTTP `204`.
+
+### Self-hosted browser sessions
+
+Starting with v0.8, the bundled web application uses these same-origin endpoints
+for local accounts. They are separate from the CLI user-session endpoints and
+are unavailable in Cloud mode.
+
+| Method | Path | Result |
+|---|---|---|
+| `POST` | `/auth/browser/login` | Accept JSON `username` and `password`; set an HttpOnly session cookie (`__Host-tapstate-op-session` over HTTPS or `tapstate-op-session` on allowed loopback) and return an access-token grant. |
+| `POST` | `/auth/browser/session` | Exchange the browser cookie for a fresh access-token grant. |
+| `POST` | `/auth/browser/logout` | Revoke the browser session, clear its cookie, and return `204`. |
+
+Each request must include `X-Tapstate-Browser-Request: 1` and a single `Origin`
+matching the request's public scheme, hostname, and port. Do not send an
+`Authorization` header to these browser endpoints. HTTPS origins must be
+explicitly allowed; plain HTTP is refused by default. Follow
+[Configure self-hosted browser access](/docs/guides/bootstrap-and-auth#configure-self-hosted-browser-access)
+for the allowed-origin, trusted-proxy, and loopback settings.
+
+The browser manages the cookie; the response does not expose its session
+credential to JavaScript. Keep the returned access token in memory and send it
+as `Authorization: Bearer <token>` on ordinary `/api/**` calls. Authentication
+responses use `Cache-Control: no-store`. Logout prevents further session
+exchanges but does not immediately invalidate access tokens already issued.
+
+### Cloud cluster network context
+
+`GET /api/cluster/context` requires the managed Cloud session. It returns the
+organization and Cluster identity together with these network fields:
+
+| Field | Meaning |
+|---|---|
+| `ec2PublicIp` | Current outbound IPv4 address reported by Cloud, or `null` when unavailable. Use the returned value for database allowlisting. |
+| `egressAddressStatus` | Address lifecycle and stability status reported by Cloud, or `null` when unavailable. This is separate from the Cluster's runtime health. |
+| `clusterState` | `null` in this response; do not infer that the Cluster is Ready from it. |
+| `userEmail` | Email supplied by the authenticated Cloud session, or `null` when unavailable. |
+
+Interpret `egressAddressStatus` as follows:
+
+| Value | Meaning and next action |
+|---|---|
+| `DYNAMIC` | An instance-assigned address, used by older Clusters; it may change when the instance is replaced. Recheck the address after replacement. |
+| `STABILIZING` | A stable address is being attached to the Cluster. Wait for the transition to finish before finalizing allowlists. |
+| `ATTACHING` | Address association or Cluster provisioning is in progress. Check again when the Cluster is ready. |
+| `STABLE` | A Cluster-owned Elastic IP is associated with the current node. Use the reported address; this status does not verify database connectivity. |
+| `FAILED` | A stable address could not be established, or the Cluster is not in a state that can report a live address. Check Cluster status and contact support if the condition persists. |
+
+The address is refreshed from Cloud rather than frozen at sign-in. Reads use a
+short-lived cache: the default refresh interval is 30 seconds, and a cached
+address can be retained for up to five minutes during provider failures.
+Responses use `Cache-Control: no-store` for HTTP clients. A missing address is
+not permission to allow all source addresses, and a returned address does not
+prove database connectivity. Treat unknown address-status values as unknown;
+do not use this field as a pipeline readiness check.
 
 ## Artifact endpoints
 
@@ -175,6 +258,10 @@ Apply request:
 ```
 
 The server reparses the YAML and returns one `CREATED`, `UPDATED`, or `UNCHANGED` outcome per draft.
+
+The drafts are validated together as a workspace. Include the resources they
+reference in the same batch; a Source already stored on the server does not
+satisfy a missing reference in an otherwise incomplete draft workspace.
 
 The validate endpoint returns a validation report. HTTP `200` can contain
 `valid: false` and entries in `diagnostics`; check `valid` before treating the
@@ -275,9 +362,306 @@ audit record.
 
 Update and delete require the quoted 64-character content hash returned in `ETag`. Missing or stale preconditions return HTTP `428` or `412`. Secret values are not returned; use the structured secret-clearing contract deliberately when replacing a source.
 
+### Edit saved credentials
+
+The following preservation and clearing rules describe the Cloud
+structured Source endpoints.
+
+For a structured update that keeps the same connector, omit a saved secret to
+retain it, supply a new value to replace it, or name it in `clearSecrets` to
+remove it. This includes catalog secrets and shared transport paths `sslKey`,
+`sslKeyPassword`, and the configured SSH password path. A supplied null is rejected; do
+not use null as a clearing operation. Supplying and clearing the same path in
+one request is also rejected.
+
+Responses expose `configuredSecrets` names rather than secret values. A
+connection test for that same saved Source and connector restores omitted
+credentials. Changing the connector does not inherit the old connector's
+credentials. Connection-test diagnostics preserve their useful messages and
+codes while redacting configured secret values.
+
+These rules do not create TLS/SSH options for a connector that does not expose
+them. See [Source configuration](/docs/reference/source#config) for the resource
+format and keep complete credentials in your own secure backup.
+
 Use one write model consistently. Prefer `/api/artifacts:apply` for resource
 authoring and pipeline batches. Use the structured source endpoints when a
 client needs source-specific draft and `ETag` workflows.
+
+## Data validation
+
+These `/api/validation:*` and `/api/pipelines/{pipeline}/validation-tasks/**`
+endpoints serve Cloud and v0.8 self-hosted runtimes and are unavailable in v0.7
+self-hosted builds. For the Web workflow, see
+[Validate pipeline data](/docs/guides/validate-pipeline-data).
+
+Validation tasks are separate from pipeline execution and alert detection.
+Their conclusions apply to the records read during validation. They do not
+establish a common-time snapshot across databases. Finish initial synchronization
+and keep both sides stable before using the comparison to assess consistency.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/validation:evaluate` | Evaluate proposed task mappings and comparison keys before saving. |
+| `POST` | `/api/validation:save` | Save the evaluated task with its fingerprint and expected revision. |
+| `GET` | `/api/pipelines/{pipeline}/validation-tasks/{task}` | Read the saved task, current revision, and execution context. |
+| `POST` | `/api/validation:schedule-preview` | Preview occurrences for a schedule and input revision. |
+| `POST` | `/api/validation:schedule-disable` | Disable a saved schedule with its current task identity and revision. |
+| `POST` | `/api/validation:start` | Request a validation run using the original task and execution context. |
+| `POST` | `/api/validation:progress` | Read the original validation operation. |
+| `POST` | `/api/validation:stop` | Request that the original validation operation stop. |
+| `GET` | `/api/pipelines/{pipeline}/validation-tasks/{task}/reports` | List retained reports for a task. |
+| `GET` | `/api/pipelines/{pipeline}/validation-tasks/{task}/reports/{run}` | Read one report by its original generation, sequence, and run. |
+| `GET` | `/api/pipelines/{pipeline}/validation-tasks/{task}/reports/{run}/roots` | List root-level findings for the selected report. |
+| `GET` | `/api/pipelines/{pipeline}/validation-tasks/{task}/reports/{run}/roots/{root}` | Read one root-level finding from that report. |
+
+Evaluate, save, start, stop, and schedule-disable require write scope. Task,
+progress, and report reads and schedule-preview require read scope. POST bodies
+are JSON, limited to 256 KiB; unknown properties and invalid field types are
+rejected. Responses use `Cache-Control: no-store`.
+
+Evaluation takes `pipelineId`, `taskId`, `taskGeneration`, `expectedRevision`,
+`method`, `mappings`, and `confirmations`. A save wraps that input with its
+returned `fingerprint`, a `commandId`, `historyLimit`, `schedule`, and
+`scheduleEnabled`. Reevaluate changed definitions rather than reusing a stale
+fingerprint. Save and schedule-disable return `200` for `APPLIED` or `DUPLICATE`
+and `409` for other write outcomes.
+
+Start, progress, and stop share `context`, `pipeline`, `task`, `taskGeneration`,
+`revision`, `sequence`, and `command`. Read the current task before starting;
+retain the response's `original` object for subsequent progress and stop
+requests. A pending or unknown result must be checked as the original operation
+before another start. Starting or stopping validation does not start or stop
+the pipeline itself.
+
+Report history uses `offset` (default 0, maximum 4096) and `limit` (default 10,
+maximum 20). A report, its roots, and a specific root require the original
+`generation` and `sequence` query parameters in addition to the run in the
+path. Use the reference returned by report history. Do not combine a run with
+the current task generation after the task has been replaced. Root lists use
+the same paging bounds. A missing report returns `404`.
+
+## Alerts and notifications
+
+These `/api/alerts/**` endpoints inspect and manage alerts on Cloud and v0.8
+self-hosted deployments; they are unavailable in v0.7 self-hosted builds. Every
+request is a JSON object, including reads with `{}`. Responses use
+`Cache-Control: no-store`; request bodies are limited to 64 KiB. The server
+establishes Cluster scope from the authenticated session.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/api/alerts/catalog` | Read available alert types, parameter ranges, connected inputs, and deployment channels. |
+| `POST` | `/api/alerts/resources` | List current resource identities for configuration. |
+| `POST` | `/api/alerts/center` | List active alerts or ended episodes. |
+| `POST` | `/api/alerts/detail` | Read an alert episode, evidence, and retained diagnostics. |
+| `POST` | `/api/alerts/deliveries` | List notification attempts or read one delivery. |
+| `POST` | `/api/alerts/health` | Read detector and notification-system health. |
+| `POST` | `/api/alerts/configuration/list` | List active configuration records of one kind. |
+| `POST` | `/api/alerts/configuration/save` | Create or update a rule, route, receiver, or silence. |
+| `POST` | `/api/alerts/configuration/retire` | Retire an existing configuration record. |
+| `POST` | `/api/alerts/rule-preview` | Evaluate a synthetic rule example without saving or publishing an alert. |
+| `POST` | `/api/alerts/route-preview` | Preview current alerts matching a proposed notification route; self-hosted only. |
+| `POST` | `/api/alerts/preview` | Render example notification content without sending it; self-hosted only. |
+| `POST` | `/api/alerts/test` | Send a fixed test message using the current receiver candidate; self-hosted only. |
+| `POST` | `/api/alerts/test-result` | Query the original receiver test by `commandId`; self-hosted only. |
+| `POST` | `/api/alerts/retry` | Authorize another bounded delivery cycle; self-hosted only. |
+
+### Read alert state
+
+Use `catalog` before building a configuration client. It reports type IDs,
+versions, supported resource kinds, parameter defaults and bounds, and whether
+the relevant input is connected. An available type does not prove that its
+input is currently healthy.
+
+For example, send this body to `/api/alerts/center`:
+
+```json
+{"view": "active", "limit": 25}
+```
+
+`view` is `active` (the default) or `history`. Optional filters are `severity`,
+`search`, and `endReason`; history defaults to `endReason: "RECOVERED"`.
+History can also end because a rule was disabled, replaced, or its resource
+removed. Those outcomes do not establish recovery.
+
+Paged reads use `limit` (default 25, maximum 100) and `cursor`; follow
+`nextCursor` until it is absent. Keep the same filters when continuing a page.
+Use the returned opaque `key` and `episode` for `/api/alerts/detail`.
+`/api/alerts/deliveries` accepts an `id` for one delivery, or paging and optional
+`channel`, `result`, `key`, and `episode` filters. Inspect `isolated` when
+present: unsupported retained records can make coverage incomplete.
+
+Catalog, center, detail, delivery, and health reads require read scope.
+Configuration and resource reads and rule examples require write scope in
+Cloud and administrator access on self-hosted servers. Self-hosted notification
+tests, test-result reads, content previews, route previews, and delivery retries
+also require administrator access. Deployment restrictions still apply even with
+elevated access.
+
+### Save configuration and inspect sends
+
+Configuration requests use `kind`: `RULE`, `SILENCE`, `SUBSCRIPTION`, or
+`RECEIVER`. Save with `kind`, `id`, `etag`, and `form`; use `etag: "0"` for a
+new record and the returned revision for updates. Retire an existing record
+with `kind`, `id`, and its current `etag`. The revision is a JSON field, not an
+HTTP `If-Match` header. Reload and review conflicts before retrying.
+
+Rules and silences are available in both Cloud and v0.8 self-hosted
+deployments. `SUBSCRIPTION` and `RECEIVER` configuration is self-hosted only;
+Cloud sends through its managed event service and organization policy. Do not
+infer that an accepted Cloud event has reached a recipient. Direct local
+notification sending is unavailable in Cloud-managed Clusters.
+
+Self-hosted receiver tests accept a caller-generated `commandId`, a
+`candidateId`, and the current `form` (plus `existingId` and `etag` when testing
+a saved receiver, and `target` for one Email recipient). Query
+`/api/alerts/test-result` with that same `commandId` if a test times out; an
+unknown result is not permission to resend automatically. Delivery retries accept
+the delivery's `id` and current `etag`, keep the original target, content, and
+deadline, and can duplicate a message when the earlier outcome is unknown.
+
+For the configuration fields and interactive sequence, use
+[Alerts and notifications](/docs/manage/alerts).
+
+## Storage and configuration operations
+
+`GET /auth/storage-entry` returns anonymous navigation hints in both Cloud and
+self-hosted deployments without granting storage access. The `/api/storage/**`
+and `/api/configuration/**` endpoints in this section serve the three-layer
+runtime on Cloud and v0.8 self-hosted servers and are unavailable in v0.7
+self-hosted builds. They do not migrate an older metadata layout or rebind a
+running installation to different databases. For the interactive procedures, see
+[Cluster storage setup](/docs/quickstart#2-connect-storage) and
+[self-hosted storage initialization](/docs/guides/bootstrap-and-auth#initialize-storage).
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/auth/storage-entry` | Read anonymous navigation hints for setup or sign-in. This does not grant storage access. |
+| `POST` | `/installation/first-admin` | Create the first self-hosted administrator on the dedicated management channel after storage initialization and authorization. |
+| `POST` | `/api/storage/status` | Read setup, health, and permitted actions; send `{}`. |
+| `POST` | `/api/storage/test` | Test the proposed CACHE connection and return a time-limited test stamp. |
+| `POST` | `/api/storage/setup/commit` | Save the tested binding and continue initialization. |
+| `POST` | `/api/storage/setup/status` | Read the original setup operation by `operationId`. |
+| `POST` | `/api/storage/setup/activate` | Continue activation of the original saved binding when allowed. |
+| `POST` | `/api/storage/recovery/plan` | Preview the affected scope before recovery. |
+| `POST` | `/api/storage/recovery/confirm` | Confirm the exact recovery plan and revision. |
+| `POST` | `/api/storage/recovery/status` | Read the original recovery operation by `operationId`. |
+| `POST` | `/api/configuration/export` | Export selected configuration as an encrypted transfer package. |
+| `POST` | `/api/configuration/import/preflight` | Check an import and return its operation and prepared transfer. |
+| `POST` | `/api/configuration/import/commit` | Commit the checked import without overwriting existing resources. |
+| `POST` | `/api/configuration/import/status` | Read the original import by `importId`. |
+
+All POST requests require a JSON object, including status reads. Responses use
+`Cache-Control: no-store`. Authentication, setup purpose, and the original
+Cluster scope determine which operations are allowed. A session or request
+body cannot choose another Cluster's storage scope. Self-hosted initial setup
+uses the dedicated management channel; an ordinary bearer token does not replace
+installation authorization.
+
+`POST /installation/first-admin` accepts only `username` and `password` in its
+JSON body on the dedicated management channel and returns HTTP `200` with
+`{"phase": "COMPLETE", "next": "login"}`. The ordinary server listener rejects
+it with `control.bootstrap-forbidden`.
+
+### Test and save storage
+
+Read storage status first. Retain its `operationId` and `setupGeneration`; send
+the latter as `generation` in test and commit requests. In Cloud, `candidate`
+contains `cache` and `master` while Configuration comes from the deployment; on
+v0.8 self-hosted installations, `candidate` contains `configuration`, `cache`,
+and `master`.
+
+Each connection contains `kind` (`MONGODB` or `ATLAS`), `uri`, and `database`.
+An optional `caPem` supplies a supported custom CA bundle, up to 64 KiB.
+`master` is the API name for Application data. Do not use a custom-CA-only
+application target; that connector path is outside storage setup's TLS support.
+
+A test request contains `operationId`, `generation`, `candidate`, and
+`layer: "CACHE"`. Initial setup rejects tests for `CONFIG` or `MASTER`. The
+response includes `testStamp`, `expiresAt`, and the checks performed.
+For a new binding, the Cache check also requires an empty database: any existing
+collection, even with zero documents, is refused. Collection-listing permission
+is required. An occupied-database diagnostic can include a checked empty name
+suggestion; a client must test the selected candidate again. Occupancy is
+rechecked before the first binding is saved. Keep the original Cache database
+when continuing an existing binding.
+
+Commit with `operationId`, `generation`, the complete `candidate`, and
+`testStamps: {"CACHE": "<returned-test-stamp>"}`. The stamp map must contain
+only `CACHE`. The server validates Configuration and Durable cache before
+binding them; Application data is checked separately after activation.
+
+Changing the cache connection or letting its test expire requires a new test.
+Changing only Application data does not invalidate the cache stamp, but the
+complete candidate must still pass validation, including distinct database
+names. Never reuse a stamp for a different operation or generation.
+
+A successful save is separate from runtime readiness. Check `businessPhase`,
+individual layer `health`, and `initializationProgress` when present. If a
+response is lost, query the original operation before retrying. First Cloud
+activation preserves unexpired sessions and revocation state in the original
+Cache; another sign-in exchange is not normally required. If a request crosses
+the authentication transition and fails, re-enter the same Cluster through
+Cloud and check the original operation.
+
+### Continue saved activation
+
+If status offers `storage.setup.activate`, send the original `operationId`,
+`generation` (the current `setupGeneration`), and `bindingVersion` to
+`POST /api/storage/setup/activate`. Do not include a new candidate or test
+stamps. The operation continues the saved binding; it does not edit the
+default Source or reinitialize storage. Query status after the request and
+check runtime readiness separately from `setupPhase: "COMPLETE"`.
+
+Cloud activation uses the original managed sign-in scope. Expired authorization must be
+renewed through the original entry; operation IDs alone grant no access.
+
+After activation, `applicationDataVerification` reports the default Source
+check as `CHECKING`, `PASSED`, `FAILED`, `EXPIRED`, or `UNKNOWN`. `UNKNOWN` is
+not proof that a test failed or that its resources were released. A default
+Source failure does not by itself change business readiness. Status reads do
+not start a new test; use the permitted connection-test action for an explicit
+retry. The default connection remains read-only.
+
+### Confirm recovery
+
+A plan request selects `scope`: `CLUSTER`, `PIPELINE`, or `SHARED_SRS`.
+`PIPELINE` requires `pipelineIds`; the shared-capture scope requires
+`canonicalChain` and `physicalChain`. Use only the scope offered for the
+reported recovery condition. Optional `operationId` and `previousOperationId`
+preserve an existing operation or its reported predecessor.
+
+Confirmation requires the returned `operationId`, `planHash`, `controlRevision`,
+and `confirmed: true`. A stale plan must be inspected again. Query recovery
+status with the original ID; `UNKNOWN` does not establish a successful or
+uncommitted result.
+
+Isolate old writers before recovery. Whole-cache recovery leaves affected
+pipelines stopped and requires separate full-rebuild confirmation for each.
+See [Recover runtime storage](/docs/manage/storage-recovery)
+for prerequisites and target-data consequences.
+
+### Export and import configuration
+
+Export accepts `resourceIds`, optional `usernames`, and a `transferKey`.
+Use a random 32-byte key encoded as unpadded base64url and retain it separately.
+The response includes `transfer` and `defaultSourceId`. The package excludes
+runtime state, business rows, drafts, storage bindings, cluster keys, and
+owner-bound AI settings.
+
+Import preflight accepts `transfer`, `transferKey`, and `defaultSourceMapping`,
+which maps the old default target ID to the destination's existing default
+target. It returns `operation` and `preparedTransfer`. Commit with that
+operation's `importId`, the returned prepared transfer as `transfer`, and the
+same key and mapping. Keep the ID for status queries; inspect the returned
+receipt instead of assuming a timeout means the import failed.
+
+Existing resources are not overwritten and imported pipelines do not start.
+Cloud rejects packages containing self-hosted accounts. Configuration transfer
+operates programmatically between compatible three-layer installations and does
+not migrate v0.7 metadata stores. API access does not bypass account or
+recovery authorization.
 
 ## Sample sources and State Store setup
 
@@ -301,8 +685,69 @@ authenticated identity when polling.
 `POST /api/state-store` accepts the Atlas connector configuration directly.
 It requires a passed connection test before creating the `atlas-store` Source
 with the `store: "true"` label, and refuses a second configured State Store.
-This user connection is separate from Cloud's internal metadata and operator
-state databases. The endpoint is unavailable in self-hosted mode.
+This is the earlier Cloud output-only setup flow and is unavailable in
+self-hosted mode. Three-layer installations use the storage operations above;
+their setup creates the default target from the bound Application data database.
+Do not use this endpoint to change that binding or to create a second default
+target.
+
+### Locate a materialized collection
+
+`GET /api/views` returns `items` and `unresolved`. Each resolved item identifies
+the physical destination with
+`location.storeId`, `location.database`, and `location.collection`. Use these
+fields to locate stored documents; the View's `id` is its catalog identity,
+not necessarily its collection name.
+
+For a managed View, `location.collection` uses the configured
+`storage.warm.collection`, or the declared View resource ID when no collection
+override is set. This differs from the catalog ID, which includes a pipeline
+prefix.
+For `serve.sync`, it uses the target name after applying `rename`: an explicit
+`map` entry takes precedence; otherwise case conversion applies to the output
+table name before the literal prefix and suffix are added. A Nest or Join can
+produce a new output name rather than retaining its input table names. For example,
+`ACC_COMPOSITE` with `prefix: mysql_` resolves to `mysql_ACC_COMPOSITE` without
+changing the catalog ID. In Cloud, collection statistics use this resolved
+location as well. See [View and Serve](/docs/reference/view-and-serve).
+
+An output can be listed before its collection exists. `documents`, `sizeBytes`,
+and `location.database` can be unavailable; a missing statistic is not zero.
+The catalog describes configured output locations, not proof that a run wrote
+records there.
+
+Each `unresolved` entry contains `pipelineId`, `code`, and `params`. The server
+keeps independently resolved outputs visible when another branch cannot be
+resolved. Do not treat a partial or empty `items` list as a complete inventory
+while diagnostics remain. Check the named pipeline's source selection,
+discovered schema, and referenced definitions, then refresh the list.
+
+`GET /api/pipelines/{id}` also includes `outputTargets`, with `outputs` and
+`unresolved`. Each output reports its writing `element`, `kind`, target
+`connection`, physical `table`, and catalog `identity`. Use these coordinates
+instead of reconstructing a collection name from the pipeline ID or input table.
+
+### View observation fields
+
+Each View's `status` separates the event measurement from the availability of
+runtime observations:
+
+| Field | Meaning |
+|---|---|
+| `state` | `not-loaded`, `loading`, `fresh`, or `stale`. `fresh` means usable current observations, not verified data accuracy. |
+| `eventAgeSeconds` | Age of the last target-confirmed source event, taking the maximum across this output's input tables. Can be unavailable. |
+| `observedAt` | Time of the observation supporting the result. |
+| `refreshedAt` | Time the server assembled this response. |
+| `observationAgeSeconds` | Age of the observation, independent of event age. |
+| `unit` | `s` for age measurements. |
+| `aggregation` | `max-input-table-event-age`. |
+| `reason` | Why the state was selected, such as `observation-stale`, `pipeline-inactive`, `measurement-unavailable`, or `clock-or-time-unavailable`. |
+
+Event age grows during source idleness and is not an end-to-end latency or
+backlog measurement. A new `refreshedAt` does not make an old observation
+current. Keep missing measurements distinct from zero. The compatibility
+fields `behindSeconds` and `staleSeconds` describe event age for a `fresh`
+state and observation age for a `stale` state respectively.
 
 ## Read data through a declared source
 
@@ -430,12 +875,83 @@ effect immediately.
 
 ## Pipeline lifecycle endpoints
 
+`GET /api/pipelines/{id}/start-checks` and `DELETE /api/pipelines/{id}` serve
+Cloud and v0.8 self-hosted runtimes and are not available in v0.7 self-hosted
+builds.
+
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/api/pipelines/{id}:start` | Request a transition to `RUNNING`. |
+| `GET` | `/api/pipelines/{id}/start-checks` | Read the start report without changing desired state. Optional `intent=start` (default) or `intent=rerun` for a fresh load. |
+| `POST` | `/api/pipelines/{id}:start` | Evaluate start checks and request `RUNNING` when allowed. |
 | `POST` | `/api/pipelines/{id}:stop` | Request a transition to `STOPPED`; requires a `purgeState` request body. |
 | `POST` | `/api/pipelines/{id}:pause` | Request a transition to `PAUSED`. |
 | `POST` | `/api/pipelines/{id}:resume` | Request a transition to `RUNNING` from `PAUSED`. |
+| `DELETE` | `/api/pipelines/{id}` | Delete the applied pipeline and the draft revision the caller read; returns `204` on success. |
+
+### Delete a pipeline and its draft
+
+Use `DELETE /api/pipelines/{id}` for whole-Pipeline removal. Read both the
+applied artifact and its draft first, then supply:
+
+- `If-Match`: the quoted artifact content hash.
+- `If-Draft-Match`: the quoted positive draft revision, or the literal
+  `"none"` when the read found no draft. Do not omit this header.
+
+The server checks both expectations before removal. A running pipeline is
+refused; stop it first and confirm its state. A changed draft reports
+`pipeline-draft.revision-conflict`, and a missing or malformed draft precondition
+reports `pipeline-draft.precondition-required`.
+
+Deletion coordinates artifact cleanup and draft removal. If a concurrent draft
+write or cleanup failure leaves residue, the server reports
+`artifact.reclaim-incomplete` with the remaining resources. Re-read the artifact
+and draft before deciding what to retry; do not treat this error as either full
+success or proof that nothing changed. Use the separate draft endpoint when
+you intend only to discard unpublished edits.
+
+### Answer start checks
+
+This contract describes start checks on Cloud and v0.8 self-hosted servers. Use
+the original report and resource revision when answering a finding.
+
+A start requiring a choice or blocked by a finding returns HTTP `409` with the
+usual `code`, `params`, and `message`, plus `startChecks`. The report includes
+the applied definition's `contentHash` and findings with their offered actions.
+Use the exact finding key and action from that report. For example, this is
+an illustrative answer that preserves the target:
+
+```http
+POST /api/pipelines/orders_pipeline:start
+If-Match: "<contentHash-from-report>"
+Content-Type: application/json
+```
+
+```json
+{
+  "decisions": [
+    {"finding": "<finding-key-from-report>", "action": "keep"}
+  ]
+}
+```
+
+A request with decisions requires a valid `If-Match`: missing/malformed returns
+`428`; a changed definition returns `412`. Fetch a fresh report after a
+conflict. Each attempt is evaluated again; answers to questions no longer asked
+are reported as unused, and a block cannot be overridden by a decision.
+
+A `clear` action, when offered, changes `on_full_load` to `clear` on the writing
+element as well as authorizing removal of the target rows before full load.
+Definition changes are validated, audited, and synchronized with the Web draft.
+The read-only report itself writes neither desired state nor target data.
+
+See [Start checks](/docs/guides/build-a-pipeline#review-start-checks) for load-policy and
+shared-definition rules. `lifecycle.pipeline-not-runnable` returns `409`.
+
+Read the
+[completed-snapshot restart limitation](/docs/guides/apply-and-run#completed-snapshot-loads)
+before using Clear to replace existing data.
+
+### Stop and retain or clear state
 
 Stopping a pipeline requires a JSON body stating whether to clear internal checkpoint offsets and operator state:
 
@@ -543,6 +1059,49 @@ before rebasing with an explicit `revision` and `artifactHash` (string or
 Publishing does not start or restart the pipeline. Discarding a draft does
 not delete its published artifact.
 
+## Cloud assistant endpoints
+
+These endpoints require a valid Cloud session cookie. Provider
+settings are scoped to the current organization and Cluster. Self-hosted
+authentication does not enable these endpoints. For the bundled Web workflow,
+see [Build with AI](/docs/guides/build-a-pipeline#build-with-ai). API clients must
+handle the stream, review, and draft updates explicitly.
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/ai-provider-settings` | Read `configured`, `providerId`, `baseUrl`, and `model`; never returns the API key. |
+| `PUT` | `/api/ai-provider-settings` | Save or replace provider settings for this organization and Cluster. |
+| `DELETE` | `/api/ai-provider-settings` | Remove this scope's saved provider settings. |
+| `POST` | `/api/ai-provider-settings:check` | Check provider access; a successful result is `{"ok":true}` and does not save the settings. |
+| `POST` | `/api/pipelines/{id}/draft:assistant` | Stream a response and any validated proposal as `text/event-stream`. |
+| `POST` | `/api/pipelines/{id}/draft:assistant-validate` | Validate a candidate against a saved draft revision without saving or starting it. |
+
+Provider inputs are `providerId: "openai-compatible"`, an allowed HTTPS
+`baseUrl`, `model`, and `apiKey`. A blank key can reuse this scope's stored key
+only for the same provider and endpoint. Changing the endpoint requires a new
+key. Provider checks and generation contact the configured external service;
+confirm your organization's data and provider policies before sending prompts.
+
+Generation accepts `revision`, `messages`, and optional `focus`. It uses the
+saved draft and discovered MySQL/PostgreSQL schemas as context. With no input
+selected, it can include up to three available sources and 40 discovered
+tables. A larger source/table inventory requires a source and input selection.
+Context can be narrowed further when the schema is too large. Candidate tables
+must be present in the included schema context, and a proposal cannot replace
+an already selected destination Source.
+
+HTTP `200` only opens the event stream: inspect its status, error, finish, and
+`data-proposal` events. A response may ask for clarification without returning
+a proposal. Failed candidate validation can also return a request for more
+input with diagnostics; do not treat it as an applicable proposal. Closing the
+connection cancels generation. A partial response is not an applied change.
+
+Validation accepts `revision` and a complete `candidateWizard` object. Inspect
+`valid`, diagnostics, the normalized candidate, and its diff. A stale revision
+requires a fresh draft and review. Neither generation nor validation saves the
+proposal, publishes the pipeline, or starts it; the client must separately
+perform the appropriate draft and lifecycle operations.
+
 ## Pipeline position endpoints
 
 Inspect and manage checkpoint resume positions across mining chains:
@@ -596,10 +1155,10 @@ Position document shape:
 | Method | Path | Boundary |
 |---|---|---|
 | `GET` | `/api/pipelines/{id}/status` | Lifecycle intent, display phase, and available runtime observation |
-| `GET` | `/api/pipelines/{id}/metrics` | Open metric map and optional `perTableOffset` |
+| `GET` | `/api/pipelines/{id}/metrics` | Open metric map, optional `targetAckedPosition`, `positionsNotCollected`, and structured measurement `facts` |
 | `GET` | `/api/pipelines/{id}/metrics/history` | Bounded output-rate and selected-table lag history |
 | `GET` | `/api/pipelines/{id}/explain` | Explanation derived from current observation evidence |
-| `GET` | `/api/pipelines/{id}/snapshot` | Per-table initial-load progress when available |
+| `GET` | `/api/pipelines/{id}/snapshot` | Legacy per-table snapshot progress and optional current-run `initialLoad` |
 | `GET` | `/api/pipelines/{id}/logs` | Bounded node-local log tail |
 
 The status response separates lifecycle intent from runtime evidence:
@@ -608,18 +1167,38 @@ The status response separates lifecycle intent from runtime evidence:
 |---|---|
 | `state` | Observed lifecycle state, or `NEW` before the first runtime observation. |
 | `desiredState` | Requested lifecycle intent, when one exists. |
-| `displayState` | Catalog display phase, including `DRAFT` and `STARTING`. |
+| `displayState` | Catalog display phase, including `DRAFT`, `NOT_STARTED` (Cloud), and `STARTING`. |
 | `hasArtifact` | Whether a published pipeline artifact exists. |
 | `observedState`, `observedAt`, `observedAgeMillis` | Runtime state and its age; omitted before the first observation. |
 | `failure` | Observed failure with `code`, `params`, and `message`; omitted when absent. |
 | `plan`, `awaitingRebalance` | Execution-plan details and pending placement changes, when available. |
 
 A saved draft can have `displayState: "DRAFT"` and `hasArtifact: false`.
+In Cloud, an applied pipeline with catalog state `NEW` has
+`displayState: "NOT_STARTED"`; its runtime `state` remains `NEW` until observed.
 A start request can produce `displayState: "STARTING"` while `state` is still
 `NEW`. Metrics, snapshot, and explain require an applied pipeline and a runtime
 observation. An applied pipeline without an observation returns
 `monitor.no-observation`; a draft without a published artifact returns
 `lifecycle.unknown-pipeline`.
+
+The snapshot response retains its `snapshot` map and can additionally include
+`initialLoad`:
+
+| Field | Meaning |
+|---|---|
+| `runKey`, `observedAt` | Execution binding and time of the progress observation. |
+| `readMode` | `snapshot_and_cdc`, `snapshot_only`, or `cdc_only`. |
+| `phase` | `SNAPSHOTTING`, `MIXED`, `STREAMING`, `COMPLETED`, or `UNKNOWN`. |
+| `landedTables`, `totalTables` | Target-confirmed tables and the complete set requiring initial loading in this execution. |
+| `tables` | Per-table `stage` (`PENDING`, `READING`, `LANDING`, or `LANDED`), nullable `rowsRead`, and nullable `rowsTotalEstimate`. |
+
+Treat absent `initialLoad` and unknown counts as unavailable. Source reading
+can finish before the target confirms delivery. An estimate is not a completion
+receipt, and this display projection cannot be used as recovery state.
+Completed snapshot-only runs can retain final facts after plan cleanup; stale
+or mismatched executions must not inherit another run's progress. See
+[Read snapshot progress](/docs/self-hosted/observe-pipelines#read-snapshot-progress).
 
 WebSocket endpoints:
 
@@ -667,8 +1246,10 @@ containing your pipeline run.
 The response includes the requested and effective ranges, `retentionCutoff`,
 `effectiveResolution`, `status`, `consistency`, `segments`, `gaps`,
 `unavailable`, and nullable `nextCursor`. Rates describe target-confirmed
-records and bytes. Table lag is the age of the last acknowledgement. Do not
-turn gaps, counter resets, or unavailable values into zeroes.
+records and bytes. The table `lag` series measures the age of the newest
+source event confirmed by the target, in seconds. It grows during source
+idleness and does not measure end-to-end latency. Do not turn gaps, counter
+resets, or unavailable values into zeroes.
 
 `NO_RETAINED_SAMPLES` can be a successful empty result. Samples default to a
 60-second interval and 15-day retention. Pagination is `EVENTUAL`: it is not
@@ -734,9 +1315,8 @@ Common status mappings:
 | `404` | Artifact, source, connector, pipeline, test result, schema, or observation not found |
 | `409` | Closed bootstrap, an illegal/incompatible lifecycle state, or an artifact refusal such as `artifact.in-use` |
 | `412` | Source or artifact content hash, or draft revision, is stale |
-| `428` | An update or delete omitted a valid version precondition |
+| `428` | An update, delete, or start carrying decisions omitted a valid version precondition |
 | `500` | Coded server or connector failure without a client-attributable mapping |
-| `501` | Endpoint is present but not implemented |
 
 ### Artifact errors
 
@@ -777,7 +1357,7 @@ reporting one.
 - The preview supports both interactive connected sessions and one-shot connected
   commands seeded with `-c` and `-u`, plus explicit creation and exchange of a
   revocable user session.
-- No `v1` API prefix or compatibility guarantee exists yet.
+- No `v1` compatibility freeze exists yet; the Cluster control-plane API uses unversioned `/api/**` routes, separate from the Cloud organization console's `/v1/api/**` service.
 
 ## Related pages
 

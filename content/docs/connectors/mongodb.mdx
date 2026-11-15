@@ -1,6 +1,6 @@
 ---
-title: MongoDB
-description: Materialize MySQL snapshots and ongoing changes as application-ready operational state in a MongoDB target.
+title: MongoDB and Atlas
+description: Materialize database snapshots and ongoing changes as application-ready operational state in a MongoDB or Atlas target.
 sidebar:
   order: 6
 ai:
@@ -21,26 +21,38 @@ import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
   maturityLabel="Stable guide and configuration contract"
   worksAs="Target"
   capabilities="Operational-state materialization, Data write"
-  compatibility="MongoDB 4.0+ · Standalone, replica sets, and sharded clusters"
+  compatibility="MongoDB 4.0+ and MongoDB Atlas · Standalone, replica sets, and sharded clusters"
 />
+
+For Cloud version and deployment scope, check [Supported connectors](/docs/connectors#supported-connectors).
+Already prepared the database? [Connect it in the Web application](#connect-to-mongodb-or-atlas).
 
 ## Before you begin
 
-### Connector availability
+Cloud sync targets are limited to MongoDB and MongoDB Atlas; appearing as a
+source does not make a relational database a Cloud write target. In Cloud,
+Cluster storage setup creates the default **Atlas state store** (`atlas-store`),
+or you can add another MongoDB target in **Data Sources** after allowing the
+[Cluster's outbound address](/docs/manage/clusters#prepare-network-access).
 
-The MongoDB connector is registered automatically by the Quickstart script. On standalone or fresh server container deployments, the connector catalog starts empty. Confirm that MongoDB is registered before authoring connections:
+Before relying on Atlas Free, Flex, or Dedicated for an ongoing workload, verify
+initial counts, inserts, updates, deletes, stop/resume behavior, and tier
+resource limits against your data volume and change rate (see
+[Data security and responsibilities](/docs/manage/data-responsibilities)). A
+successful connection test alone does not establish capacity or recovery
+behavior. The registration commands below apply to servers you administer.
 
-```text
-connectors
-register mongodb
-```
+<span id="target" />
 
-See [When registration is required](/docs/guides/register-connectors#when-registration-is-required).
-
-### Target
+Prepare the destination database and its writer account.
 
 Grant write access only to the destination database. The current target path
 does not require the `clusterMonitor` role.
+
+For Atlas, create a [database user in Atlas](https://www.mongodb.com/docs/atlas/security-add-mongodb-users/)
+with `readWrite` on the destination database. Atlas users and database users
+are different accounts. For a self-managed MongoDB server, use the following
+command instead:
 
 ```js
 use admin
@@ -53,7 +65,95 @@ db.createUser({
 })
 ```
 
-## Create a connection
+## Connect to MongoDB or Atlas
+
+For the first Cloud pipeline, reuse **Atlas state store** (`atlas-store`) from
+[storage setup](/docs/quickstart#2-connect-storage). Adding a destination
+connection does not replace the Cluster's recovery storage.
+
+1. Open **Data Sources** > **Create source**.
+2. Select **MongoDB Atlas** for Atlas, or **MongoDB** for another deployment.
+3. Enter a **Source ID** such as `application_views`. In **URI Mode**, enter
+   the destination URI, including the database name and database-user credentials.
+
+   The shared dialog uses **Source ID** and **Create source** even for a connection
+   you will select as a destination. MongoDB also offers **Standard Mode** for
+   separate connection fields.
+
+   <span id="reference" />
+   <span id="connection-settings" />
+
+   [![MongoDB Atlas form with a fictional destination URI](/images/cloud/atlas-form.png)](/images/cloud/atlas-form.png)
+
+   [![MongoDB form with a fictional URI](/images/cloud/mongodb-form.png)](/images/cloud/mongodb-form.png)
+
+   The screenshots use fictional connection details. Replace them with your own.
+   The settings below include fields outside the captured area and options
+   shown only for particular connection modes.
+   Configuration keys are included for the alternative CLI/YAML workflow.
+
+   - **Connection settings**
+
+     - **Source ID (`id`)**: A stable ID for the connection, such as `application_views`. It cannot be renamed after creation. Required.
+     - **Read mode**: Does not select the destination write strategy. Choose writes in the pipeline. This guide covers destination use.
+     - **Connection method (`isUri`)**: Select **URI Mode** (`true`) for a connection string or **Standard Mode** (`false`) for separate fields. Atlas uses URI Mode. Default: URI Mode. Required.
+     - **Database URI (`uri`)**: Connection string containing the endpoint, database, credentials, and required options. Replace password placeholders and percent-encode reserved characters. Required in URI Mode.
+     - **DB Address (`host`)**: MongoDB host list or address. Required in Standard Mode.
+     - **DB Name (`database`)**: Database name. Required in Standard Mode.
+     - **User (`user`)**: MongoDB user.
+     - **Password (`password`)**: MongoDB password.
+     - **Other connection string parameters (`additionalString`)**: Additional connection parameters. Shown in Standard Mode.
+
+   - **Advanced settings**
+
+     - **Fields Load Limit For Each Collection (`schemaLimit`)**: Maximum schema-field count used during discovery. Default: `1024`. Optional.
+     - **Connect using TLS/SSL (`ssl`)**: Enable the documented SSL connection setting. Default: `false`. Optional.
+     - **Client private key (`sslKey`)**: Client key material. Required when Connect using TLS/SSL is `true`.
+     - **Private key password (`sslPass`)**: Password for the client key. Shown when Connect using TLS/SSL is `true`.
+     - **Validate server certificate (`sslValidate`)**: Validate the server certificate. Shown when Connect using TLS/SSL is `true`.
+     - **Certificate Authority (`sslCA`)**: CA certificate material. Required when Validate server certificate is `true`.
+     - **Number of sampling records (rows) for Mongodb loading model (`mongodbLoadSchemaSampleSize`)**: Documents sampled for schema discovery. MongoDB only; not an Atlas form field. Default: `1000`. Optional.
+
+   - **Connection security**: Use the TLS and SSH settings offered by the connector.
+     See the [shared transport fields](/docs/guides/manage-data-sources#tls-and-ssh-connections)
+     for certificate files and SSH account settings. Keep certificate verification enabled.
+
+   <span id="test-and-save" />
+
+4. Select **Test connection**, review the results, and resolve failed checks.
+5. Select **Create source**, then open the saved connection and check its
+   discovered collections.
+6. [Build a pipeline](/docs/guides/build-a-pipeline) to select the data and
+   destination. Creating a connection does not start data movement.
+
+A passed test confirms only the reported connection checks. Verify the initial
+output and subsequent changes for the pipeline you build.
+
+## CLI and YAML
+
+This alternative is for **self-hosted servers**. File generation and validation
+can run offline; login, apply, and connection tests require your own server.
+Cloud users should use the Web steps above. See [CLI scope](/docs/self-hosted#cli-and-automation).
+
+Use the same [connection settings](#connection-settings) as the Web form.
+In YAML, put connector-specific keys under `config`; `id` and `mode` are resource fields.
+
+### Register on a self-hosted server
+
+<span id="connector-availability" />
+
+The MongoDB connector is registered automatically by the local quickstart script. On standalone or fresh server container deployments, the connector catalog starts empty. Confirm that MongoDB is registered before authoring connections:
+
+```text
+connectors
+register mongodb
+```
+
+See [When registration is required](/docs/guides/register-connectors#when-registration-is-required).
+
+### Create a connection
+
+The following files configure a MongoDB destination in a local workspace.
 
 ```yaml title="tapstate-work/source/operational_state.tap.yml"
 version: tapstate/v1
@@ -86,7 +186,7 @@ serve:
 policy at `fail` unless the destination workflow has been staging-tested for
 the schema events it receives.
 
-## Validate the configuration
+### Validate the configuration
 
 ```bash
 tapstate validate --workdir tapstate-work
@@ -127,39 +227,25 @@ for the full sequence.
 - Verify target write concern, index creation, schema evolution, and document
   size limits in the MongoDB version and topology you operate.
 
-## Reference
+<span id="source-read-settings" />
 
-### Connection settings
+### Unwind target checks
 
-| Field | Required | Default | Description |
-|---|---|---|---|
-| `isUri` | Yes | `true` | Use a MongoDB URI when `true`; use individual fields when `false`. |
-| `uri` | With `isUri: true` | — | Full MongoDB connection URI including credentials and options. |
-| `host` | With `isUri: false` | — | MongoDB host list or address. |
-| `database` | With individual fields | — | Database name. |
-| `user` | No | — | MongoDB user. |
-| `password` | No | — | MongoDB password. |
-| `additionalString` | No | — | Additional connection parameters. |
-| `schemaLimit` | No | `1024` | Maximum schema-field count used during discovery. |
-| `ssl` | No | `false` | Enable the documented SSL connection setting. |
-| `sslKey` | With `ssl` | — | Client key material. |
-| `sslPass` | No | — | Password for the client key. |
-| `sslValidate` | No | — | Validate the server certificate. |
-| `sslCA` | With certificate validation | — | CA certificate material. |
-| `mongodbLoadSchemaSampleSize` | No | `1000` | Documents sampled for schema discovery. |
+An [Unwind](/docs/reference/transforms#target-identity-and-existing-data)
+pipeline can need a compound matching key to distinguish expanded rows. Its
+checks query index declarations through the connector and evaluate the fields
+of declared unique or primary indexes. They do not require `$indexStats.spec`.
+Keep index-query and matching-read permissions scoped to the destination.
 
-### Source read settings
+These checks do not evaluate MongoDB-specific partial filters, sparse behavior,
+or collation. Review those options yourself before relying on an index for
+matching. A failed or malformed index query still blocks startup; it does not
+establish that the target has no conflicting indexes.
 
-When reading change-data-capture events from MongoDB as a pipeline source:
+Resolve a failed identity check before starting. Existing documents and indexes
+are not automatically migrated when the preserved source identity field changes.
 
-| Field | Required | Default | Description |
-|---|---|---|---|
-| `decodeThreads` | No | `8` | Number of worker threads allocated for parallel CDC event decoding. |
-| `decodeQueueSize` | No | `32` | Maximum event queue capacity per decode worker thread. |
-
-Tune `decodeThreads` upward on multi-core runtime hosts when reading from high-throughput MongoDB replica sets with heavy change volume. Increasing `decodeQueueSize` helps absorb bursty change events but increases heap usage.
-
-### Data compatibility
+## Data compatibility
 
 | Family | Supported baseline | Portable representation |
 |---|---|---|

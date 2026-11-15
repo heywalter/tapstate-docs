@@ -1,0 +1,304 @@
+---
+title: Db2 for i
+description: Prepare IBM i tables and journals, connect a Db2 for i source, and validate snapshot and CDC results with tapstate.
+ai:
+  kind: connector
+  id: db2i
+  category: databases
+  maturity: preview
+  useAs: [source]
+  modes: [snapshot, cdc]
+  aliases: [IBM i, AS400, AS/400, iSeries, Db2 for i CDC, db2i]
+---
+
+import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
+import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
+
+<ConnectorProfile
+  category="Databases"
+  maturity="Preview"
+  maturityLabel="Separately registered source-only preview"
+  worksAs="Source"
+  capabilities="Snapshot, CDC, Schema discovery"
+  compatibility="IBM i 7.4+ · Source-only Preview (JTOpen); requires connector registration"
+/>
+
+## Before you begin
+
+Db2 for i (`db2i`) is a **separately registered source-only Preview** connector;
+it is not pre-bundled in the standard Cloud connector distribution or local
+playground. See [Supported connectors](/docs/connectors#supported-connectors). On
+tapstate Cloud, confirm Cluster availability with support and allow the
+Cluster's outbound address to reach the required IBM i host services before
+preparing tables. On self-hosted servers using the
+[v0.8 CLI and server](/docs/releases/v0.8#before-upgrading), register `db2i`
+from the floating `connectors-preview` release before creating a connection; see
+[Register and test connectors](/docs/guides/register-connectors).
+
+This guide covers the database built into IBM i, formerly AS/400. For Db2 LUW,
+use [Db2](/docs/connectors/db2). `db2i` cannot be used as a sync target in
+Cloud or self-hosted deployments.
+
+The JAR bundles JTOpen 21.0.5 under the IBM Public License 1.0. Connector use
+remains subject to the applicable commercial connector agreement. Use an
+independent test library to check your IBM i version, values, and recovery
+behavior before connecting application data.
+
+### Source
+
+Choose the outcome you need. Each tab contains the network, account, and
+permissions required for that mode. Configure TLS separately below when needed.
+
+<SourceModeTabs>
+<SourceModeTab value="snapshot" label="Full load (Snapshot)" description="Copy existing rows once">
+
+**1. Prepare network access and a reader**
+
+Have an IBM i administrator create a dedicated user profile, such as `TAPSTATE`.
+Allow the tapstate server to reach the Database, Signon, and Remote Command host
+services required by the JDBC and journal connections. The default database
+service port is `8471`; a TLS database service commonly uses `9471`. Use your
+system's configured service ports and network rules.
+
+Grant read access to the selected library and files. These CL examples use the
+system library name `APPDATA`; replace it and the user with your own values:
+
+```text
+GRTOBJAUT OBJ(APPDATA) OBJTYPE(*LIB) USER(TAPSTATE) AUT(*USE)
+GRTOBJAUT OBJ(APPDATA/*ALL) OBJTYPE(*FILE) USER(TAPSTATE) AUT(*USE)
+```
+
+Grant the catalog access used for discovery and permission checks from an
+SQL session with the necessary administrative authority:
+
+```sql
+GRANT SELECT ON QSYS2.SYSSCHEMAS TO TAPSTATE;
+GRANT SELECT ON QSYS2.SYSTABLES TO TAPSTATE;
+GRANT SELECT ON QSYS2.SYSCOLUMNS TO TAPSTATE;
+GRANT SELECT ON QSYS2.SYSKEYCST TO TAPSTATE;
+GRANT SELECT ON QSYS2.SYSINDEXES TO TAPSTATE;
+GRANT SELECT ON QSYS2.OBJECT_PRIVILEGES TO TAPSTATE;
+```
+
+Verify the reader can query a selected table, for example:
+
+```sql
+SELECT COUNT(*) FROM APPDATA.ORDERS;
+```
+
+Set `mode: snapshot` in the connection. This copies existing rows without
+following later journal entries; it does not require the CDC journal grants.
+
+</SourceModeTab>
+<SourceModeTab value="snapshot-cdc" label="Full load + CDC" description="Copy existing rows, then capture changes">
+
+**1. Prepare network access and a reader**
+
+Have an IBM i administrator create a dedicated user profile, such as `TAPSTATE`.
+Allow the tapstate server to reach the Database, Signon, and Remote Command host
+services required by the JDBC and journal connections. The default database
+service port is `8471`; a TLS database service commonly uses `9471`. Use your
+system's configured service ports and network rules.
+
+Grant read access to the selected library and files. These CL examples use the
+system library name `APPDATA`; replace it and the user with your own values:
+
+```text
+GRTOBJAUT OBJ(APPDATA) OBJTYPE(*LIB) USER(TAPSTATE) AUT(*USE)
+GRTOBJAUT OBJ(APPDATA/*ALL) OBJTYPE(*FILE) USER(TAPSTATE) AUT(*USE)
+```
+
+Grant the catalog access used for discovery and permission checks from an
+SQL session with the necessary administrative authority:
+
+```sql
+GRANT SELECT ON QSYS2.SYSSCHEMAS TO TAPSTATE;
+GRANT SELECT ON QSYS2.SYSTABLES TO TAPSTATE;
+GRANT SELECT ON QSYS2.SYSCOLUMNS TO TAPSTATE;
+GRANT SELECT ON QSYS2.SYSKEYCST TO TAPSTATE;
+GRANT SELECT ON QSYS2.SYSINDEXES TO TAPSTATE;
+GRANT SELECT ON QSYS2.OBJECT_PRIVILEGES TO TAPSTATE;
+```
+
+Verify the reader can query a selected table, for example:
+
+```sql
+SELECT COUNT(*) FROM APPDATA.ORDERS;
+```
+
+**2. Prepare journals for CDC**
+
+Identify the journal and its library. SQL-created schemas commonly have
+`QSQJRN`; a library created with `CRTLIB` needs an administrator to prepare a
+journal and attach the physical files. Set `journalLibraryName` and
+`journalName` explicitly when using another journal or library.
+
+Check every selected physical file's journal and image settings with your IBM i
+administrator. For a new, unjournaled test file, a CL command such as this starts
+journaling with before and after images:
+
+```text
+STRJRNPF FILE(APPDATA/ORDERS) JRN(APPDATA/QSQJRN) IMAGES(*BOTH)
+```
+
+The journal must already exist. Do not stop or replace an application's existing
+journaling just to run this example. For background, see IBM's
+[journal image settings](https://www.ibm.com/docs/en/i/7.4.0?topic=journals-).
+
+Grant access to the actual journal and attached receivers. The following
+examples assume they are in `APPDATA`; scope receiver grants to the objects
+used by the journal:
+
+```text
+GRTOBJAUT OBJ(APPDATA/QSQJRN) OBJTYPE(*JRN) USER(TAPSTATE) AUT(*USE)
+GRTOBJAUT OBJ(APPDATA/*ALL) OBJTYPE(*JRNRCV) USER(TAPSTATE) AUT(*USE)
+GRTOBJAUT OBJ(QSYS/DSPJRN) OBJTYPE(*CMD) USER(TAPSTATE) AUT(*USE)
+```
+
+```sql
+GRANT SELECT ON QSYS2.JOURNAL_INFO TO TAPSTATE;
+GRANT SELECT ON QSYS2.JOURNAL_RECEIVER_INFO TO TAPSTATE;
+GRANT EXECUTE ON FUNCTION QSYS2.DISPLAY_JOURNAL TO TAPSTATE;
+```
+
+Have the administrator also review object-selection authority for journal
+reads. IBM requires journal `*OBJEXIST` authority when `DISPLAY_JOURNAL` omits
+`object-name` or names an object that no longer exists; see
+[DISPLAY_JOURNAL authorization](https://www.ibm.com/docs/en/i/7.4.0?topic=services-display-journal-table-function).
+Scope any additional grant to the journal being evaluated and retest recovery
+as well as initial reads.
+
+Retain receivers beyond the longest expected outage and recovery interval.
+Coordinate receiver rotation and deletion with the pipeline's recorded journal
+position. An attached journal alone does not prove that all files are journaled
+or that older entries needed for recovery are still available. Review IBM's
+[journal receiver management](https://www.ibm.com/docs/en/i/7.4.0?topic=ssw_ibm_i_74%2Fcl%2Fchgjrn.html).
+
+Set `mode: cdc` in the connection after verifying every selected file and its
+receiver history.
+
+</SourceModeTab>
+</SourceModeTabs>
+
+### TLS connections
+
+Have the IBM i administrator enable TLS for the host services you use and
+provide the server's CA certificate. The tapstate operator must configure trust
+on the server that runs the connector, including the Java truststore used by
+JTOpen. Import only the CA you intend to trust, for example:
+
+```bash
+keytool -importcert -alias db2i-ca -file db2i-ca.cer \
+  -keystore db2i-trust.p12 -storetype PKCS12
+```
+
+The command prompts for the truststore password. Configure that truststore and
+its password securely in the connector runtime. Set `secure=true` through
+`extParams` for an encrypted JDBC connection and select the TLS database port.
+JTOpen's `tls truststore` and `tls truststore password` properties can select a
+custom store; do not put its password in a committed resource, screenshot, or
+support bundle. Verify the journal connection's host-service TLS configuration
+as well as the JDBC connection before relying on it.
+
+## Create a connection
+
+In the web application (once `db2i` is registered on the server), choose
+**Db2 for i** and enter the prepared host, library, account, and journal
+settings. For file-based authoring, use this Source resource:
+
+```yaml title="tapstate-work/source/ibmi_orders.tap.yml"
+version: tapstate/v1
+kind: source
+id: ibmi_orders
+connector: db2i
+mode: cdc
+config:
+  host: ibmi.internal
+  port: 8471
+  database: APPDATA
+  user: ${DB2I_USER}
+  password: ${DB2I_PASSWORD}
+  journalLibraryName: APPDATA
+  journalName: QSQJRN
+tables:
+  - ORDERS
+```
+
+`database` selects the data library. Use the names returned by discovery and
+check the relationship between SQL names and IBM i system names on your system.
+For a bounded copy, set `mode: snapshot`. The pipeline's
+[`settings.read_mode`](/docs/reference/pipeline#settings) determines whether a
+CDC-capable source runs an initial load, follows changes, or does both.
+
+## Validate the configuration
+
+Save the resource under a workspace's `source/` directory, then validate it:
+
+```bash
+tapstate validate --workdir tapstate-work
+```
+
+<ValidationStatusGuide />
+
+Local validation checks resource shape. It does not contact
+IBM i or verify journal permissions and receiver history. In an authenticated
+CLI session for that workspace, register, apply, test, and discover:
+
+```text
+register db2i
+apply
+test ibmi_orders -o json
+discover-schema ibmi_orders -o json
+schema ibmi_orders -o json
+```
+
+Resolve failed test items before starting. Confirm discovery contains the
+selected tables, columns, and keys. A passed connection test alone does not
+verify snapshot correctness, journal delivery, or restart continuation.
+
+Build a small pipeline into an independent target. Compare initial counts and
+keyed values, then test an insert, changed-value update, and delete. Stop the
+pipeline with state retained, wait for `STOPPED`, make a controlled source
+change, then start the pipeline and check that the change reaches the target.
+See [Build a pipeline](/docs/guides/build-a-pipeline) and
+[Observe a pipeline](/docs/guides/observe-a-pipeline).
+
+## Limitations
+
+- Source only: a `serve.sync` target using `db2i` is refused in both deployment
+  modes. Registering the connector does not enable target writes.
+- CDC carries INSERT, UPDATE, and DELETE, not DDL changes. Rediscover and
+  validate schema changes before continuing a workload.
+- Snapshot reads large-object values in full; journal CDC does not carry their
+  values. Validate workloads that include LOB columns before using CDC.
+- Journal reads add database CPU, I/O, and network load. Monitor receiver
+  retention and free space, and validate recovery before removing receivers.
+- A successful snapshot does not prove that the selected files are correctly
+  journaled for continued capture.
+
+## Reference
+
+### Connection settings
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `host` | Yes | — | IBM i host reachable from the tapstate server. |
+| `port` | No | `8471` | Database service port; use your configured TLS port for TLS. |
+| `database` | Yes | — | Data library used for discovery and reads. |
+| `user` | For authenticated access | — | IBM i user profile. |
+| `password` | For password authentication | — | Account password; a secret field. |
+| `journalName` | For CDC | `QSQJRN` when omitted | Journal object name. |
+| `journalLibraryName` | For CDC | Data library when omitted | Library containing the journal. |
+| `extParams` | No | — | Additional JTOpen JDBC properties, such as `secure=true`. |
+| `ignoreTransaction` | No | `false` | Transaction-handling option; retain the default unless you have validated the alternative with your workload. |
+| `pollingInterval` | No | `0` | Additional delay between journal polls, in seconds. |
+| `journalBufferSize` | No | `128` KiB | Journal fetch buffer size in KiB. Omitted values and values at or below `32` use `128` KiB; normally leave this unset. |
+| `enableDebug` | No | `false` | Additional connector diagnostics; review output before sharing it. |
+| `timezone` | No | Empty | Connector time-zone selection; the catalog offers whole-hour offsets from `-11:00` to `+14:00`. |
+
+### Data compatibility
+
+Evaluate representative CHAR/VARCHAR, SMALLINT/INTEGER/BIGINT, REAL/DOUBLE,
+DECIMAL/NUMERIC/DECFLOAT, DATE/TIME/TIMESTAMP, and any binary or large-object
+columns in your schema. Check decimal precision and temporal values in both
+snapshot and CDC output.

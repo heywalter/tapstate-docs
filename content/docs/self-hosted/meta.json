@@ -1,0 +1,29 @@
+{
+  "title": "Self-hosting",
+  "defaultOpen": false,
+  "pages": [
+    "index",
+    "../overview/quickstart",
+    "../overview/order-state-demo",
+    "---Server administration---",
+    "../guides/bootstrap-and-auth",
+    "../guides/cluster",
+    "../guides/register-connectors",
+    "../guides/move-nest-state",
+    "observe-pipelines",
+    "troubleshooting",
+    "---Compatibility upgrades---",
+    "../guides/upgrade-to-v0-8",
+    "../guides/upgrade-to-v0-7",
+    "../guides/upgrade-to-v0-6",
+    "---CLI and automation---",
+    "../overview/install",
+    "../overview/create-workspace",
+    "../guides/apply-and-run",
+    "../guides/assemble-documents-with-nest",
+    "../guides/nest-structural-key-changes",
+    "../reference/cli",
+    "../reference/mcp",
+    "../for-ai/authoring"
+  ]
+}

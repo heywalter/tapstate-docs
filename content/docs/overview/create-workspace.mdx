@@ -11,8 +11,11 @@ import { CardGrid, LinkCard } from '@/components/mdx';
 
 Use the installed CLI to generate and adapt a workspace without connecting to a
 server. This guide starts from the same cross-source model as the runnable
-[Quickstart](/docs/overview/quickstart), then shows where to replace the
+[local quickstart](/docs/overview/quickstart), then shows where to replace the
 sample connections, table selection, and document shape.
+
+This workflow prepares files for a self-hosted server. It does not connect to
+or deploy resources into Cloud; use the [Web builder](/docs/guides/build-a-pipeline) there.
 
 Offline validation checks the resource contract. It does not test a database
 connection, create the managed view store, or run the pipeline.
@@ -156,11 +159,11 @@ When you are ready to run the workspace, register the official connectors,
 apply and discover both sources, apply the complete workspace, and then start
 the pipeline. See [Register and test connectors](/docs/guides/register-connectors)
 and [Apply and run a pipeline](/docs/guides/apply-and-run). For runtime signals,
-use [Observe a pipeline](/docs/guides/observe-a-pipeline).
+use [Observe self-hosted pipelines](/docs/self-hosted/observe-pipelines).
 
 ## Next steps
 
 - [Apply and run the pipeline](/docs/guides/apply-and-run) against a non-production server.
-- [Observe the pipeline](/docs/guides/observe-a-pipeline) after it starts.
+- [Observe self-hosted pipelines](/docs/self-hosted/observe-pipelines) after it starts.
 - Use the [resource definitions](/docs/reference/dsl-grammar) when you need an exact field shape.
-- Use [Troubleshooting](/docs/guides/troubleshooting) to isolate authoring, deployment, and data problems.
+- Use [Troubleshoot self-hosted deployments](/docs/self-hosted/troubleshooting) to isolate authoring, deployment, and data problems.

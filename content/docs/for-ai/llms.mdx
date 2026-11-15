@@ -41,18 +41,19 @@ The public site does not currently expose standalone JSON Schema or example-corp
 - Reader HTML is canonical and includes canonical URLs, breadcrumb data, and article structured data.
 - Connector frontmatter is a compact discovery index; the page body remains the authoritative explanation.
 - Interactive tabs expand into labeled sections in Page Markdown and `llms-full.txt`.
-- Connector maturity distinguishes generally available connectors from
-  connectors that are ready for evaluation.
+- Guide maturity (`ga` or `preview`) reflects the stability of a connector's
+  documentation and configuration contract, not runtime general availability or
+  a deployment SLA.
 - A connector catalog describes IDs, fields, roles, and modes, but not whether a
   deployment has the artifact or can run it. Confirm registration and behavior
   in the target tapstate environment.
 - Schema acceptance proves declaration shape, not runtime execution. The current
-  preview runtime executes `nest` and wires single-driving-source equality `join`
-  transforms within their documented boundaries.
+  preview runtime executes `filter`, `map`, `js`, `union`, `unwind`, and `nest`,
+  and wires single-driving-source equality `join` within its documented boundaries.
 - Connector documentation status is derived from the current product directory:
   `current` or `roadmap reference`. Other integrations are outside the published
   documentation contract and machine-readable context. The status is separate
-  from connector maturity and does not add an artifact or runtime support claim.
+  from guide maturity and does not add an artifact or runtime support claim.
 
 ## What assistants can do with these docs
 
@@ -64,4 +65,7 @@ With canonical page Markdown, an assistant can:
 - compare a resource with the reference and repair validation errors;
 - preserve page links and limitations in its answer.
 
-Continue with [Authoring with AI](/docs/for-ai/authoring) for a reviewable workflow.
+For the assistant built into Cloud's Pipeline builder, see
+[Build with AI](/docs/guides/build-a-pipeline#build-with-ai). For local
+`.tap.yml` authoring with an external assistant and the CLI, continue with
+[Use tapstate docs with AI](/docs/for-ai/authoring).

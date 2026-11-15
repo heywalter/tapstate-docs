@@ -12,6 +12,7 @@ export type ConnectorDocumentationStatus = 'current' | 'roadmap' | 'unlisted';
 
 export type ConnectorProductProfile = {
   status: ConnectorDocumentationStatus;
+  availability?: 'bundled' | 'separately-registered';
   displayTitle?: string;
   useAs: Array<'source' | 'target'>;
   modes: string[];
@@ -52,6 +53,7 @@ export const connectorDirectory: ConnectorDirectoryItem[] = [
   { slug: 'oracle', id: 'oracle', title: 'Oracle', category: 'databases', maturity: 'ga', capabilityAuthority: 'server', useAs: ['source'], modes: ['snapshot', 'cdc'] },
   { slug: 'sqlserver', id: 'sqlserver', title: 'SQL Server', category: 'databases', maturity: 'ga', capabilityAuthority: 'server', useAs: ['source'], modes: ['snapshot', 'cdc'] },
   { slug: 'db2', id: 'db2', title: 'Db2', category: 'databases', maturity: 'preview', useAs: ['source'], modes: ['snapshot', 'cdc'] },
+  { slug: 'db2i', id: 'db2i', title: 'Db2 for i', category: 'databases', maturity: 'preview', useAs: ['source'], modes: ['snapshot', 'cdc'] },
   { slug: 'mongodb', id: 'mongodb', title: 'MongoDB', category: 'databases', maturity: 'ga', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'mongodb-atlas', id: 'mongodb-atlas', title: 'MongoDB Atlas', category: 'databases', maturity: 'ga', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'tidb', id: 'tidb', title: 'TiDB', category: 'databases', maturity: 'ga', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
@@ -116,9 +118,47 @@ export const connectorProductProfiles: Record<string, ConnectorProductProfile> =
   oracle: { status: 'current', useAs: ['source'], modes: ['snapshot', 'cdc'] },
   sqlserver: { status: 'current', useAs: ['source'], modes: ['snapshot', 'cdc'] },
   db2: { status: 'current', useAs: ['source'], modes: ['snapshot', 'cdc'] },
-  mongodb: { status: 'current', useAs: ['target'], modes: [] },
+  mongodb: { status: 'current', displayTitle: 'MongoDB and Atlas', useAs: ['target'], modes: [] },
+  db2i: { status: 'current', availability: 'separately-registered', useAs: ['source'], modes: ['snapshot', 'cdc'] },
   // Scope retained preparation material without publishing a connector contract.
   kafka: { status: 'unlisted', useAs: ['target'], modes: [] },
+};
+
+export const cloudConnectorScope: Record<string, {
+  connectorIds: string[];
+  compatibility: string;
+  maturityNote?: string;
+}> = {
+  mysql: {
+    connectorIds: ['mysql', 'aws-rds-mysql'],
+    compatibility: 'MySQL 5.0–9.x · Single node and primary-replica',
+    maturityNote: 'aws-rds-mysql: Preview',
+  },
+  postgresql: {
+    connectorIds: ['postgres'],
+    compatibility: 'PostgreSQL 9.4–16 (Snapshot) · PostgreSQL 10–16 (CDC with pgoutput)',
+  },
+  oracle: {
+    connectorIds: ['oracle'],
+    compatibility: 'Oracle 9i, 10g, 11g, 12c, 18c, 19c, 23c (Free) · Single instance and RAC',
+  },
+  sqlserver: {
+    connectorIds: ['sqlserver'],
+    compatibility: 'SQL Server 2008–2022',
+  },
+  db2: {
+    connectorIds: ['db2'],
+    compatibility: 'Db2 LUW · Native CDC requires a Linux x86_64 tapstate runtime',
+  },
+  db2i: {
+    connectorIds: ['db2i'],
+    compatibility: 'IBM Db2 for i 7.4+ · Source-only Preview (JTOpen); requires connector registration',
+    maturityNote: 'Separately registered',
+  },
+  mongodb: {
+    connectorIds: ['mongodb', 'mongodb-atlas'],
+    compatibility: 'MongoDB 4.0+ and MongoDB Atlas · Standalone, replica sets, and sharded clusters',
+  },
 };
 
 export function getConnectorDocumentationStatus(slug: string): ConnectorDocumentationStatus {
@@ -130,6 +170,14 @@ export function getConnectorsByDocumentationStatus(
 ) {
   return connectorDirectory.filter(
     (connector) => connectorProductProfiles[connector.slug]?.status === status,
+  );
+}
+
+export function getConnectorsByAvailability(
+  availability: 'bundled' | 'separately-registered',
+) {
+  return getConnectorsByDocumentationStatus('current').filter(
+    (connector) => (connectorProductProfiles[connector.slug]?.availability ?? 'bundled') === availability,
   );
 }
 
@@ -160,21 +208,24 @@ export function connectorMaturityLabel(maturity: ConnectorMaturity) {
 }
 
 export function renderConnectorDirectoryForLLM() {
-  const renderRows = () => getConnectorsByDocumentationStatus('current')
+  const rows = getConnectorsByDocumentationStatus('current')
     .map((connector) => {
       const profile = connectorProductProfiles[connector.slug];
+      const scope = cloudConnectorScope[connector.slug];
       const roles = profile.useAs.map((role) => role[0].toUpperCase() + role.slice(1)).join(' + ') || '—';
-      const modes = profile.modes.join(', ') || '—';
+      const modes = profile.modes.length > 0 ? profile.modes.join(' · ') : '—';
+      const roleAndModes = profile.modes.length > 0 ? `${roles} · ${modes}` : roles;
       const title = profile.displayTitle ?? connector.title;
-      return `| [${title}](/docs/connectors/${connector.slug}) | ${connectorMaturityLabel(connector.maturity)} | ${roles} | ${modes} |`;
+      const connectorIds = scope ? scope.connectorIds.map((id) => `\`${id}\``).join(', ') : `\`${connector.id}\``;
+      const maturity = scope?.maturityNote
+        ? `${connectorMaturityLabel(connector.maturity)} (${scope.maturityNote})`
+        : connectorMaturityLabel(connector.maturity);
+      const compatibility = scope?.compatibility ?? '—';
+      return `| [${title}](/docs/connectors/${connector.slug}) | ${connectorIds} | ${maturity} | ${roleAndModes} | ${compatibility} |`;
     })
     .join('\n');
 
-  return `## Current connector path
-
-The current product directory publishes MySQL, PostgreSQL, Oracle, SQL Server, and the Db2 preview as Snapshot and CDC sources, with MongoDB as the operational-state target. The Quickstart demonstrates one cross-source path: MySQL orders and PostgreSQL shipments assembled into a MongoDB document.
-
-| Connector | Guide maturity | Published role | Read modes |
-|---|---|---|---|
-${renderRows()}`;
+  return `| Connector | Connector ID | Maturity | Role & modes | Compatibility |
+|---|---|---|---|---|
+${rows}`;
 }

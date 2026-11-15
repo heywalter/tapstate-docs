@@ -26,16 +26,14 @@ are unresolved. It never opens a network connection.
 
 ## When registration is required
 
-The standard self-hosted server image starts without connector JARs. The Cloud
-image stages a fixed connector set. Check the server's catalog before deciding
-whether registration is needed.
-
 Whether you need to register a connector depends on how the server is deployed:
 
-- **Quickstart:** no manual registration is required for MySQL, PostgreSQL, or MongoDB. The Quickstart downloads and registers those three artifacts automatically before applying the sample workspace. Oracle, SQL Server, and Db2 are not part of the demo.
-- **New server deployments:** register each connector artifact before applying connections that reference it. Run `connectors -o json` to inspect the catalog; if a connector is absent, register it by published ID (`register <id>`) or upload a local JAR.
+- **Cloud Clusters:** stage a fixed connector set automatically. Separately registered Preview connectors such as `db2i` are outside the standard Cloud set.
+- **Self-hosted container, binary, and JAR deployments:** the original `ghcr.io/tapstate/tapstate:0.8.0` release image and standalone distributions require you to supply connector JARs. [Prepare the MongoDB connector](#prepare-the-initial-storage-connector) before saving storage settings. Once you can sign in, inspect the catalog (`connectors -o json`) and register any additional source connectors via the CLI or API.
+- **Local quickstart:** no manual registration is required for MySQL, PostgreSQL, or MongoDB. The local quickstart uses those bundled/registered connectors before applying the sample workspace. Oracle, SQL Server, Db2 LUW, and Db2 for i are not part of the demo.
+- **New server deployments:** register each missing connector artifact before applying connections that reference it. Run `connectors -o json` to inspect the catalog; if a connector is absent, register it by published ID (`register <id>`) or upload a local JAR.
 - **Upgrades from prior versions:**
-  - Existing registered connectors persist in the backend store across server container upgrades. You do not need to re-register existing connectors after updating the server image.
+  - Existing registered connectors persist in the backend store across in-place server image updates on the same storage layout. Deploying a separate three-layer `v0.8` installation ([Upgrade to v0.8](/docs/guides/upgrade-to-v0-8)) uses fresh databases and requires seeding or registering needed connectors again.
   - A server upgrade does not install a newly needed connector. Register it before use.
   - Re-registering identical bytes is a safe no-op with `newlyRegistered: false`. For a different JAR, retain the old artifact, test the replacement, and plan affected pipeline restarts.
 - **Pre-seeded offline deployments:** a server started with connector artifacts in its seed directory (`TAPSTATE_CONNECTORS_SEED_DIR`, default `/var/lib/tapstate/connectors`) scans and registers those artifacts automatically at startup.
@@ -44,6 +42,30 @@ After you connect and sign in, run `connectors -o json` to inspect the server's
 catalog. If the connector artifact you need is already available, skip
 the registration step and continue with [Apply the connections](#apply-the-connections).
 
+## Prepare the initial storage connector
+
+A fresh self-hosted v0.8.0 installation needs the MongoDB connector before you
+save its storage settings. Waiting until after sign-in to register this
+connector can prevent setup from completing.
+
+1. Obtain the MongoDB connector artifact from the
+   [connector preview release](https://github.com/tapstate/tapstate/releases/tag/connectors-preview).
+   Match its file size and SHA-256 to the `mongodb` entry in the
+   [v0.8.0 connector lock](https://github.com/tapstate/tapstate/blob/v0.8.0/deploy/cloud/connectors.lock.json).
+   Verify the downloaded file before using it; do not substitute an unverified
+   newer artifact if the locked asset is unavailable.
+2. Place the verified JAR in the server's connector seed directory, selected by
+   `TAPSTATE_CONNECTORS_SEED_DIR` (default `/var/lib/tapstate/connectors`). Give
+   the server's OS account read access. For Docker, mount the directory at that
+   path inside the container; a file on the host alone is not visible to it.
+3. Start the server with that seed directory available, then complete
+   [storage initialization](/docs/guides/bootstrap-and-auth#initialize-storage)
+   and create the first administrator.
+4. Sign in and run `connectors -o json` to confirm registration. Register other
+   source connectors as needed before creating their connections.
+
+The local quickstart prepares its initialization connector automatically.
+
 ## Before you begin
 
 - [Bootstrap and authenticate](/docs/guides/bootstrap-and-auth).
@@ -51,39 +73,41 @@ the registration step and continue with [Apply the connections](#apply-the-conne
 
 ## Official preview connector artifacts
 
-The default accepted set contains 17 connector IDs. Registration acceptance
-does not certify every managed service or database version:
+The v0.8 server accepts the following 18 connector IDs, adding `db2i` to
+v0.7's 17. For Db2 for i, use the
+[matching v0.8 CLI and server](/docs/releases/v0.8#before-upgrading).
+Registration acceptance does not certify every managed service or database version:
 
 | Database | Downloadable IDs | Accepted connector IDs | Direction |
 |---|---|---|---|
 | MySQL | `mysql`, `aws-rds-mysql` | `mysql`, `aliyun-rds-mysql`, `aws-rds-mysql`, `polar-db-mysql`, `mysql-pxc` | Read; managed-service validation varies. |
 | PostgreSQL | `postgres` | `postgres`, `aliyun-rds-postgres`, `aliyun-adb-postgres`, `polar-db-postgres`, `tencent-db-postgres` | Read. |
-| MongoDB | `mongodb`, `mongodb-atlas` | `mongodb`, `mongodb-atlas`, `aliyun-db-mongodb`, `tencent-db-mongodb` | Read and write; live Atlas acceptance is currently deferred. |
+| MongoDB | `mongodb`, `mongodb-atlas` | `mongodb`, `mongodb-atlas`, `aliyun-db-mongodb`, `tencent-db-mongodb` | Read and write; see the Atlas guide for deployment requirements. |
 | Oracle | `oracle` | `oracle` | Read. |
 | SQL Server | `sqlserver` | `sqlserver` | Read. |
-| Db2 | `db2` | `db2` | Source-only preview. |
+| Db2 LUW | `db2` | `db2` | Source-only preview. |
+| Db2 for i | `db2i` | `db2i` | Source-only preview; v0.8, separately registered. |
 
 Artifacts are published through the floating [connector preview release](https://github.com/tapstate/tapstate/releases/tag/connectors-preview).
 The Oracle JAR bundles `ojdbc8`, `orai18n`, and `xdb` under the Oracle Free Use Terms;
 the SQL Server JAR bundles the Microsoft JDBC Driver under the MIT License. Their
 implementations are subject to the applicable commercial connector terms. The
-Db2 JAR bundles the IBM Data Server Driver under IBM's license terms; its
-connector implementation is also subject to the applicable commercial terms.
+Db2 JAR bundles the IBM Data Server Driver under IBM's license terms, and the
+Db2 for i JAR bundles JTOpen 21.0.5 under the IBM Public License 1.0; both
+connector implementations are also subject to applicable commercial terms.
 
-Db2 has no automated live-database release lane. The four external Atlas
-acceptance classes remain deferred, and Amazon RDS for MySQL has no completed
-real-service acceptance. Validate the exact artifact and service you intend to
-use. See the [v0.7 release limits](/docs/releases/v0.7#known-limits-and-issues).
+Db2 LUW and Db2 for i are Preview connectors. Check database preparation and
+limitations in each connector guide before use.
 
 ## Current preview registration boundary
 
-The public guides cover MySQL, PostgreSQL, Oracle, SQL Server, and the Db2
-preview as sources, with MongoDB as the operational-state target.
+The public guides cover MySQL, PostgreSQL, Oracle, SQL Server, and the Db2 LUW
+and Db2 for i previews as sources, with MongoDB as the operational-state target.
 
 In Cloud, `serve.sync` accepts only `mongodb` or `mongodb-atlas` targets.
 Self-hosted deployments use the registered catalog's sink capability, subject
-to source-only restrictions. Db2 and `aws-rds-mysql` are source-only in both
-modes. The server rejects either as a sync target with
+to source-only restrictions. Db2 LUW, Db2 for i, and `aws-rds-mysql` are source-only in both
+modes. The server rejects these as a sync target with
 `dsl.unsupported-target-connector`, even when the `aws-rds-mysql` catalog entry
 reports sink capability. Allowing a connector does not certify its write behavior.
 
@@ -122,7 +146,8 @@ connectors -o json
 The CLI resolves and downloads the exact published artifact from the GitHub `connectors-preview`
 release, verifies its integrity, and uploads it to the server. Automatic download
 by ID supports `mysql`, `postgres`, `mongodb`, `mongodb-atlas`, `aws-rds-mysql`,
-`oracle`, `sqlserver`, and `db2`. Register only the artifacts you need. For an
+`oracle`, `sqlserver`, and `db2`; v0.8 also supports `db2i`.
+Register only the artifacts you need. For an
 accepted ID without a download entry, pass a local JAR as described below.
 To route downloads through an internal HTTPS mirror, set the `TAPSTATE_CONNECTORS_URL` environment
 variable in your CLI environment.
@@ -231,5 +256,6 @@ schema orders_source orders -o json
 - [MySQL connector](/docs/connectors/mysql)
 - [PostgreSQL connector](/docs/connectors/postgresql)
 - [Db2 connector](/docs/connectors/db2)
+- [Db2 for i connector](/docs/connectors/db2i)
 - [MongoDB connector](/docs/connectors/mongodb)
 - [Apply and run a pipeline](/docs/guides/apply-and-run)

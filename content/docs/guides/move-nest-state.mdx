@@ -8,7 +8,15 @@ ai:
   aliases: [Nest state database, state.database, migrate Nest state]
 ---
 
-Use this procedure for a **self-hosted deployment** whose MongoDB and server
+This procedure applies to the **v0.7 self-hosted storage layout**. On
+three-layer v0.8 installations, `state.database` selects a database name on the
+bound Durable cache connection (`tapstate_cache` by default, separate from the
+`views` / `tapstate_views` Application data database), and copying collections
+or changing a binding is not a supported placement migration. See
+[State and storage](/docs/concepts/storage) and
+[runtime storage recovery](/docs/manage/storage-recovery).
+
+Use the procedure below only for a v0.7 deployment whose MongoDB and server
 configuration you manage. A Nest can keep its durable state in a selected
 MongoDB database, including operator-state records, its shape record, and dead
 letters. Cloud manages internal state placement separately; its configured

@@ -5,9 +5,11 @@ import { ArrowRight, BadgeCheck, Bot, Braces, Cable, CircleAlert, CircleCheck, D
 import type { ReactNode } from 'react';
 import type { MDXComponents } from 'mdx/types';
 import {
+  cloudConnectorScope,
   connectorMaturityCounts,
   getConnectorProductProfile,
   getConnectorsByDocumentationStatus,
+  type ConnectorDirectoryItem,
   type ConnectorMaturity,
 } from '@/lib/connector-directory';
 
@@ -82,10 +84,10 @@ export function ProductOverviewHero() {
             Build and maintain live operational state.
           </h1>
           <p className="mb-0 mt-5 max-w-3xl text-pretty text-base leading-8 text-fd-muted-foreground md:text-lg">
-            Tapstate is an open-source unified operational data engine in preview. It builds and maintains live operational state—an Operational State Layer—for applications, APIs, automation, and AI agents. The Quickstart assembles MySQL orders and PostgreSQL shipments into a MongoDB document, then keeps it current with CDC.
+            Tapstate captures database changes, transforms data in flight, and maintains current results for applications and AI agents. Start in tapstate Cloud with the web application, or run the open-source engine yourself.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <Link href="/docs/overview/quickstart" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-fd-primary px-4 text-sm font-semibold text-fd-primary-foreground no-underline transition-colors hover:bg-fd-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
+            <Link href="/docs/quickstart" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-fd-primary px-4 text-sm font-semibold text-fd-primary-foreground no-underline transition-colors hover:bg-fd-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
               Run the quickstart
               <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
@@ -149,43 +151,43 @@ function ArchitectureNode({
   );
 }
 
-/** Shows the one end-to-end path available in the current local preview. */
+/** Shows the control and data paths in the current preview. */
 export function PreviewArchitecture() {
   return (
     <figure className="not-prose my-8 overflow-hidden rounded-2xl border border-fd-border bg-fd-card shadow-sm shadow-black/[0.03] dark:shadow-none">
       <figcaption className="border-b border-fd-border px-5 py-4">
         <p className="m-0 text-sm font-semibold text-fd-foreground">Current preview architecture</p>
-        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">The playground assembles MySQL and PostgreSQL changes into MongoDB state.</p>
+        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">Tapstate captures database changes, transforms records in flight, and maintains current operational state.</p>
       </figcaption>
       <section aria-label="Current preview control and data paths" className="grid gap-2 rounded-xl border border-fd-border bg-fd-muted/20 p-4 sm:grid-cols-[minmax(0,1fr)_2rem_minmax(17rem,1.25fr)_2rem_minmax(0,1fr)] sm:grid-rows-[auto_auto_auto_auto_auto_auto_auto] sm:gap-x-2 sm:gap-y-2 sm:p-5">
         <p className="order-1 mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary sm:col-start-1 sm:row-start-1 sm:mb-0">Control path</p>
         <div className="order-2 sm:col-start-3 sm:row-start-2">
-          <WorkflowNode title="Pipeline draft" description="Connect sources and define the data path in the web application." icon={FileText} />
+          <WorkflowNode title="Pipeline draft" description="Connect sources and define the data path." icon={FileText} />
         </div>
         <div className="order-3 sm:col-start-3 sm:row-start-3">
           <WorkflowVerticalArrow label="save / preview" />
         </div>
         <div className="order-4 sm:col-start-3 sm:row-start-4">
-          <WorkflowNode title="Web application" description="Publish and start; inspect monitoring and logs." icon={Layers3} accent />
+          <WorkflowNode title="Web application" description="Publish and start; inspect monitoring, validation, and logs." icon={Layers3} accent />
         </div>
         <div className="order-5 sm:col-start-3 sm:row-start-5">
-          <WorkflowVerticalArrow label="Submit (HTTP)" />
+          <WorkflowVerticalArrow label="Submit (HTTP/S)" />
         </div>
         <p className="order-6 mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary sm:col-start-1 sm:row-start-6 sm:mb-0 sm:self-start">Data path</p>
         <div className="order-7 sm:col-start-1 sm:row-start-7">
-          <WorkflowNode title="MySQL + PostgreSQL" description="Independent initial snapshots and later CDC." icon={Database} />
+          <WorkflowNode title="Database sources" description="Initial snapshots and ongoing CDC from MySQL, PostgreSQL, Oracle, SQL Server, or Db2." icon={Database} />
         </div>
         <div className="order-8 sm:col-start-2 sm:row-start-7">
           <WorkflowArrow />
         </div>
         <div className="order-9 sm:col-start-3 sm:row-start-7">
-          <WorkflowNode title="Single-node server" subtitle="Capture & transform" description="Registers artifacts, runs pipelines, and reports status." icon={Server} accent />
+          <WorkflowNode title="tapstate" subtitle="Capture & transform" description="Runs pipelines, tracks durable checkpoints, and reports observations." icon={Server} accent />
         </div>
         <div className="order-10 sm:col-start-4 sm:row-start-7">
           <WorkflowArrow />
         </div>
         <div className="order-11 sm:col-start-5 sm:row-start-7">
-          <WorkflowNode title="Managed MongoDB state" description="The Quickstart materializes its view here." icon={Layers3} />
+          <WorkflowNode title="MongoDB / Atlas" description="Materializes views and serves current operational state." icon={Layers3} />
         </div>
       </section>
     </figure>
@@ -248,85 +250,180 @@ export function Badge({ text, children }: { text?: ReactNode; children?: ReactNo
   );
 }
 
-function DataPathNode({
-  children,
+function DataPathEndpointCard({
+  title,
+  subtitle,
+  icon: Icon,
   tone = 'neutral',
 }: {
-  children: ReactNode;
+  title: string;
+  subtitle: string;
+  icon: typeof Database;
   tone?: 'neutral' | 'primary';
 }) {
-  const className = tone === 'primary'
-    ? 'border-sky-200 bg-white text-sky-950 shadow-sm dark:border-sky-800 dark:bg-slate-950 dark:text-sky-100'
-    : 'border-fd-border bg-fd-background text-fd-foreground';
+  const isPrimary = tone === 'primary';
 
   return (
-    <span className={`inline-flex min-w-24 shrink-0 items-center justify-center rounded-lg border px-3 py-2 text-center text-xs font-semibold leading-5 ${className}`}>
-      {children}
-    </span>
+    <div
+      className={`flex flex-col justify-center rounded-xl border p-3.5 ${
+        isPrimary ? 'border-fd-primary/25 bg-fd-background' : 'border-fd-border bg-fd-background'
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className={`flex size-7 shrink-0 items-center justify-center rounded-lg border ${
+            isPrimary
+              ? 'border-fd-primary/25 bg-fd-primary/[0.08] text-fd-primary'
+              : 'border-fd-border bg-fd-muted/40 text-fd-muted-foreground'
+          }`}
+        >
+          <Icon aria-hidden="true" className="size-3.5" />
+        </span>
+        <p className="m-0 text-xs font-semibold leading-4 text-fd-foreground">{title}</p>
+      </div>
+      <p className="mb-0 mt-2 text-[0.7rem] leading-4 text-fd-muted-foreground">{subtitle}</p>
+    </div>
   );
 }
 
 function DataPathArrow({ tone = 'neutral' }: { tone?: 'neutral' | 'primary' }) {
   return (
-    <ArrowRight
-      aria-hidden="true"
-      className={`size-4 shrink-0 ${tone === 'primary' ? 'text-sky-500 dark:text-sky-300' : 'text-fd-muted-foreground'}`}
-      strokeWidth={2}
-    />
+    <span className="flex items-center justify-center py-0.5 lg:py-0">
+      <ArrowRight
+        aria-hidden="true"
+        className={`size-4 shrink-0 rotate-90 lg:rotate-0 ${
+          tone === 'primary' ? 'text-fd-primary' : 'text-fd-muted-foreground'
+        }`}
+        strokeWidth={2}
+      />
+    </span>
   );
 }
+
+const assembledStackStages: Array<{ title: string; subtitle: string; icon: typeof Cable }> = [
+  { title: '1. Capture', subtitle: 'CDC connectors', icon: Cable },
+  { title: '2. Broker', subtitle: 'Topics & partitions', icon: RadioTower },
+  { title: '3. Processing', subtitle: 'Stream jobs & state', icon: Layers3 },
+  { title: '4. Serving store', subtitle: 'Sink glue & views', icon: Database },
+];
+
+const assembledStackFriction = ['Offsets', 'Schemas & serialization', 'Retries', 'Separate monitoring'];
+
+const tapstatePathStages = [
+  { step: '01', title: 'Capture', subtitle: 'Initial snapshot + log CDC' },
+  { step: '02', title: 'Transform', subtitle: 'Filter, map, join & nest in flight' },
+  { step: '03', title: 'Serve', subtitle: 'Maintain live operational state' },
+];
+
+const tapstateUnifiedControls = [
+  'Checkpoints & recovery',
+  'Pipeline & schema contract',
+  'Unified preview & monitoring',
+];
 
 /** A reader-first comparison of an assembled streaming stack and the tapstate target model. */
 export function DataPathComparison() {
   return (
-    <section aria-label="Operational data path comparison" className="not-prose my-8 overflow-hidden rounded-xl border border-fd-border bg-fd-card shadow-sm shadow-black/[0.025] dark:shadow-none">
+    <figure
+      aria-label="Operational data path comparison"
+      className="not-prose my-8 overflow-hidden rounded-2xl border border-fd-border bg-fd-card shadow-sm shadow-black/[0.03] dark:shadow-none"
+    >
+      <figcaption className="border-b border-fd-border px-5 py-4">
+        <p className="m-0 text-sm font-semibold text-fd-foreground">Operational data path comparison</p>
+        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">
+          Same source systems and consumers, with four separate operating boundaries collapsed into one governed data path.
+        </p>
+      </figcaption>
       <div className="grid divide-y divide-fd-border">
-        <section className="p-4 sm:p-5">
-          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <section aria-label="The assembled stack" className="p-4 sm:p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h3 className="m-0 text-sm font-semibold text-fd-foreground">The assembled stack</h3>
-            <p className="m-0 text-xs text-fd-muted-foreground">Separate tools and operating boundaries</p>
+            <span className="inline-flex rounded-full border border-fd-border bg-fd-muted/45 px-2.5 py-0.5 text-[0.7rem] font-medium text-fd-muted-foreground">
+              Separate tools &amp; handoffs
+            </span>
           </div>
-          <div className="overflow-x-auto pb-1">
-            <div className="flex min-w-[48rem] items-center gap-2">
-              <DataPathNode>Source systems</DataPathNode>
-              <DataPathArrow />
-              <DataPathNode>Capture</DataPathNode>
-              <DataPathArrow />
-              <DataPathNode>Broker</DataPathNode>
-              <DataPathArrow />
-              <DataPathNode>Processing</DataPathNode>
-              <DataPathArrow />
-              <DataPathNode>Serving store</DataPathNode>
-              <DataPathArrow />
-              <DataPathNode>Apps, automation &amp; agents</DataPathNode>
+          <div className="grid gap-2.5 lg:grid-cols-[10.5rem_1.5rem_minmax(0,1fr)_1.5rem_11.5rem] lg:items-stretch">
+            <DataPathEndpointCard title="Source systems" subtitle="Databases, logs & APIs" icon={Database} />
+            <DataPathArrow />
+            <div className="flex flex-col justify-between rounded-xl border border-dashed border-fd-border bg-fd-muted/25 p-3">
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                {assembledStackStages.map(({ title, subtitle, icon: Icon }) => (
+                  <div key={title} className="rounded-lg border border-fd-border bg-fd-background px-2.5 py-2">
+                    <div className="flex items-center gap-1.5">
+                      <Icon aria-hidden="true" className="size-3.5 shrink-0 text-fd-muted-foreground" />
+                      <p className="m-0 text-xs font-semibold text-fd-foreground">{title}</p>
+                    </div>
+                    <p className="mb-0 mt-1 text-[0.68rem] leading-4 text-fd-muted-foreground">{subtitle}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mb-0 mt-2.5 border-t border-dashed border-fd-border pt-2 text-[0.68rem] leading-4 text-fd-muted-foreground">
+                <span className="font-semibold text-fd-foreground">Coordinated across every boundary:</span>{' '}
+                {assembledStackFriction.join(' · ')}
+              </p>
             </div>
+            <DataPathArrow />
+            <DataPathEndpointCard
+              title="Apps, automation & agents"
+              subtitle="Operational reads & actions"
+              icon={Bot}
+            />
           </div>
         </section>
-        <section className="bg-sky-50/65 p-4 dark:bg-sky-950/20 sm:p-5">
-          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-            <h3 className="m-0 text-sm font-semibold text-sky-950 dark:text-sky-100">The tapstate target path</h3>
-            <p className="m-0 text-xs text-sky-800/80 dark:text-sky-200/80">Target Capture–Transform–Serve operating model</p>
+        <section aria-label="The tapstate target path" className="bg-fd-primary/[0.035] p-4 sm:p-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="m-0 text-sm font-semibold text-fd-foreground">The tapstate target path</h3>
+            <span className="inline-flex rounded-full border border-fd-primary/25 bg-fd-primary/[0.1] px-2.5 py-0.5 text-[0.7rem] font-semibold text-fd-primary">
+              Target Capture–Transform–Serve model
+            </span>
           </div>
-          <div className="overflow-x-auto pb-1">
-            <div className="flex min-w-[36rem] items-center gap-2">
-              <DataPathNode tone="primary">Source systems</DataPathNode>
-              <DataPathArrow tone="primary" />
-              <div className="flex min-w-72 shrink-0 items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-100/70 px-4 py-3 dark:border-sky-800 dark:bg-sky-950/45">
-                <span className="text-sm font-semibold text-sky-950 dark:text-sky-100">tapstate</span>
-                <span className="h-4 w-px bg-sky-300 dark:bg-sky-700" aria-hidden="true" />
-                <span className="text-xs font-medium text-sky-800 dark:text-sky-200">Capture</span>
-                <span className="text-sky-400 dark:text-sky-500" aria-hidden="true">·</span>
-                <span className="text-xs font-medium text-sky-800 dark:text-sky-200">Transform</span>
-                <span className="text-sky-400 dark:text-sky-500" aria-hidden="true">·</span>
-                <span className="text-xs font-medium text-sky-800 dark:text-sky-200">Serve</span>
+          <div className="grid gap-2.5 lg:grid-cols-[10.5rem_1.5rem_minmax(0,1fr)_1.5rem_11.5rem] lg:items-stretch">
+            <DataPathEndpointCard
+              title="Source systems"
+              subtitle="Databases, logs & APIs"
+              icon={Database}
+              tone="primary"
+            />
+            <DataPathArrow tone="primary" />
+            <div className="flex flex-col justify-between rounded-xl border border-fd-primary/30 bg-fd-primary/[0.07] p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex size-6 items-center justify-center rounded-md border border-fd-primary/25 bg-fd-background text-fd-primary">
+                    <Server aria-hidden="true" className="size-3.5" />
+                  </span>
+                  <span className="text-xs font-semibold text-fd-foreground">tapstate</span>
+                </div>
+                <span className="text-[0.68rem] font-medium text-fd-primary">One deployable data path</span>
               </div>
-              <DataPathArrow tone="primary" />
-              <DataPathNode tone="primary">Apps, automation &amp; agents</DataPathNode>
+              <div className="mt-2.5 grid gap-2 sm:grid-cols-3">
+                {tapstatePathStages.map(({ step, title, subtitle }) => (
+                  <div
+                    key={title}
+                    className="rounded-lg border border-fd-primary/25 bg-fd-background/85 px-2.5 py-2"
+                  >
+                    <p className="m-0 text-[0.65rem] font-semibold tracking-wide text-fd-primary">
+                      {step} · {title}
+                    </p>
+                    <p className="mb-0 mt-1 text-[0.68rem] leading-4 text-fd-muted-foreground">{subtitle}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mb-0 mt-2.5 border-t border-fd-primary/20 pt-2 text-[0.68rem] leading-4 text-fd-muted-foreground">
+                <span className="font-semibold text-fd-foreground">Shared across one boundary:</span>{' '}
+                {tapstateUnifiedControls.join(' · ')}
+              </p>
             </div>
+            <DataPathArrow tone="primary" />
+            <DataPathEndpointCard
+              title="Apps, automation & agents"
+              subtitle="Read current state"
+              icon={Bot}
+              tone="primary"
+            />
           </div>
         </section>
       </div>
-    </section>
+    </figure>
   );
 }
 
@@ -511,7 +608,7 @@ export function CliServerWorkflow() {
           <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
             <WorkflowNode title="CLI" description="Create and inspect resources." icon={TerminalSquare} />
             <WorkflowArrow />
-            <WorkflowNode title="Local workspace" description="Run new, validate, explain, ls, and desc." icon={FileText} accent />
+            <WorkflowNode title="Local workspace" description="Run add, validate, explain, ls, and desc." icon={FileText} accent />
           </div>
         </section>
         <section className="rounded-xl border border-fd-primary/20 bg-fd-primary/[0.04] p-4">
@@ -836,24 +933,89 @@ function ConnectorDirectoryTerms({
   );
 }
 
-/** A compact connector maturity index. The canonical data lives in connector-directory.ts. */
+function ConnectorDirectoryTable({ connectors }: { connectors: ConnectorDirectoryItem[] }) {
+  return (
+    <div className="overflow-x-auto rounded-xl border border-fd-border bg-fd-card px-4 py-1">
+      <table className="w-full min-w-[46rem] border-collapse text-left text-sm">
+        <thead className="border-b border-fd-border text-xs font-medium uppercase tracking-[0.08em] text-fd-muted-foreground">
+          <tr>
+            <th className="py-3 pr-3 font-medium">Connector</th>
+            <th className="px-3 py-3 font-medium">Connector ID</th>
+            <th className="px-3 py-3 font-medium">Guide maturity</th>
+            <th className="px-3 py-3 font-medium">Role &amp; modes</th>
+            <th className="py-3 pl-3 font-medium">Compatibility</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-fd-border/80">
+          {connectors.map((connector) => {
+            const profile = getConnectorProductProfile(connector.slug);
+            const scope = cloudConnectorScope[connector.slug];
+            const modes = profile?.modes ?? [];
+            return (
+              <tr key={connector.slug} className="transition-colors hover:bg-fd-accent/40">
+                <th className="py-3 pr-3 font-medium text-fd-foreground">
+                  <Link href={`/docs/connectors/${connector.slug}`} className="group inline-flex items-center gap-1.5 text-fd-primary underline decoration-fd-primary/25 underline-offset-4 transition-colors hover:decoration-fd-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
+                    <span>{profile?.displayTitle ?? connector.title}</span>
+                    <ArrowRight aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
+                  </Link>
+                </th>
+                <td className="px-3 py-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {(scope?.connectorIds ?? [connector.id]).map((connectorId) => (
+                      <code key={connectorId} className="rounded bg-fd-muted px-1.5 py-0.5 font-mono text-xs text-fd-foreground">
+                        {connectorId}
+                      </code>
+                    ))}
+                  </div>
+                </td>
+                <td className="px-3 py-3">
+                  <div className="flex flex-col items-start gap-1">
+                    <DirectoryMaturity maturity={connector.maturity} />
+                    {scope?.maturityNote ? (
+                      <span className="text-xs text-fd-muted-foreground">{scope.maturityNote}</span>
+                    ) : null}
+                  </div>
+                </td>
+                <td className="px-3 py-3 text-fd-muted-foreground">
+                  <div className="inline-flex flex-wrap items-center gap-x-1">
+                    <ConnectorDirectoryTerms
+                      terms={profile?.useAs ?? []}
+                      separator="+"
+                      emptyHelp="No role is published for this connector."
+                    />
+                    {modes.length > 0 ? (
+                      <>
+                        <span aria-hidden="true" className="mx-1 text-fd-muted-foreground">·</span>
+                        <ConnectorDirectoryTerms
+                          terms={modes}
+                          separator="·"
+                          emptyHelp="Read modes do not apply to this published target role."
+                        />
+                      </>
+                    ) : null}
+                  </div>
+                </td>
+                <td className="py-3 pl-3 text-fd-muted-foreground">
+                  {scope?.compatibility ?? '—'}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/** A compact connector directory and compatibility index. The canonical data lives in connector-directory.ts. */
 export function ConnectorDirectoryMatrix() {
   const currentConnectors = getConnectorsByDocumentationStatus('current');
   const maturityCounts = connectorMaturityCounts(currentConnectors);
-  const sections = [
-    {
-      status: 'current' as const,
-      title: 'Current connector path',
-      description: 'Published database sources, including the Db2 preview, and the MongoDB operational-state target.',
-      icon: CircleCheck,
-      iconClassName: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/45 dark:text-emerald-300',
-    },
-  ];
 
   return (
-    <section aria-label="Connector guide directory" className="not-prose my-8">
-      <div className="mb-8 flex flex-wrap items-center gap-2 text-sm text-fd-muted-foreground">
-        <span className="font-medium text-fd-foreground">{maturityCounts.ga + maturityCounts.preview + maturityCounts.deprecated} current connectors</span>
+    <section aria-label="Supported connectors directory" className="not-prose my-6">
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-fd-muted-foreground">
+        <span className="font-medium text-fd-foreground">{maturityCounts.ga + maturityCounts.preview + maturityCounts.deprecated} connector guides</span>
         <span aria-hidden="true">·</span>
         <span className="inline-flex items-center gap-1.5"><DirectoryMaturity maturity="ga" /> {maturityCounts.ga}</span>
         {maturityCounts.preview > 0 ? (
@@ -864,71 +1026,7 @@ export function ConnectorDirectoryMatrix() {
         ) : null}
       </div>
 
-      <div className="space-y-9">
-        {sections.map((section) => {
-          const Icon = section.icon;
-          const connectors = getConnectorsByDocumentationStatus(section.status);
-
-          return (
-            <section key={section.status} aria-labelledby={`connector-status-${section.status}`} className="border-t border-fd-border pt-5">
-              <header className="mb-3 flex items-start gap-3">
-                <span className={`mt-0.5 inline-flex size-8 shrink-0 items-center justify-center rounded-lg ${section.iconClassName}`}>
-                  <Icon aria-hidden="true" className="size-4" strokeWidth={2} />
-                </span>
-                <div>
-                  <h2 id={`connector-status-${section.status}`} className="m-0 text-base font-semibold tracking-tight text-fd-foreground">
-                    {section.title}
-                  </h2>
-                  <p className="mb-0 mt-1 text-sm leading-6 text-fd-muted-foreground">{section.description}</p>
-                </div>
-              </header>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[42rem] border-collapse text-left text-sm">
-                  <thead className="border-b border-fd-border text-xs font-medium uppercase tracking-[0.08em] text-fd-muted-foreground">
-                    <tr>
-                      <th className="px-0 py-2.5 font-medium">Connector</th>
-                      <th className="px-3 py-2.5 font-medium">Guide maturity</th>
-                      <th className="px-3 py-2.5 font-medium">{section.status === 'current' ? 'Published role' : 'Planned role'}</th>
-                      <th className="px-3 py-2.5 font-medium">{section.status === 'current' ? 'Read mode' : 'Planned read mode'}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-fd-border/80">
-                    {connectors.map((connector) => {
-                      const profile = getConnectorProductProfile(connector.slug);
-                      return (
-                        <tr key={connector.slug} className="transition-colors hover:bg-fd-accent/40">
-                          <th className="px-0 py-2.5 font-medium text-fd-foreground">
-                            <Link href={`/docs/connectors/${connector.slug}`} className="group inline-flex items-center gap-1.5 text-fd-primary underline decoration-fd-primary/25 underline-offset-4 transition-colors hover:decoration-fd-primary focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
-                              <span>{profile?.displayTitle ?? connector.title}</span>
-                              <ArrowRight aria-hidden="true" className="size-3.5 transition-transform group-hover:translate-x-0.5" strokeWidth={2} />
-                            </Link>
-                          </th>
-                          <td className="px-3 py-2.5"><DirectoryMaturity maturity={connector.maturity} /></td>
-                          <td className="px-3 py-2.5 text-fd-muted-foreground">
-                            <ConnectorDirectoryTerms
-                              terms={profile?.useAs ?? []}
-                              separator="+"
-                              emptyHelp="No role is published for this connector."
-                            />
-                          </td>
-                          <td className="px-3 py-2.5 text-fd-muted-foreground">
-                            <ConnectorDirectoryTerms
-                              terms={profile?.modes ?? []}
-                              separator="·"
-                              emptyHelp="Read modes do not apply to this published target role."
-                            />
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          );
-        })}
-
-      </div>
+      <ConnectorDirectoryTable connectors={currentConnectors} />
     </section>
   );
 }

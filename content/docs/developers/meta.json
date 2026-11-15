@@ -1,0 +1,15 @@
+{
+  "title": "Reference",
+  "pages": [
+    "../reference/rest-api",
+    "---Configuration format---",
+    "../reference/dsl-grammar",
+    "../reference/dsl-fields",
+    "../reference/source",
+    "../reference/pipeline",
+    "../reference/transforms",
+    "../reference/view-and-serve",
+    "---AI-readable docs---",
+    "../for-ai/llms"
+  ]
+}

@@ -1,0 +1,176 @@
+---
+title: Quickstart
+description: Connect Atlas, add sample databases, and run an Order 360 pipeline in tapstate Cloud
+ai:
+  kind: guide
+  id: cloud-quickstart
+  maturity: preview
+  modes: [snapshot, cdc]
+  aliases: [tapstate Cloud quickstart, Cloud getting started, Cloud nested pipeline, Order 360 demo]
+---
+
+An order-details screen needs the order, the customer, and the items purchased.
+In a relational database, these records live in separate tables. In this
+quickstart, you build an **Order 360 view**: one document per order, with the
+customer and line items included. A support application can read that document
+from Atlas without assembling the three tables for each request.
+
+A **pipeline** defines how tapstate reads the source tables, matches related
+records, and writes the view. It loads existing data and uses change data
+capture (CDC) to maintain the output as source records change. You will use a
+supplied preset, then inspect an actual stored document.
+
+Follow four steps: create a Cluster, connect Atlas storage, add the sample
+sources, and run the demo. No SQL or source database of your own is required.
+Prefer to run tapstate yourself? Use the [local quickstart](/docs/overview/quickstart).
+
+![Three MySQL tables become one Order 360 document in Atlas, which an application can read](/images/quickstart/order-360-flow.png)
+
+## Before you begin
+
+Prepare a [MongoDB Atlas deployment](https://www.mongodb.com/docs/atlas/create-connect-deployments/)
+(the supplied MySQL and PostgreSQL samples provide the input data, while Atlas
+holds pipeline state and output documents). Your Atlas deployment is separate
+from the tapstate subscription and may have its own costs:
+
+- **Deployment and URI:** Use an Atlas replica set over public TLS with
+  username/password authentication (`mongodb+srv://` or `mongodb://` with
+  `authSource=admin`; standalone servers, client certificates, and
+  custom-CA-only default targets are not supported).
+- **Database user and databases:** Create a [database user](https://www.mongodb.com/docs/atlas/security-add-mongodb-users/)
+  (not your Atlas console login) with `readWrite` permissions on `tapstate_cache`
+  and `tapstate_views` (custom roles must also allow listing collections on
+  `tapstate_cache` to verify it is empty). Keep the two database names
+  distinct, reserve both for this Cluster, and retain `tapstate_cache` after
+  setup ([State and storage](/docs/concepts/storage)). You will add the
+  Cluster's IP to the Atlas access list in step 2.
+
+## 1. Create a Cluster
+
+A Cluster provides the compute that runs your pipelines. If you already have
+one, open it from **Clusters** and continue to storage setup.
+
+1. Open [tapstate Cloud](https://cloud.tapstate.com/) and select **Sign up**.
+   Complete registration and email verification, or use Google or GitHub when
+   offered. If an early-access prompt appears, enter your trial code or use
+   your invitation link first.
+2. On the organization **Overview**, select **Provision Cluster**. If signup
+   opens the creation form directly, continue there.
+3. Check the organization and Cluster name, then select a region near your
+   databases. The region cannot be changed after creation.
+4. For a new organization's trial, select **2C8G Starter**. Review the price and
+   renewal terms, accept the renewal authorization, and select **Continue to
+   checkout**. Complete checkout even for a cardless trial. See
+   [Pricing and billing](/docs/manage/billing#plans-and-trial) for eligibility
+   and renewal details.
+
+   [![Cloud instance plans showing Starter, Pro, and Enterprise specifications and trial labels](/images/quickstart/cloud-instance-plans.png)](/images/quickstart/cloud-instance-plans.png)
+
+   Review the current price and trial eligibility in the console. The managed storage shown in the plan does not replace the Atlas deployment you prepare.
+
+5. Wait for **Cluster is ready**, then select **Open Cluster Console**.
+
+   [![Provisioning complete, with Open Cluster Console ready to select](/images/quickstart/cloud-cluster-ready.png)](/images/quickstart/cloud-cluster-ready.png)
+
+   The Cluster setup guide covers the next three steps: storage, data sources,
+and a pipeline.
+
+## 2. Connect storage
+
+MongoDB Atlas is MongoDB's managed cloud document database. Your Cluster uses it to store pipeline recovery state (`tapstate_cache`) and the assembled output documents your applications read (`tapstate_views`).
+
+1. In **Connect Atlas Storage**, add the displayed Cluster IP to your Atlas
+   project's [IP access list](https://www.mongodb.com/docs/atlas/security/ip-access-list/).
+   Add a single-IP entry (`/32` for IPv4). Use the Cluster's IP; if you also
+   connect from your computer with Compass or `mongosh`, add your own public IP
+   separately.
+2. Copy the URI from the Atlas [connection dialog](https://www.mongodb.com/docs/atlas/driver-connection/)
+   and paste it into **Connection URI** using the database user prepared above.
+   If prompted for a password placeholder, enter the password and select
+   **Apply password** (which URI-encodes it). Keep `tapstate_cache` and
+   `tapstate_views` or use **Customize** to set different names; you do not need
+   to pre-create them, and **Advanced settings** lets you supply a Cache CA if
+   required.
+3. Select **Connect** and wait for initialization to finish. If setup reports
+   that the Cache database is occupied (even by an empty collection), select
+   **Use suggested name** or enter another empty database name rather than
+   deleting existing collections.
+
+   [![Connect Atlas Storage with the Cluster IP, connection URI, and two database names](/images/quickstart/cloud-connect-storage.png)](/images/quickstart/cloud-connect-storage.png)
+
+   If closing the page or a timeout interrupts setup, reopen the same Cluster
+   without renaming databases or creating another Cluster. On **Overview**, a
+   checkmark beside **Connect Atlas** means setup succeeded and you can continue
+   below; otherwise see [Cloud troubleshooting](/docs/guides/troubleshooting#start-with-the-cloud-workflow).
+
+## 3. Add sample databases
+
+1. On **Overview**, select **Try sample**. If the setup guide is still open, use **Sample order data** > **Choose samples** instead. **Add Databases** also
+opens this choice, alongside connectors for your own databases.
+
+   [![Cluster Overview after storage setup, with Try sample beside Add Databases](/images/quickstart/cloud-overview-next-step.png)](/images/quickstart/cloud-overview-next-step.png)
+
+2. Select **MySQL order sample** and **PostgreSQL order sample**.
+3. Select **Initialize 2 samples**. Tapstate checks the connections, adds the data sources, and discovers their tables and keys.
+   [![MySQL and PostgreSQL order samples selected, with Initialize 2 samples available](/images/quickstart/cloud-choose-samples.png)](/images/quickstart/cloud-choose-samples.png)
+
+4. Wait for **Your samples are ready**. Keep this dialog open for the next step.
+
+   These are independent datasets. The demo uses one database at a time; adding both does not combine their records. Already installed samples can be reused.
+
+## 4. Run the Order 360 demo
+
+Order pages, support tools, and AI agents often need an order together with its customer and line items, without running multi-table joins against the transactional database on every read. The Order 360 preset combines those three MySQL tables into one ready-to-read Atlas document per order (`customer` object and `lines` array included) and keeps it updated as source records change.
+
+1. Under **Demo database**, select **MySQL order sample**, then select
+   **Try Order 360 demo**.
+2. The preconfigured pipeline opens in **Build**. Select **Open guide** if the
+   guide is collapsed. At **Order root**, each row in `bmsql_oorder` becomes
+   one output document. The preset is locked, so you do not need to configure
+   joins or write SQL.
+
+   [![Build workspace showing the five-step Order 360 guide, the bmsql_oorder input table, and the nested customer relationship](/images/quickstart/cloud-order-360-root.png)](/images/quickstart/cloud-order-360-root.png)
+
+   Use the five-step banner across the top to review how the preset maps the
+   sample tables.
+
+3. Select **Continue to nested customer and lines** (or **Next**). The preset embeds
+   `bmsql_customer` as a `customer` object and `bmsql_order_line` as a `lines`
+   array. Continue through **Source fields** and **Document preview**.
+
+   [![Order 360 step navigation and canvas showing the order root, nested customer guide, and customer relationship](/images/quickstart/cloud-order-360-nest.png)](/images/quickstart/cloud-order-360-nest.png)
+
+4. At **Save and run**, select **Start pipeline**. Resolve any reported start
+   checks, then open **Monitoring** to check the runtime status and initial load.
+5. Select **Pipelines** at the top of the sidebar to return to the main
+   workspace, then open **Views** > **order_360_views** > **Documents**. If the
+   completion dialog offers **Explore your View**, it takes you there directly.
+   Open a document and check that it contains a `customer` object and a `lines`
+   array. The customer's `c_id` should match the order's `o_c_id`; each line's
+   `ol_o_id`, `ol_w_id`, and `ol_d_id` should match the order's `o_id`, `o_w_id`,
+   and `o_d_id`. Wait for initial load to finish before assessing completeness.
+
+   [![The order_360_views Documents tab showing an order with its nested customer](/images/quickstart/cloud-order-360-documents.png)](/images/quickstart/cloud-order-360-documents.png)
+
+You now have a stored order view that an application can read from Atlas.
+This tutorial checks the initial document shape. To connect your own database
+tables and test live parent and child updates, continue with
+[Build a pipeline](/docs/guides/build-a-pipeline#5-check-the-result).
+
+If a preview or start check fails, read the error and follow
+[Troubleshooting](/docs/guides/troubleshooting). A running status alone does
+not confirm that the output documents are correct.
+
+When finished, return to **Pipelines** and select **Stop** > **Stop and keep state**
+for the demo. Stopping the pipeline
+does not cancel your [Cloud subscription](/docs/manage/billing#cancel-a-subscription).
+
+## Next steps
+
+The Order 360 preset stays locked to the supplied sample schema. When you are
+ready to work with your own data, prepare access using a
+[connector guide](/docs/connectors), add the connection in **Data Sources**,
+and write to a separate Atlas collection:
+
+- [Build a pipeline](/docs/guides/build-a-pipeline) — connect your own databases, assemble or transform documents, preview, start, and verify live updates.
+- [Observe a pipeline](/docs/guides/observe-a-pipeline) — monitor sync health, logs, and target results.

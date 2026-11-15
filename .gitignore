@@ -33,6 +33,7 @@ yarn-error.log*
 
 # local release review artifacts
 /.review/
+/review-*.md
 /release-*-install-playground-validation*.html
 /release-*-pr-doc-map*.html
 /release-*-review*.html

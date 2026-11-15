@@ -80,6 +80,12 @@ validator can apply catalog rules to known keys, but unknown config keys can
 still pass. Test network access, authentication, permissions, and representative
 reads or writes against the real connector.
 
+In the Cloud and v0.8 structured Source API, an omitted saved secret is
+retained only if the connector is unchanged. Replace it with a supplied value,
+or use `clearSecrets` to remove it; null is not a clearing operation. A
+secret-redacted response is not a complete configuration backup. See
+[Edit saved credentials](/docs/reference/rest-api#edit-saved-credentials).
+
 ### `tables`
 
 For a connection used as a read source, an omitted `tables` field makes
@@ -94,7 +100,7 @@ Each item can be:
 
 - a literal table or collection name;
 - a `/regex/` selector;
-- an object with `name` plus optional `filter`, `pk`, and connector-owned
+- an object with `name` plus optional `filter`, `pk`, and reserved
   `options`.
 
 Regex selectors also require a discovered schema. A literal can be used before
@@ -109,8 +115,9 @@ validation accepts the resource.
 
 ### `options`
 
-Connector-owned source options. Task-level read behavior belongs under
-`pipeline.settings`.
+Reserved engine-option map (`{}`). Place connector settings in `config` and
+task-level read settings in `pipeline.settings`; any key inside `options` is
+rejected with `dsl.unknown-field`.
 
 ### `srs`
 

@@ -9,21 +9,23 @@ ai:
 
 import { LinkCard, CardGrid } from '@/components/mdx';
 
-Tapstate connects operational systems through one governed Capture–Transform–Serve data path. Use these docs to understand the model, prepare external systems, and build a data path and check its results. Start in the web application; use the
-CLI, REST API, or MCP when you need programmatic control.
+Use tapstate to capture database changes, transform data, and maintain current
+results. These docs start with the Cloud web application. If you manage your
+own servers, use [Self-hosting](/docs/self-hosted); the concepts, connector
+preparation, and pipeline guides are shared.
 
 ## Start here
 
 <CardGrid>
   <LinkCard
-    title="What is tapstate?"
-    description="Understand the customer problem and the tapstate product model."
-    href="/docs/overview/what-is-tapstate"
+    title="Quickstart"
+    description="Connect Atlas, add sample databases, and run your first order view in Cloud."
+    href="/docs/quickstart"
   />
   <LinkCard
-    title="Quickstart"
-    description="Run the disposable Docker playground and inspect one assembled order."
-    href="/docs/overview/quickstart"
+    title="What is tapstate?"
+    description="Learn how tapstate maintains current data for applications."
+    href="/docs/overview/what-is-tapstate"
   />
   <LinkCard
     title="Connections and connectors"
@@ -39,21 +41,26 @@ CLI, REST API, or MCP when you need programmatic control.
 
 ## Try the current preview
 
-The Quickstart demonstrates one operational data path:
+The [Quickstart](/docs/quickstart) uses supplied MySQL and PostgreSQL samples
+and your Atlas storage. Choose a sample to run an Order 360 pipeline. Then
+[build a pipeline](/docs/guides/build-a-pipeline) with your own databases to
+replicate tables, transform records, or assemble documents in Atlas.
 
-- MySQL orders and PostgreSQL shipments, each captured by an initial load plus
-  continuous change data capture (CDC)
-- an in-flight `nest` transform that assembles one order document
-- continuous materialization to MongoDB
+For a disposable environment with databases included, use the
+[local quickstart](/docs/overview/quickstart) or
+[local order-state demo](/docs/overview/order-state-demo) to run MySQL,
+PostgreSQL, MongoDB, and tapstate in Docker. See
+[Self-hosting](/docs/self-hosted) for the distinction between this playground,
+the CLI client, and server configuration.
 
-The local MongoDB instance stores the demo's managed view. In Cloud, the output
-uses the Atlas connection configured for that Cluster. See
-[State and storage](/docs/concepts/storage) for the storage boundaries.
-Start with the [Quickstart](/docs/overview/quickstart) to run the sample locally,
-then [build a pipeline](/docs/guides/build-a-pipeline) for your own data.
+## Manage your service
 
-The server-backed preview is supplied through the disposable Docker playground;
-this release does not publish a standalone server installer.
+- [Organizations](/docs/manage/organizations): choose the correct account context
+  and move between organization management and a Cluster workspace.
+- [Clusters](/docs/manage/clusters): check readiness and prepare database network access.
+- [Pricing and billing](/docs/manage/billing): review trial, renewal, and cancellation.
+- [Data security and responsibilities](/docs/manage/data-responsibilities): plan access,
+  destination verification, retention, and recovery for the databases you connect.
 
 ## Complete a task
 
@@ -69,9 +76,9 @@ this release does not publish a standalone server installer.
     href="/docs/connectors"
   />
   <LinkCard
-    title="Explore the order-state demo"
-    description="Change MySQL and PostgreSQL rows and watch the same MongoDB document update."
-    href="/docs/overview/order-state-demo"
+    title="Observe and validate"
+    description="Check Monitoring metrics, runtime logs, and destination data in Cloud."
+    href="/docs/guides/observe-a-pipeline"
   />
   <LinkCard
     title="Look up fields"
@@ -112,11 +119,15 @@ this release does not publish a standalone server installer.
 
 ## Developers and AI agents
 
-Use the [CLI](/docs/overview/install) for local authoring and scripted operations,
-the [REST API](/docs/reference/rest-api) for integrations, and
-[MCP](/docs/reference/mcp) for an AI host. These are optional clients of the same
-server. [Create a workspace](/docs/overview/create-workspace) when you need
-reviewable `.tap.yml` files in version control.
+For assistance inside Cloud, use [Build with AI](/docs/guides/build-a-pipeline#build-with-ai).
+The [CLI](/docs/overview/install) and [MCP](/docs/reference/mcp) guides cover
+local clients and self-hosted authentication; they do not sign an agent into
+your Cloud account. Use the [REST API](/docs/reference/rest-api) only with its
+documented deployment-specific authentication.
+
+[Create a workspace](/docs/overview/create-workspace) when you need reviewable
+`.tap.yml` files in version control. Match its fields to your server's schema;
+the Cloud reference can include fields absent from older CLI versions (such as v0.7) or a server on another release.
 
 ## AI-readable documentation
 

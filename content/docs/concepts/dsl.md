@@ -7,28 +7,35 @@ ai:
   aliases: [tapstate dsl, tapstate resources, tapstate pipeline, tapstate yaml]
 ---
 
-Tapstate describes connections, transforms, and pipeline outputs as resources.
-You can [build a pipeline in the web application](/docs/guides/build-a-pipeline)
-or author declarative `*.tap.yml` files with `version: tapstate/v1`.
+Tapstate describes connections, transforms, and pipeline outputs as
+declarative resources. In Cloud, you
+[build a pipeline in the web application](/docs/guides/build-a-pipeline) and
+can inspect the generated definition at any time via **Inspect Plan**
+(**DSL Preview**). On self-hosted servers and in local workspaces, you can also
+author `*.tap.yml` files with `version: tapstate/v1` directly.
 
-For file-based authoring, start with the [workspace walkthrough](/docs/overview/create-workspace).
-For exact field shapes, use the [resource grammar](/docs/reference/dsl-grammar).
+For file-based authoring, start with
+[Create your own workspace](/docs/overview/create-workspace). For exact field
+shapes, use the [resource grammar](/docs/reference/dsl-grammar).
 
 ## Draft, published configuration, and run
 
 A **draft** is saved authoring work. It can be incomplete and does not run.
 Compiling a draft checks whether it can produce a valid pipeline definition.
-Data Preview goes further: it reads a bounded source sample and shows the
+**Result Preview** goes further: it reads a bounded source sample and shows the
 transformed result without writing to the destination.
 
-**Publishing** a draft stores its runnable configuration as an artifact.
-Applying resource files through the CLI stores artifacts directly. Neither
-action starts a pipeline or automatically replaces an active run.
+**Publishing** a draft stores its runnable configuration as an artifact. In
+Cloud, selecting **Start pipeline** saves the draft, checks and publishes its
+configuration, and requests a run; applying `*.tap.yml` files through the CLI
+stores artifacts directly without starting a pipeline or replacing an active
+run.
 
-A **run** executes a published pipeline revision. Starting uses the latest
-applied revision. If you publish changes while a pipeline is running, stop and
-start deliberately to use the new revision. Choose whether to retain or clear
-state before stopping; see [Apply and run a pipeline](/docs/guides/apply-and-run).
+A **run** executes a published pipeline revision. If you publish changes while a
+pipeline is running, stop and start deliberately to use the new revision,
+choosing whether to keep or clear state first. See
+[Manage pipelines](/docs/guides/manage-pipelines) (or
+[Apply and run a pipeline](/docs/guides/apply-and-run) for the CLI).
 
 ## Five resource kinds
 
@@ -76,16 +83,16 @@ result must also be delivered to a system outside tapstate. If both are
 declared, the view and the external serve output are independent consumers of
 the pipeline result.
 
-## Why use resource files
+## Why use a declarative model
 
-Ordinary files provide:
+Whether edited visually in Cloud or stored as `.tap.yml` files in Git, a shared
+resource contract provides:
 
-- reviewable changes in Git;
-- stable IDs and explicit references;
-- secret placeholders instead of committed credentials;
-- editor assistance from the release-matched Schema;
-- deterministic diagnostics;
-- a common context for people, automation, and AI assistants.
+- stable IDs and explicit references across connections, transforms, and views;
+- reviewable diffs for human review or AI-proposed changes;
+- secret separation instead of committed credentials;
+- editor validation from the release-matched Schema and deterministic diagnostics;
+- a consistent abstraction for Cloud web authoring, automation, and AI assistants.
 
 ## What validation proves
 

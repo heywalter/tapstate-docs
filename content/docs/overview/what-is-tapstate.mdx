@@ -37,7 +37,8 @@ Capture loads an initial data set and, when the connector supports it, follows c
 ### Transform — shape data incrementally as it moves
 
 The current preview filters, maps, runs scripted transforms, merges streams,
-and uses `nest` to maintain documents assembled from related tables. `join`
+expands arrays with `unwind`, and uses `nest` to maintain documents assembled
+from related tables. `join`
 combines a fact stream with dimensions using a restricted SQL subset. See
 [Transform reference](/docs/reference/transforms#join) for its input and key requirements.
 
@@ -50,15 +51,17 @@ inspection instead of a stable application-facing data API.
 
 ## Current preview boundary
 
-Tapstate v0.6 runs as a single member by default and offers opt-in cluster
-operation. It stores recovery positions and durable operator state in MongoDB;
-recovery can replay records and does not provide exactly-once delivery.
+The web application is the default interactive path. Cloud accounts manage
+organizations, Clusters, and subscriptions separately from a Cluster's data
+workspace. Use the [Quickstart](/docs/quickstart) to build and check a small
+pipeline, and [Data security and responsibilities](/docs/manage/data-responsibilities) to
+understand the databases you connect.
 
-Use the web application for the default interactive path. The Quickstart
-captures MySQL orders and PostgreSQL shipments and assembles them into current
-order documents. CLI, REST, and MCP support developers and automation.
-See [Architecture](/docs/overview/architecture) and the
-[v0.6 limits](/docs/releases/v0.6#known-limits-and-issues) before choosing a deployment.
+For self-hosted software, use the [v0.8 release notes](/docs/releases/v0.8) and
+[Architecture](/docs/overview/architecture) for version-specific behavior and
+limits. A software release number does not identify the version deployed to a
+Cloud Cluster. Recovery may replay records; do not infer exactly-once delivery
+from a running pipeline or a successful connection test.
 
 ## When to use tapstate
 
@@ -68,20 +71,26 @@ Use tapstate when applications, APIs, automation, or AI agents depend on operati
 
 The documentation follows the same path you use to build a data pipeline:
 
-- **Prepare the current path.** Use the [connector directory](/docs/connectors) to prepare MySQL, PostgreSQL, Oracle, and SQL Server capture with MongoDB materialization, and to distinguish current connectors from roadmap references.
-- **Run the shortest path.** Use the [Quickstart](/docs/overview/quickstart) with sample MySQL, PostgreSQL, and MongoDB data in Docker.
-- **Explore the data model.** Change both sources in the [order-state demo](/docs/overview/order-state-demo) and watch one assembled document stay current.
-- **Automate when needed.** Developers can use the [offline walkthrough](/docs/overview/create-workspace) to create and validate `.tap.yml` resources.
-- **Look up exact syntax.** Use the [reference](/docs/reference/dsl-grammar) for resource fields and examples.
-- **Work with an AI assistant.** Use [`llms.txt`](/llms.txt) or the page-level Markdown view to provide the same canonical content to an assistant.
+- **Start with a result.** Follow the [Quickstart](/docs/quickstart) in Cloud,
+  or use the [local quickstart](/docs/overview/quickstart) for a Docker playground.
+- **Prepare your databases.** Use the [connector guides](/docs/connectors) for
+  permissions, network access, and capture prerequisites.
+- **Build and operate.** [Build a pipeline](/docs/guides/build-a-pipeline), then
+  [observe its activity and check its results](/docs/guides/observe-a-pipeline).
+- **Manage the service.** Review [Clusters](/docs/manage/clusters),
+  [billing](/docs/manage/billing), and [data responsibilities](/docs/manage/data-responsibilities).
+- **Automate when needed.** Use a [workspace](/docs/overview/create-workspace)
+  and the [reference](/docs/reference/dsl-grammar) for `.tap.yml` authoring.
+- **Work with an AI assistant.** Use [`llms.txt`](/llms.txt) or page-level
+  Markdown to provide the same canonical content to an assistant.
 
 ## Next steps
 
 <CardGrid>
   <LinkCard
     title="Quickstart"
-    description="Explore MySQL and PostgreSQL CDC assembled into one document in Docker."
-    href="/docs/overview/quickstart"
+    description="Connect Atlas, add sample databases, and run an Order 360 view in Cloud."
+    href="/docs/quickstart"
   />
   <LinkCard
     title="Architecture"
@@ -95,7 +104,7 @@ The documentation follows the same path you use to build a data pipeline:
   />
   <LinkCard
     title="Connectors"
-    description="Browse connector maturity, roles, modes, and setup guidance."
+    description="Browse supported connectors, roles, modes, and setup guidance."
     href="/docs/connectors"
   />
 </CardGrid>

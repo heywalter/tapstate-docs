@@ -1,0 +1,143 @@
+---
+title: Clusters
+description: Open a Cloud Cluster, check its status and storage health, and manage network access
+ai:
+  kind: guide
+  id: cloud-clusters
+  aliases: [Cloud Cluster, outbound IP, network allowlist, Cluster workspace]
+---
+
+Manage an existing Cloud Cluster from two places: the organization console
+shows its resource status, region, plan, runtime version, and outbound IP;
+the Cluster workspace provides storage health and runtime settings.
+For servers you operate yourself, use [Configure a cluster](/docs/guides/cluster).
+
+Creating your first Cluster? Follow [Create a Cluster](/docs/quickstart#1-create-a-cluster)
+and finish [Atlas storage setup](/docs/quickstart#2-connect-storage) first.
+
+## Open a Cluster
+
+1. In the organization console, check the selected organization and open
+   **Clusters**.
+2. Find the Cluster by name. Review its **Status**, **Region**, and **Plan**.
+3. Select the Cluster when its status is **Ready**.
+
+[![Cluster list with resource status, runtime version, region, and outbound IP](/images/cloud/clusters.png)](/images/cloud/clusters.png)
+
+A **Degraded** Cluster can also be opened, but inspect its reported problem
+before starting new work. Access to the workspace does not establish that the
+Cluster is healthy.
+
+If you have no Clusters yet, [create a Cluster](/docs/quickstart#1-create-a-cluster) first.
+A subscription can exist while resources are still being provisioned. If the
+Cluster is not ready, check both its resource status and
+[Billing](/docs/manage/billing#payment-completed-but-the-cluster-is-not-ready)
+before starting another setup attempt. Use the existing subscription's setup
+flow when resolving a provisioning problem; creating another subscription is a
+separate purchase.
+
+Use **Runtime version** when reporting a problem or checking release-specific
+behavior. The version shown for one Cluster does not establish the version of
+other Clusters or a self-hosted installation.
+
+## Open Cluster settings
+
+Inside the Cluster workspace, open the account menu at the bottom of the
+sidebar and select **Settings**. This is separate from **Settings** in the
+organization console.
+
+[![Cluster State store settings with separate storage verification states](/images/cloud/cluster-settings.png)](/images/cloud/cluster-settings.png)
+
+- **State store** shows configuration, durable cache, and application-data
+  health, the default destination, and the storage recovery entry point.
+- **About** provides information about the running application.
+- **Alert configuration** opens detection rules and notification settings.
+
+Inspect the verification result for the affected layer. **Storage admitted**
+does not replace a fresh destination check; **Check expired** requires a new
+check before relying on that connection. For a failed connection, restore access to the original database before
+considering [storage recovery](/docs/manage/storage-recovery).
+
+## Check the default destination
+
+After the Cluster becomes ready, it tests the default Application data
+connection in the background. A failed destination check does not block
+sign-in, and a ready Cluster does not prove that this destination is usable.
+
+In **Settings**, inspect **Atlas state store** under Application data:
+
+| Result | What to do |
+|---|---|
+| **Checking…** | Wait for the current check, then refresh or reopen Settings to read its result. |
+| **Last check passed** | Continue with the pipeline and verify its output records. |
+| **Last check failed** | Read the error and fix the database permissions, network access, or service availability. |
+| **Not verified** or **Check expired** | Request another check when it is available; neither state confirms a working connection. |
+
+**Refresh status** requests a connection test when your account and the current
+state allow one. While a check is running, it reads the current status without
+starting another. If a retry is refused as busy, wait for the existing check
+to release its resources. Keep the error if the condition persists.
+
+The default connection is read-only in Settings. If its saved URI or database
+name is wrong, contact [support](/docs/manage/billing#get-help). Repeating
+initialization does not edit the saved connection.
+
+## Prepare network access
+
+In **Clusters**, find **Outbound IP** and select **Copy outbound IP**. Add this
+address to the allowlists for the source database and the Atlas database the
+Cluster will use. Check firewall or security-group rules as well as the database
+service's own network controls.
+
+If the outbound address is unavailable, check provisioning status and try
+again before adding an allowlist entry. Check the current address when
+diagnosing a connection failure; do not reuse an address saved from a different
+Cluster. For integrations, see the
+[Cloud cluster network context](/docs/reference/rest-api#cloud-cluster-network-context).
+The address's lifecycle status is separate from database reachability.
+
+### Stabilize a dynamic address
+
+An address marked **Dynamic** can change when the instance is replaced. To
+prepare a stable allowlist entry:
+
+1. In **Clusters**, find the intended Cluster and select **Make IP stable**
+   when that action is available.
+2. Review the change, then select **Confirm update**. The public IP and Cluster
+   DNS will change; plan to update any existing database allowlists.
+3. Wait for the address status to become **Stable**, then use **Copy outbound IP**
+   again. Add the new address to the source and Atlas allowlists.
+4. Test the database connections from the Cluster before relying on them.
+
+While the address is being attached or stabilized, wait for the update to
+finish. If it fails, check the displayed error before retrying. A stable
+address does not bypass a database firewall or grant database permissions.
+
+An address such as `localhost` refers to the machine making the connection.
+A database on your laptop is not automatically reachable from a Cloud Cluster.
+Use a database endpoint reachable from the Cluster, with the network and
+security settings required by its connector.
+
+Network access alone does not grant database permissions. Follow the relevant
+[connector preparation guide](/docs/connectors) for credentials, privileges,
+and CDC prerequisites. Do not disable certificate verification to work around
+a connection failure.
+
+For TLS or SSH setup in a source form, follow
+[TLS and SSH connections](/docs/guides/manage-data-sources#tls-and-ssh-connections).
+Review the [Preview network limits](/docs/limits#region-and-network-access)
+when choosing a database endpoint.
+
+
+## Other management tasks
+
+- [Alert policies and events](/docs/manage/alerts): investigate faults and configure notifications.
+- [Pricing and billing](/docs/manage/billing): review subscriptions and cancellation. Stopping a pipeline does not cancel a subscription.
+- [Manage pipelines](/docs/guides/manage-pipelines): start, stop, edit, or delete a pipeline.
+
+For lost durable cache, follow [Recover runtime storage](/docs/manage/storage-recovery).
+This is separate from restoring connectivity to an existing database.
+
+For initial storage setup, see [Connect storage](/docs/quickstart#2-connect-storage);
+for an interrupted setup or occupied Cache database, see
+[Cloud troubleshooting](/docs/guides/troubleshooting#start-with-the-cloud-workflow).

@@ -22,6 +22,9 @@ install or start a tapstate server, provide a web UI, or expose an MCP HTTP
 endpoint from the server. Cloud uses managed browser sign-in; the machine-token
 setup below applies to self-hosted deployments.
 
+The local gateway does not sign in to a Cloud Cluster. For agent automation
+on a server you operate, follow [CLI and automation](/docs/self-hosted#cli-and-automation).
+
 ## How the connection works
 
 The MCP host starts `tapstate mcp` as a local process and speaks MCP over the
@@ -38,10 +41,28 @@ This means the CLI and the server have separate responsibilities:
 - The **MCP gateway** does not replace the server or the server's authorization
   checks.
 
-The current server-backed path is provided by the disposable Docker
-Quickstart. This release does not include a standalone server installer. Run the
-[Quickstart](/docs/overview/quickstart) when you need a local
+The local server-backed path is provided by the disposable Docker playground.
+This release does not include a standalone server installer. Run the
+[local quickstart](/docs/overview/quickstart) when you need a local
 server to test the integration.
+
+This gateway setup covers the v0.8 CLI bundle. It does not provide Cloud
+account sign-in or every operation available in the Cloud web application.
+
+## Use the playground configuration
+
+After the [local quickstart](/docs/overview/quickstart#connect-your-own-ai-agent),
+check for `tapstate-demo/tapstate-mcp.json`. When generated, the v0.8 setup
+creates a complete MCP server entry and a write token scoped to the disposable
+local server. This file contains private credential material: do not commit it
+or paste it into a support request, and remember that unlike a read token it
+permits mutations.
+
+Use the generated entry with an MCP host on the Docker host. The script selects
+a native gateway when Java 21 or newer is available, or a Docker gateway when
+available. Keep its executable path, environment, and arguments together. If
+generation is absent or fails, configure the gateway manually using the
+following requirements and authentication steps.
 
 ## Requirements
 
@@ -244,6 +265,7 @@ By default, the gateway exposes read-only tools:
 | `data_browser_find` | Read a bounded preview of rows from one collection. |
 | `data_browser_stats` | Read the collection metadata reported by its connector. |
 | `pipeline_list` | List artifact-backed pipelines; accepts optional `offset` and `limit`. |
+| `pipeline_start_checks` | Read the start report without starting; accepts `id` and optional `intent` (`start` or `rerun`). |
 | `pipeline_status` | Read a pipeline's current lifecycle status. |
 | `pipeline_metrics` | Read the latest bounded pipeline metrics. |
 | `pipeline_metrics_history` | Read bounded output-rate and selected-table lag history. |
@@ -252,7 +274,7 @@ By default, the gateway exposes read-only tools:
 | `pipeline_logs` | Read a bounded, secret-redacted pipeline log tail. |
 
 `pipeline_list` does not include draft-only pipelines. The gateway does not
-expose the Web draft workflow or streaming Data Preview in v0.7.
+expose the Web draft workflow or streaming Data Preview in v0.8.
 
 For Sources, `artifact_get` omits connector `config` from the display YAML.
 Its content hash still identifies the full stored resource; do not use the
@@ -283,6 +305,36 @@ Connection test and discovery wait for the connector without a fixed request
 deadline. If a call is interrupted, inspect the stored test result or schema
 before retrying. Read the tool's returned outcome and coded errors; a
 successful protocol exchange alone does not establish a passed test.
+
+### Storage tools
+
+A matching v0.8 server and gateway add these read tools:
+
+| MCP tool | Purpose |
+|---|---|
+| `storage_status` | Read storage status and currently allowed actions. |
+| `storage_setup_status` | Read the original setup operation. |
+| `storage_recovery_status` | Read the original recovery operation. |
+
+With `--allow-write`, the gateway also exposes `storage_test`,
+`storage_setup_commit`, `storage_setup_activate`, `storage_recovery_plan`, and
+`storage_recovery_confirm`. Their inputs follow the
+[storage API](/docs/reference/rest-api#storage-and-configuration-operations).
+
+Tool visibility is separate from authorization. Self-hosted storage operations
+require an administrator; a read or write machine token does not grant that
+role. Initial setup remains on the dedicated installation channel: in self-hosted
+mode, `storage_setup_activate` takes the original `operationId`, current
+`generation`, and `bindingVersion` and requires the installation channel and
+authorization rather than an ordinary session. Prefer
+[storage recovery](/docs/manage/storage-recovery) for reviewing recovery impact
+before confirming a rebuild.
+
+### Alert operations
+
+Alert operations are exposed through [REST](/docs/reference/rest-api#alerts-and-notifications),
+not as MCP tools in this version. Use the [web workflow](/docs/manage/alerts)
+for configuration and notification tests.
 
 ### Pipeline history and explanations
 
@@ -378,9 +430,44 @@ The gateway writes protocol frames to stdout. Do not wrap it in a command that
 prints banners or diagnostics to stdout; non-protocol output can prevent the
 host from completing the MCP handshake.
 
+## Answer pipeline start checks
+
+These tools and decision arguments require the v0.8 gateway and server. See
+[upgrade requirements](/docs/releases/v0.8#before-upgrading).
+
+`pipeline_start` can return an error result carrying `startChecks`. Read its
+findings and ask the person you act for to choose the offered action. Do not
+interpret a requested confirmation as permission to clear a target.
+
+Call `pipeline_start_checks` to inspect a report without starting:
+
+```json
+{"id": "orders_pipeline", "intent": "start"}
+```
+
+After the person selects **Keep**, for example, pass the report's exact finding
+key and content hash to `pipeline_start`:
+
+```json
+{
+  "id": "orders_pipeline",
+  "expectedContentHash": "<contentHash-from-report>",
+  "decisions": [
+    {"finding": "<finding-key-from-report>", "action": "keep"}
+  ]
+}
+```
+
+These are illustrative argument shapes; the report supplies the actual key,
+hash, and allowed action. `clear`, when offered, removes target rows before the
+load and saves `on_full_load: clear` for future full loads. It requires an
+explicit user decision. A stale definition needs a fresh report and review; a
+block cannot be bypassed. Status and destination queries establish the outcome
+after a start; see [Start checks](/docs/guides/apply-and-run#start-checks).
+
 ## Related pages
 
 - [Install the CLI](/docs/overview/install)
 - [CLI reference](/docs/reference/cli)
 - [REST API preview](/docs/reference/rest-api)
-- [Quickstart](/docs/overview/quickstart)
+- [Local quickstart](/docs/overview/quickstart)

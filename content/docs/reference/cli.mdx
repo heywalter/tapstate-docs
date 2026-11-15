@@ -8,9 +8,12 @@ ai:
   aliases: [tapstate CLI, tapstate commands, tapstate REPL, tapstate exit codes, tapstate data browser, tapstate watch, tapstate tail]
 ---
 
-The CLI is an optional interface for developers, scripts, and AI agents.
-Start with the [web Quickstart](/docs/overview/quickstart) for interactive use.
-The CLI has three operating forms:
+The CLI supports offline file authoring and authenticated operations on a
+self-hosted server. It does not provide Cloud sign-in: Cloud Clusters use
+browser sessions rather than the CLI's bearer tokens.
+Start with the [Quickstart](/docs/quickstart) for interactive use in Cloud.
+This command reference covers the v0.8 client. Cloud Web controls can differ
+from the commands available in this client. The CLI has three operating forms:
 
 - **Offline commands** read or create local workspace files. They do not require a running server.
 - **Connected sessions** retain the selected workspace, server, and login in an interactive REPL.
@@ -33,7 +36,7 @@ inspect a command without connecting to a server.
 | `-c`, `--connect <url>` | Connect to a server before opening a session or running a one-shot command. |
 | `--context <name>` | Select a saved server context for connected commands. Use `tapstate context` or `:ctx` to create and manage contexts. |
 | `-u`, `--user <name>` | Log in as this user during launch when `-c` is also supplied. Without `-c`, the CLI stays in an offline session. |
-| `-p`, `--password <password>` | Supply the password inline. Prefer `TAPSTATE_PASSWORD` or the prompt because command-line values are visible in shell history and process listings. |
+| `--token <token>` | Authenticate a connected session or one-shot command with a bearer token when `-c` is supplied (defaults to `$TAPSTATE_TOKEN`). Mutually exclusive with `-u`. |
 | `--version` | Print only the installed CLI version and exit. Use `tapstate version` to report both the CLI and server versions. |
 | `--help` | Print top-level help and exit. |
 
@@ -54,10 +57,10 @@ same session to read the server's current self-description:
 
 ```console
 tapstate(127.0.0.1:8080)> version
-cli    0.7.0
-server 0.7.0 (127.0.0.1:8080)
+cli    0.8.0
+server 0.8.0 (127.0.0.1:8080)
 dsl    tapstate/v1
-data   12
+data   3
 ```
 
 When connected, `version` reports the CLI version, server version, the list of accepted authoring grammars (`dsl`), and the internal store schema version (`data`). If the server accepts no grammars, `dsl` reports `none`. If the server omits a field entirely, it reports `not reported`. Offline sessions omit `dsl` and `data` because only a running server can report them.
@@ -139,15 +142,17 @@ Options:
 | `<kind>` | Positional argument selecting the resource kind: `source`, `pipeline`, `transform`, `view`, or `serve`. |
 | `--connector <id>`, `-c` | Set the connector for a source resource. |
 | `--id <id>` | Set the resource ID. |
-| `--type <type>` | Set a transform type: `filter`, `map`, `js`, `union`, `nest`, or `join`. Use with `add transform`. |
+| `--type <type>` | Set a transform type: `filter`, `map`, `js`, `union`, `unwind`, `nest`, or `join`. Use with `add transform`. |
 | `--mode <mode>`, `-m` | Set a source read mode. |
 | `--set key=value` | Set a connector configuration field; repeat for multiple fields. |
 | `--source <id>` | Set a pipeline's source reference. |
 | `--sync-to <id>` | Add a pipeline target; repeat for multiple targets. |
+| `--primary-key <field>` | Set a View's primary key (required with `add view --non-interactive`). |
 | `--non-interactive`, `-y` | Refuse missing required answers instead of prompting. |
 | `--dry-run` | Print the generated resource without writing it. |
 | `--force` | Replace an existing generated target. |
 | `--out <dir>` | Write the generated artifact flat into this directory instead of the workspace's kind directory. |
+| `-o`, `--output <text\|json\|yaml>` | Select the command output format. |
 | `-w`, `--workdir <dir>` | Set the workspace directory. |
 
 `new --kind <kind>` remains supported as a deprecated compatibility alias for `add <kind>` and prints a migration advisory. Bare `tapstate new` without arguments launches the guided interactive project initializer.
@@ -307,13 +312,13 @@ token. When more rows remain, the CLI says so in the result footer. Without an
 explicit sort, the connector's natural order is not stable and is not a newest-
 first order.
 
-For a connected one-shot command, quote the read expression and pass it to
-`data-browser`. Set `TAPSTATE_PASSWORD` in the environment when you do not want
-the CLI to prompt for it:
+For a non-interactive shell command, pipe the read expression into a connected
+session and set `TAPSTATE_PASSWORD` in the environment so the CLI does not
+prompt for a password:
 
 ```bash
-tapstate -c http://127.0.0.1:8080 -u admin data-browser \
-  'warehouse.orders.find({status: "paid"}).limit(25)'
+printf '%s\n' 'warehouse.orders.find({status: "paid"}).limit(25)' \
+  | TAPSTATE_PASSWORD="$TAPSTATE_PASSWORD" tapstate -c http://127.0.0.1:8080 -u admin
 ```
 
 ### Filter rows
@@ -459,9 +464,9 @@ interrupted, inspect `test-result` or `schema` before rerunning the operation.
 
 | Command | Purpose |
 |---|---|
-| `start <pipeline-id>` | Start a pipeline. |
+| `start <pipeline-id> [--decide <check>=<action>] [-y] [--checks-only] [-o text\|json\|yaml]` | Evaluate start checks, then request a start when allowed. |
 | `stop <pipeline-id> [--keep-state] [-y]` | Stop a pipeline. Clears checkpoint state by default; pass `--keep-state` to preserve it. |
-| `restart <pipeline-id> [--rerun] [-y]` | Restart a pipeline from its last checkpoint, or rerun from the beginning with `--rerun`. |
+| `restart <pipeline-id> [--rerun] [--decide <check>=<action>] [-y]` | Restart a pipeline from its last checkpoint, or rerun from the beginning with `--rerun`. |
 | `pause <pipeline-id>` | Pause a running pipeline. |
 | `resume <pipeline-id>` | Resume a paused pipeline. |
 | `position <pipeline-id> [-f <file>]` | Read or update checkpoint resume positions for a stopped pipeline. |
@@ -483,6 +488,42 @@ Metrics, snapshot, and explain can still return `monitor.no-observation`.
 See the [status response fields](/docs/reference/rest-api#observation-endpoints)
 for lifecycle intent and display phases.
 
+### Start-check options
+
+These options require the v0.8 CLI and server. See
+[upgrade requirements](/docs/releases/v0.8#before-upgrading).
+
+These options apply to `start`; `restart` also accepts `--decide` and
+non-interactive confirmation when its sequence needs a start. `up` accepts
+`-y` / `--yes` / `--non-interactive` (for explicit non-default decisions, run
+`tapstate start <id> --decide ...`).
+
+| Option | Behavior |
+|---|---|
+| `--checks-only` | Read the start report without starting. Exit `0` only when no finding asks or blocks. |
+| `--decide <check>=<action>` | Answer all questions from a check with that offered action. Repeat for additional checks. |
+| `--decide <check>/<subject>=<action>` | Answer the exact finding key from the report. Copy it rather than constructing a target coordinate. |
+| `-y`, `--yes`, `--non-interactive` | Answer remaining questions by starting as configured. Does not choose destructive changes or override blocks. |
+| `-o text`, `-o json`, `-o yaml` | Select the start or check result format. |
+
+```text
+start orders_pipeline --checks-only -o json
+start orders_pipeline --decide target-not-empty=keep
+```
+
+The second command keeps existing target rows. Choosing `clear` instead, when
+offered, deletes affected target rows before full load and saves
+`on_full_load: clear` for future full loads. At a terminal, the default response
+is cancel; pressing Enter, reaching end of input, or pressing Ctrl-C does not
+start the pipeline. Without a terminal, an unanswered question refuses the start
+and reports commands for answering it. Test full-load clears on an independent
+target and verify the resulting rows with the source.
+
+`restart --rerun` collects target decisions and clearing confirmation before
+stopping the current run. A start already sent with no response is not
+automatically resent; read `status` after an uncertain request. See
+[Start checks](/docs/guides/apply-and-run#start-checks).
+
 ### History and explanations
 
 For history, supply both `--from` and `--to` as RFC3339 timestamps with UTC
@@ -497,7 +538,7 @@ offsets. The range is half-open and cannot exceed 15 days.
 
 Repeat the original query unchanged when continuing. Cursors expire after
 10 minutes. Read gaps, unavailable values, and effective ranges as described
-in [Observe a pipeline](/docs/guides/observe-a-pipeline#read-recent-history).
+in [Observe self-hosted pipelines](/docs/self-hosted/observe-pipelines#read-recent-history).
 
 `explain` has two meanings: without a server target, it describes a DSL field;
 with a server target, it interprets one pipeline's observations. A connected
@@ -574,9 +615,46 @@ When upstream database schemas change and the target is ready to accept the new 
 
 `--accept` copies the updated models from discovery storage into the pipeline definition, recomputes derived columns, and locks future pipeline starts to the updated schema. Running `--accept` while a pipeline is running is refused with `actuation.schema-sync-while-running`.
 
+## Inspect storage operations
+
+With a matching v0.8 CLI and three-layer server, use these commands after
+connecting with administrator credentials:
+
+```bash
+tapstate storage status
+tapstate storage recovery status --file recovery-status.json
+tapstate storage setup activate --file activation.json
+```
+
+`storage recovery status` takes `{"operationId":"<original-recovery-id>"}` in
+`--file`. An unknown result does not mean a write failed or can safely be
+repeated.
+
+`storage` subcommands (`status`, `test`, `setup commit`, `setup status`,
+`setup activate`, `recovery plan`, `recovery confirm`, `recovery status`) read
+JSON payloads from `--file` (except `storage status`, which takes no file) and
+use the [REST storage operation fields](/docs/reference/rest-api#storage-and-configuration-operations).
+Protect files containing connection URIs or secrets and keep them out of source
+control; do not pass secrets in inline command arguments.
+
+Self-hosted storage operations require administrator authorization. Initial
+storage testing and binding belong to the dedicated installation channel rather
+than ordinary CLI sessions; `storage setup activate` requires `operationId`,
+`generation`, and `bindingVersion` and only continues a saved setup during
+[interrupted installation recovery](/docs/guides/bootstrap-and-auth#resume-an-interrupted-installation).
+For recovery impact review before confirming a rebuild, prefer the
+[storage recovery workflow](/docs/manage/storage-recovery).
+
+## Alert operations
+
+Alert inspection and notification configuration are available in both Cloud and
+self-hosted v0.8 deployments through the [web alert workflow](/docs/manage/alerts)
+and the [REST alert API](/docs/reference/rest-api#alerts-and-notifications).
+These operations do not have CLI commands in this version.
+
 ## Structured output
 
-The offline commands `validate`, `new`, `ls`, `desc`, and `explain` support:
+The offline commands `validate`, `add` (and `new`), `demo`, `ls`, `desc`, and `explain` support:
 
 ```text
 -o text
@@ -584,7 +662,7 @@ The offline commands `validate`, `new`, `ls`, `desc`, and `explain` support:
 -o yaml
 ```
 
-In a connected session, structured output is available for `delete`, `token`, `test`, `test-result`, `discover-schema`, `schema`, `register`, and `connectors`. Calling `position` without `-f` outputs structured JSON directly. Lifecycle, status, metrics, logs, and apply commands use their command-specific text output.
+In a connected session, structured output is available for `start`, `delete`, `token`, `test`, `test-result`, `discover-schema`, `schema`, `register`, and `connectors`. Calling `position` without `-f` outputs structured JSON directly. Other lifecycle commands (`stop`, `pause`, `resume`, `restart`), `status`, `metrics`, `logs`, and `apply` use their command-specific text output.
 
 Successful command output is written to standard output. Text-mode usage and diagnostic messages are written to standard error. When `-o json` or `-o yaml` is selected, the structured result, including validation diagnostics, is written to standard output so automation can parse one stream and use the exit code for success or failure.
 
@@ -603,13 +681,12 @@ Automation should check the exit code instead of matching human-readable output.
 
 ## Commands not implemented in the current preview
 
-The top-level help lists `run`, `export`, `diff`, and `edit` as reserved verbs.
-They return exit code `3`. Do not build a workflow that depends on
-them.
+The top-level help lists `export`, `diff`, and `edit` as reserved verbs.
+They return exit code `3`. Do not build a workflow that depends on them.
 
 ## Related pages
 
-- [Quickstart](/docs/overview/quickstart)
+- [Local quickstart](/docs/overview/quickstart)
 - [Explore the order-state demo](/docs/overview/order-state-demo)
 - [Create your own workspace](/docs/overview/create-workspace)
-- [Troubleshooting](/docs/guides/troubleshooting)
+- [Troubleshoot self-hosted deployments](/docs/self-hosted/troubleshooting)

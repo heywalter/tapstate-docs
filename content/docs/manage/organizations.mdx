@@ -1,0 +1,87 @@
+---
+title: Organizations
+description: Check your organization and move between account management and a Cluster workspace
+ai:
+  kind: guide
+  id: organizations
+  aliases: [organization console, organization context, Cloud account]
+---
+
+An organization provides the context for your Cloud Clusters and subscription.
+Check the selected organization before opening a Cluster or changing billing.
+
+## Sign in
+
+Open [tapstate Cloud](https://cloud.tapstate.com/) and sign in
+with your account. If you received an invitation, use its link to complete the
+account setup shown there. An invitation to join an existing organization and
+access to create your own organization are different starting points.
+
+If the page offers **Sign in with an email code**, you can use it for an
+existing account: request the code, check the intended mailbox, and enter the
+code on the sign-in page. An email verification code is different from the
+trial code or invitation link used for account setup. If registration reports
+that your email is already registered, return to sign-in instead of creating
+another account.
+
+If a link is expired, already used, or intended for another email address,
+request a replacement from the person who invited you. Do not create an
+additional organization merely to work around an invitation error.
+
+## Check the selected organization
+
+Check the organization name at the top of the sidebar. To review its details
+and team, open **Settings** > **Organization & team**. The name in the sidebar
+is a label, not an organization switcher. If the console opens the wrong
+organization, contact [support](/docs/manage/billing#get-help) with the intended
+organization name.
+
+If the expected organization is missing, check that you signed in with the
+invited account and ask its owner to confirm your access.
+
+## Review account and team settings
+
+In the organization console, open **Settings**. **Account** shows your profile
+and linked sign-in methods. **Organization & team** shows the organization and
+its invitations. These are Cloud account settings, separate from the Cluster's
+storage and pipeline configuration.
+
+[![Organization and team settings with the invitation entry point](/images/cloud/organization-settings.png)](/images/cloud/organization-settings.png)
+
+To invite a member when your account offers this action, select **Create
+invitation** under **Organization invitations** and share the resulting link
+only with the intended recipient. The form also offers an invitee email field.
+Treat the link as access to your organization: it can be used once before it
+expires. Check the invitation's status and expiry in the list. An empty list
+means no invitations are listed, not that the organization has no members.
+
+Organization details marked **Changes to these settings are not available yet**
+are read-only. Do not use another organization to work around a missing edit
+control; contact support for the required change.
+
+## Open a Cluster workspace
+
+Open **Clusters**, find the intended Cluster, and open it when its status is
+**Ready**. In the workspace, use **Data Sources**, **Pipelines**, and **Views**
+to work with data. See [Clusters](/docs/manage/clusters) for network preparation
+and setup requirements.
+
+To return to organization management, select the organization name above the
+Cluster in the workspace sidebar. **Plans & billing** belongs to the organization
+console. To open Cluster settings, use the account menu at the bottom of the
+workspace sidebar and select **Settings**.
+
+## Review the subscription
+
+Open **Plans & billing** in the organization console and verify the organization and
+associated Cluster before taking action. If an action is unavailable to your
+account, ask the organization owner to review it. See
+[Pricing and billing](/docs/manage/billing).
+
+## Open support
+
+Open **Support** in the organization console to submit a ticket (**Create a
+ticket**) or check existing requests (**My tickets**). Creating a ticket
+requires a verified Cloud account email. If a submission result is uncertain,
+select **Refresh tickets** in **My tickets** before submitting again to avoid
+duplicates. See [Get help](/docs/manage/billing#get-help) for what to include.

@@ -1,0 +1,105 @@
+---
+title: Manage data sources
+description: Create, test, inspect, and update database connections in a Cloud Cluster
+ai:
+  kind: guide
+  id: manage-data-sources
+  aliases: [Data Sources, create source, refresh schema, edit connection]
+---
+
+Use **Data Sources** inside a Cluster to manage its database connections.
+A connection records how to reach a database; a pipeline selects the tables
+and processing to run. These instructions use the Cloud Web application
+(self-hosted v0.8 servers share the same Cluster web workflow).
+For local workspaces, use the CLI/YAML section of your [connector guide](/docs/connectors).
+
+## Create a connection
+
+1. Complete your database's [preparation steps](/docs/connectors), including
+   permissions, CDC setup when needed, and the Cluster's network access.
+2. Open **Data Sources** > **Create source**, then select the connector.
+3. Enter a stable **Source ID**, read mode, and connection settings. Use the
+   connector guide's Web example to identify the fields; replace example hosts
+   and credentials with your own values.
+4. Select **Test connection**. Read the reported checks and resolve failures,
+   then select **Create source**.
+5. Open the saved source and inspect its tables and keys before
+   [building a pipeline](/docs/guides/build-a-pipeline).
+
+[![Data Sources showing supplied sample connections and their statuses](/images/cloud/data-sources.png)](/images/cloud/data-sources.png)
+
+The list shows connection status, endpoint, and discovered table count. A
+**Passed** test does not prove a pipeline has copied data. **Connected · pipeline
+running** also does not establish that all output records are correct.
+
+The default Cloud destination is the **Atlas state store** configured during
+[storage setup](/docs/manage/clusters#check-the-default-destination) (or the
+default `views` store on self-hosted v0.8 servers). Do not recreate it simply
+because it is absent from the source list.
+
+## TLS and SSH connections
+
+When the source form offers **TLS settings**, enable **Use TLS** and provide
+the CA certificate and any client certificate, key, or key password required
+by your database. Keep certificate verification enabled.
+
+When it offers **SSH tunnel**, enable **Use SSH tunnel** and enter the SSH
+host, port, username, and credentials. The SSH host must be reachable from the
+Cloud Cluster and must be able to reach the database. Use the connector's
+connection fields for the database behind the tunnel.
+
+| Section / field | What to enter |
+| --- | --- |
+| TLS settings / Use TLS | Enable encrypted transport when your database requires it. |
+| CA certificate | PEM certificate authority used to verify the database server. |
+| Client certificate / Client key | Client identity and matching private key when the server requires mutual TLS. |
+| Client key password | Password protecting the private key, if encrypted. |
+| SSH tunnel / Use SSH tunnel | Enable only when connecting through a prepared SSH host. |
+| SSH host / Port | Reachable bastion endpoint and SSH listening port, normally `22`. |
+| SSH username | Account permitted to establish the tunnel. |
+| SSH password | Password for the SSH account, not the database password. The shared form uses password authentication. |
+
+These sections appear only for connectors that declare the corresponding
+capability. Run **Test connection** with the settings you intend to save, then
+save the source. When editing a saved connection, replace stored secrets only
+when needed; do not copy masked values into other fields.
+
+## Inspect tables and refresh schema
+
+1. Select the source name and search its **Tables** list.
+2. Open a table and select **Columns**. Check field types, primary-key columns,
+   and indexes before choosing keys and relationships in a pipeline.
+3. After changing the database schema, return to the source and select
+   **More actions** > **Refresh schema**. Check the discovery timestamp and
+   resulting fields after the refresh completes.
+
+[![Source table Columns showing fields, a compound primary key, and indexes](/images/cloud/source-columns.png)](/images/cloud/source-columns.png)
+
+Schema discovery describes table structure; it is not a row synchronization
+or a data correctness check. A disabled **Data**, **Settings**, **Lineage**, or
+**Log** tab does not mean that the database or table is empty. Use the available
+Columns view and [check pipeline output](/docs/guides/observe-a-pipeline#check-data-correctness).
+
+## Test or edit an existing connection
+
+Use the list's **Test connection** action, or open the source and choose
+**More actions** > **Test connection**. Use the result to distinguish network,
+authentication, and database-preparation failures.
+
+To change settings, open the source and select **Edit**. The source ID and
+connector cannot be changed in that form. Retain stored secrets unless you
+intend to replace them; masked values are not credentials to copy elsewhere.
+Test the intended settings before saving and check affected pipelines afterward.
+If another editor changed the source, reload the latest settings before retrying.
+
+## Remove an unused connection
+
+Open the source and select **More actions** > **Delete source** only when you
+intend to remove that connection. Review the confirmation before proceeding.
+If deletion reports that the source is in use, inspect the listed references
+and update those pipelines first; stopping a pipeline does not remove its
+configuration's reference to a source.
+
+For a Cloud storage connection or recovery problem, follow
+[Cluster storage guidance](/docs/manage/storage-recovery).
+Deleting or recreating a source is not a way to repair an unknown storage state.

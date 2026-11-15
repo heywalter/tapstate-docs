@@ -8,9 +8,9 @@ ai:
 ---
 
 Tapstate is designed for operational data that loses value when it becomes
-stale. The patterns below describe the product model. The current preview
-implements one slice of it: MySQL and PostgreSQL capture into MongoDB-backed
-operational state.
+stale. The patterns below describe the broader product model. In the current
+release, tapstate captures changes from MySQL, PostgreSQL, Oracle, SQL Server,
+and the Db2 LUW and Db2 for i previews into MongoDB Atlas or MongoDB operational state.
 
 ## Offload reads from a system of record
 
@@ -33,8 +33,9 @@ operational state.
 **Customer need:** Customer, order, inventory, and entitlement data is fragmented across systems, while an application needs one current view.
 
 **tapstate model:** Capture relevant changes and use `nest` to maintain a
-consumer-oriented document from related tables. The separately declared `join`
-transform remains outside the current runtime.
+consumer-oriented document from related tables. Use the Preview
+[`join` transform](/docs/reference/transforms#join) for supported fact-to-dimension
+enrichment; check its key and input requirements before choosing it.
 
 **Verify before production:** Join semantics, late and duplicate records, key changes, delete propagation, source-of-truth ownership, and reconciliation.
 
@@ -63,4 +64,4 @@ Assess every use case across four layers:
 3. **Runtime behavior:** Does the deployment connect, move data, checkpoint, recover, and handle schema changes correctly?
 4. **Operational evidence:** Have correctness, latency, source impact, security, capacity, and failure handling been measured in the intended environment?
 
-Start with the [connector directory](/docs/connectors), then validate the selected path with representative data in the environment where it will run.
+Start with [Connect data sources](/docs/connectors), then validate the selected path with representative data in the environment where it will run.

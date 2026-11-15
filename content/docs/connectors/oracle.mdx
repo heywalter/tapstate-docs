@@ -19,9 +19,9 @@ import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
 <ConnectorProfile
   category="Databases"
   maturity="GA"
-  maturityLabel="Generally available"
+  maturityLabel="Stable guide and configuration contract"
   worksAs="Source"
-  capabilities="Snapshot, CDC, DDL capture"
+  capabilities="Snapshot, CDC, Schema discovery"
   compatibility="Oracle 9i, 10g, 11g, 12c, 18c, 19c, 23c (Free) · Single instance and RAC"
 />
 
@@ -29,20 +29,23 @@ Connect Oracle as a source for an initial full load and redo-log CDC into
 operational state or analytics targets. Complete the database preparation that matches the
 read mode you plan to use.
 
+For Cloud version and deployment scope, check [Supported connectors](/docs/connectors#supported-connectors).
+Already prepared the database? [Connect it in the Web application](#connect-to-oracle).
+
 ## Before you begin
 
-### Connector availability and licensing
+In Cloud, select the connector in **Data Sources**. Check
+[Supported connectors](/docs/connectors#supported-connectors) for the version and deployment
+scope, then allow the [Cluster's outbound address](/docs/manage/clusters#prepare-network-access)
+through the database's firewall. Complete the read-mode preparation below
+before selecting **Test connection**.
 
-The Oracle connector artifact bundles `ojdbc8`, `orai18n`, and `xdb` under the Oracle Free Use Terms; commercial connector use remains subject to the applicable agreement. It is distributed as an official preview artifact separate from the base server image. Before applying Oracle connections on a new or upgraded server, register the connector:
+Connector registration and host-level setup in this guide apply to self-hosted
+servers.
 
-```text
-connectors
-register oracle
-```
+<span id="source" />
 
-In production and air-gapped environments, you can also mount the connector JAR into `TAPSTATE_CONNECTORS_SEED_DIR` for automatic boot-time registration. See [When registration is required](/docs/guides/register-connectors#when-registration-is-required).
-
-### Source
+Prepare the database for the source read mode you plan to use.
 
 Choose the outcome you need. Each tab is a complete preparation path; you do not need to combine steps from both tabs.
 
@@ -139,7 +142,101 @@ For a PDB, run `ALTER SESSION SET CONTAINER=PDB_name;` before applying table-lev
 </SourceModeTab>
 </SourceModeTabs>
 
-## Create a connection
+## Connect to Oracle
+
+1. Open your Cluster and select **Data Sources** > **Create source**.
+2. Select **Oracle** and enter a **Source ID**.
+3. Choose the read mode you prepared, then enter the connection settings below.
+
+   <span id="reference" />
+   <span id="connection-settings" />
+
+   [![Oracle connection form populated with example settings](/images/cloud/oracle-form.png)](/images/cloud/oracle-form.png)
+
+   The screenshots use fictional connection details. Replace them with your own.
+   The settings below include fields outside the captured area and options
+   shown only for particular connection modes.
+   Configuration keys are included for the alternative CLI/YAML workflow.
+
+   - **Connection settings**
+
+     - **Source ID (`id`)**: A stable ID for the connection, such as `orders_oracle`. It cannot be renamed after creation. Required.
+     - **Read mode (`mode`)**: `snapshot` for a one-time read, or `cdc` for existing rows and later changes. Complete the matching preparation above. Select before creation.
+     - **Connection mode (`thinType`)**: Oracle connection addressing mode: `SID` or `SERVICE_NAME`. Default: `SID`. Required.
+     - **DB Address (`host`)**: Oracle database host address or hostname. Required when Connection mode is `SID`, `SERVICE_NAME`.
+     - **Port (`port`)**: Oracle listener port. Use a numeric integer. Default: `1521`. Required when Connection mode is `SID`, `SERVICE_NAME`.
+     - **SID (`sid`)**: Oracle system identifier (SID). Required when Connection mode is `SID`.
+     - **Service Name (`database`)**: Oracle service name. Required when Connection mode is `SERVICE_NAME`.
+     - **Schema (`schema`)**: Oracle schema containing the source tables. Required.
+     - **`user`**: Database account username (also accepted as `username`).
+     - **`password`**: Database account password or secret reference.
+     - **`logPluginName`**: Incremental CDC capture engine: `logMiner` or `oracle-log-parser`. Default: `logMiner`. Optional.
+     - **Multi-tenant (`multiTenant`)**: Set to `true` when connecting to a multitenant database (CDB/PDB). Optional.
+     - **PDB (`pdb`)**: Pluggable database (PDB) name. Required when Multi-tenant is `true`.
+
+   - **Advanced settings**
+
+     - **Timezone for Datetime (`timezone`)**: Timezone offset for temporal conversions (e.g. `+00:00`, `+08:00`). Optional.
+     - **grpc server host (`rawLogServerHost`)**: Helper gRPC server host for the raw-log parsing path. Optional.
+     - **grpc server port (`rawLogServerPort`)**: Helper gRPC server port for raw-log parsing (defaults to `8190`). Default: `8190`. Optional.
+     - **Read log from slave (`standBy`)**: Whether to read logs from a standby or replica node (defaults to `false`). Default: `false`. Optional.
+     - **Connection String Params (`extParams`)**: Additional JDBC connection parameters appended to the connection string. Optional.
+     - **Load Table Comment (`loadTableComment`)**: Whether to discover and load table comments (defaults to `false`). Default: `false`. Optional.
+     - **Use SSL (`useSSL`)**: Whether to enable SSL/TLS encryption (defaults to `false`). Default: `false`. Optional.
+     - **SSL Certificate(PEM) (`sslCert`)**: PEM-encoded SSL certificate when `useSSL` is enabled. Required when Use SSL is `true`.
+     - **SSL Certificate Password (`sslKeyPassword`)**: Secret password protecting the SSL certificate. Required when Use SSL is `true`.
+     - **Socket ReadTimeOut (minutes) (`socketReadTimeOut`)**: Socket read timeout in minutes (defaults to `0`, meaning no timeout). Default: `0`. Optional.
+
+   - **Connection security**: Use the TLS and SSH settings offered by the connector.
+     See the [shared transport fields](/docs/guides/manage-data-sources#tls-and-ssh-connections)
+     for certificate files and SSH account settings. Keep certificate verification enabled.
+
+   Advanced capture settings require their corresponding database and runtime
+   preparation; selecting a different log reader does not install it.
+
+   Oracle Free 23 requires `autoLog: false` for CDC. If your form does not expose
+   automatic continuous log mining, ask support to confirm this setting before
+   starting CDC. See [additional configuration](#additional-configuration).
+
+   <span id="additional-catalog-fields" />
+
+   <span id="test-and-save" />
+
+4. Select **Test connection**, review the results, and resolve failed checks.
+5. Select **Create source**, then open the saved connection and check its
+   discovered tables, columns, and keys.
+6. [Build a pipeline](/docs/guides/build-a-pipeline) to select the data and
+   destination. Creating a connection does not start data movement.
+
+A passed test confirms only the reported connection checks. Verify the initial
+output and subsequent changes for the pipeline you build.
+
+## CLI and YAML
+
+This alternative is for **self-hosted servers**. File generation and validation
+can run offline; login, apply, and connection tests require your own server.
+Cloud users should use the Web steps above. See [CLI scope](/docs/self-hosted#cli-and-automation).
+
+Use the same [connection settings](#connection-settings) as the Web form.
+In YAML, put connector-specific keys under `config`; `id` and `mode` are resource fields.
+
+### Register on a self-hosted server
+
+<span id="connector-availability-and-licensing" />
+
+The Oracle connector artifact bundles `ojdbc8`, `orai18n`, and `xdb` under the Oracle Free Use Terms; commercial connector use remains subject to the applicable agreement. It is distributed as an official preview artifact separate from the base server image. Before applying Oracle connections on a new or upgraded server, register the connector:
+
+```text
+connectors
+register oracle
+```
+
+In production and air-gapped environments, you can also mount the connector JAR into `TAPSTATE_CONNECTORS_SEED_DIR` for automatic boot-time registration. See [When registration is required](/docs/guides/register-connectors#when-registration-is-required).
+
+### Create a connection
+
+Use this alternative when authoring a local workspace. For browser setup,
+complete the connection flow above; no local file is required.
 
 Tapstate stores each Oracle connection as a `.tap.yml` file in the workspace.
 
@@ -170,9 +267,11 @@ column identifiers within 30 characters for this LogMiner path. A snapshot can
 succeed while CDC cannot read changes for a longer identifier; tapstate does
 not reject that configuration before capture starts.
 
-Connect Oracle source to an operational target such as MongoDB:
+Before using the pipeline below, add the `operational_state` target connection
+from the [MongoDB guide](/docs/connectors/mongodb#create-a-connection) to the
+same workspace. This pipeline assumes that target already exists:
 
-```yaml title="tapstate-work/pipeline/orders_to_operational_state.tap.yml"
+```yaml title="tapstate-work/pipeline/orders_to_operational_state.tap.yml" structure-only
 version: tapstate/v1
 kind: pipeline
 id: orders_to_operational_state
@@ -190,7 +289,17 @@ This guide covers Oracle as a source. Cloud does not accept Oracle sync
 targets. Self-hosted target allowances do not certify Oracle writes; see
 [Registration and target boundaries](/docs/guides/register-connectors#current-preview-registration-boundary).
 
-## Validate the configuration
+### Additional configuration
+
+These fields are not part of the connection form described above. They are
+configuration-file settings; prepare the corresponding runtime before using them.
+
+| Key | Use |
+| --- | --- |
+| `autoLog` | Set to `false` to disable automatic continuous log mining (required for Oracle 23c Free). |
+| `tnsName` | TNS alias (legacy catalog field; not applicable to the supported `SID` and `SERVICE_NAME` options). |
+
+### Validate the configuration
 
 ```bash
 tapstate validate --workdir tapstate-work
@@ -240,7 +349,7 @@ WHERE PROFILE = (SELECT PROFILE FROM DBA_USERS WHERE USERNAME = 'TAPSTATE')
 
 - Keep LogMiner identifiers within 30 characters. Longer identifiers can fail CDC even after a successful snapshot, without a pre-start refusal.
 - `INTERVAL` and `XMLTYPE` are not supported by the LogMiner baseline. The direct raw-log baseline does not support `TIMESTAMP WITH LOCAL TIME ZONE`.
-- Oracle empty strings become `NULL`. A source `NOT NULL` string column can therefore fail when written to Oracle if the source contains empty strings.
+- Oracle treats empty strings as `NULL`, so source `VARCHAR2` columns containing `''` arrive downstream as `null`.
 - DDL and a large burst of DML on the same table can make dictionary reconstruction unreliable. Stage schema changes separately from heavy write windows when possible.
 - RAC LogMiner capture can produce duplicate events during recovery. Downstream writes need stable keys and idempotent handling, especially for tables without primary keys.
 - Oracle 19c LogMiner scans online redo together with archived logs. In RAC, it must follow multiple redo threads; large redo logs and uneven archiving can increase incremental-read latency.
@@ -251,44 +360,20 @@ WHERE PROFILE = (SELECT PROFILE FROM DBA_USERS WHERE USERNAME = 'TAPSTATE')
 - Partition-table DML can be captured, but adding partitions is not part of the documented DDL baseline.
 - Configure Oracle Net encryption according to your environment and use the connection settings supplied by your tapstate deployment.
 
-## Reference
+## Troubleshooting
 
-### Connection settings
+### ORA-01882 during login
 
-The documented current source path uses the fields below.
+If login fails with `ORA-01882: timezone region not found`, check the tapstate
+server JVM's timezone. The Cloud runtime defaults to `UTC`, avoiding
+an implicit `Etc/UTC` region that some Oracle configurations reject. An explicit
+JVM `user.timezone` takes precedence; ask the server operator to inspect it.
+Retest the connection after correcting the runtime setting.
 
-| Field | Required | Default | Use |
-|---|---|---|---|
-| `thinType` | Yes | `SID` | Oracle connection addressing mode: `SID` or `SERVICE_NAME`. |
-| `host` | With `SID` or `SERVICE_NAME` | — | Oracle database host address or hostname. |
-| `port` | With `SID` or `SERVICE_NAME` | `1521` | Oracle listener port. Use a numeric integer. |
-| `sid` | With `thinType: SID` | — | Oracle system identifier (SID). |
-| `database` | With `thinType: SERVICE_NAME` | — | Oracle service name. |
-| `tnsName` | No | — | TNS alias (legacy catalog field; not applicable to the supported `SID` and `SERVICE_NAME` options). |
-| `schema` | Yes | — | Target Oracle schema to discover and replicate. |
-| `user` | No | — | Database account username (also accepted as `username`). |
-| `password` | No | — | Database account password or secret reference. |
-| `logPluginName` | No | `logMiner` | Incremental CDC capture engine: `logMiner` or `oracle-log-parser`. |
-| `autoLog` | No | `true` | Set to `false` to disable automatic continuous log mining (required for Oracle 23c Free). |
-| `multiTenant` | No | — | Set to `true` when connecting to a multitenant database (CDB/PDB). |
-| `pdb` | With `multiTenant: true` | — | Pluggable database (PDB) name. |
-| `timezone` | No | Empty | Timezone offset for temporal conversions (e.g. `+00:00`, `+08:00`). |
+The connector's `timezone` conversion offset is a separate setting. Changing it
+is not a substitute for resolving an Oracle login timezone error.
 
-### Additional catalog fields
-
-The catalog recognizes the fields below for advanced or deployment-specific connectivity:
-
-| Field | Use |
-|---|---|
-| `rawLogServerHost` | Helper gRPC server host for the raw-log parsing path. |
-| `rawLogServerPort` | Helper gRPC server port for raw-log parsing (defaults to `8190`). |
-| `standBy` | Whether to read logs from a standby or replica node (defaults to `false`). |
-| `extParams` | Additional JDBC connection parameters appended to the connection string. |
-| `loadTableComment` | Whether to discover and load table comments (defaults to `false`). |
-| `useSSL` | Whether to enable SSL/TLS encryption (defaults to `false`). |
-| `sslCert` | PEM-encoded SSL certificate when `useSSL` is enabled. |
-| `sslKeyPassword` | Secret password protecting the SSL certificate. |
-| `socketReadTimeOut` | Socket read timeout in minutes (defaults to `0`, meaning no timeout). |
+## Data compatibility
 
 ### Database-side reference
 
@@ -302,7 +387,7 @@ and deployment-specific capture paths with representative data before migration.
 | Source preparation | Snapshot and CDC prerequisites |
 | DDL | Add, rename, alter, and drop columns |
 
-### Data compatibility
+### Data types
 
 | Family | Database-side baseline |
 |---|---|

@@ -19,9 +19,9 @@ import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
 <ConnectorProfile
   category="Databases"
   maturity="GA"
-  maturityLabel="Generally available"
+  maturityLabel="Stable guide and configuration contract"
   worksAs="Source"
-  capabilities="Snapshot, CDC, DDL capture"
+  capabilities="Snapshot, CDC, Schema discovery"
   compatibility="SQL Server 2008–2022"
 />
 
@@ -29,20 +29,23 @@ Connect SQL Server as a source for an initial full load and CDC into
 operational state or analytics targets. Complete the database preparation that matches the
 read mode you plan to use.
 
+For Cloud version and deployment scope, check [Supported connectors](/docs/connectors#supported-connectors).
+Already prepared the database? [Connect it in the Web application](#connect-to-sql-server).
+
 ## Before you begin
 
-### Connector availability and licensing
+In Cloud, select the connector in **Data Sources**. Check
+[Supported connectors](/docs/connectors#supported-connectors) for the version and deployment
+scope, then allow the [Cluster's outbound address](/docs/manage/clusters#prepare-network-access)
+through the database's firewall. Complete the read-mode preparation below
+before selecting **Test connection**.
 
-The SQL Server connector artifact bundles the Microsoft JDBC Driver under the MIT License; commercial connector use remains subject to the applicable agreement. It is distributed as an official preview artifact separate from the base server image. Before applying SQL Server connections on a new or upgraded server, register the connector:
+Connector registration and host-level setup in this guide apply to self-hosted
+servers.
 
-```text
-connectors
-register sqlserver
-```
+<span id="source" />
 
-In production and air-gapped environments, you can also mount the connector JAR into `TAPSTATE_CONNECTORS_SEED_DIR` for automatic boot-time registration. See [When registration is required](/docs/guides/register-connectors#when-registration-is-required).
-
-### Source
+Prepare the database for the source read mode you plan to use.
 
 Choose the outcome you need. Each tab is a complete preparation path; you do not need to combine steps from both tabs.
 
@@ -79,34 +82,13 @@ Use object-level `SELECT` grants instead of a schema grant when the account shou
 Use this preparation path when the destination must begin with existing rows,
 then follow SQL Server CDC changes.
 
-**1. Create a dedicated CDC reader**
-
-Create a login, map it to the source database, and grant read access to both the source schema and the CDC schema:
-
-```sql
-CREATE LOGIN tapstate
-  WITH PASSWORD = 'replace-with-a-secret',
-       DEFAULT_DATABASE = database_name;
-GO
-
-USE database_name;
-GO
-CREATE USER tapstate FOR LOGIN tapstate WITH DEFAULT_SCHEMA = dbo;
-GRANT CONNECT TO tapstate;
-GRANT SELECT ON SCHEMA::dbo TO tapstate;
-GRANT SELECT ON SCHEMA::cdc TO tapstate;
-GO
-```
-
-Use object-level `SELECT` grants when the account should read only a subset of source tables.
-
-**2. Start SQL Server Agent and check log capacity**
+**1. Start SQL Server Agent and check log capacity**
 
 Make sure SQL Server Agent is running. On Linux, install and enable the Agent service for the SQL Server version in use. Check the transaction log growth limit, available disk space, and the expected number of capture instances before enabling CDC.
 
-**3. Enable database and table CDC**
+**2. Enable database and table CDC**
 
-Enable CDC on the database, then on each selected table:
+For SQL Server, enabling CDC on the database requires membership in the `sysadmin` server role. This creates the `cdc` schema. After database CDC is enabled, a member of `sysadmin` or the database's `db_owner` role can enable CDC on individual tables. Run the following as a `sysadmin` account:
 
 ```sql
 USE database_name;
@@ -123,12 +105,45 @@ EXEC sys.sp_cdc_enable_table
 GO
 ```
 
-For a table without a primary key, set `@supports_net_changes = 0`. If `@role_name` is not `NULL`, add the tapstate user to that database role.
+For a table without a primary key, set `@supports_net_changes = 0`.
+
+**3. Create a dedicated CDC reader and grant access**
+
+Create a login, map it to the source database, grant read access to both the source schema and the newly created `cdc` schema, and add the user to `@role_name` (`cdc_reader`) when specified above:
+
+```sql
+CREATE LOGIN tapstate
+  WITH PASSWORD = 'replace-with-a-secret',
+       DEFAULT_DATABASE = database_name;
+GO
+
+USE database_name;
+GO
+CREATE USER tapstate FOR LOGIN tapstate WITH DEFAULT_SCHEMA = dbo;
+GRANT CONNECT TO tapstate;
+GRANT SELECT ON SCHEMA::dbo TO tapstate;
+GRANT SELECT ON SCHEMA::cdc TO tapstate;
+GO
+```
+
+On SQL Server 2012 or later, add the reader to the CDC role:
 
 ```sql
 ALTER ROLE cdc_reader ADD MEMBER tapstate;
 GO
 ```
+
+On SQL Server 2008 or 2008 R2, use this statement instead:
+
+```sql
+EXEC sp_addrolemember N'cdc_reader', N'tapstate';
+GO
+```
+
+Run the role assignment in the source database. If you chose a different
+`@role_name` when enabling table CDC, use that role name instead of `cdc_reader`.
+
+Use object-level `SELECT` grants when the account should read only a subset of source tables.
 
 **4. Verify the capture instance**
 
@@ -163,7 +178,88 @@ SQL Server CDC polling cost grows with the number of capture instances. Split ve
 </SourceModeTab>
 </SourceModeTabs>
 
-## Create a connection
+## Connect to SQL Server
+
+1. Open your Cluster and select **Data Sources** > **Create source**.
+2. Select **SQL Server** and enter a **Source ID**.
+3. Choose the read mode you prepared, then enter the connection settings below.
+
+   <span id="reference" />
+   <span id="connection-settings" />
+
+   [![SQL Server connection form populated with example settings](/images/cloud/sqlserver-form.png)](/images/cloud/sqlserver-form.png)
+
+   The screenshots use fictional connection details. Replace them with your own.
+   The settings below include fields outside the captured area and options
+   shown only for particular connection modes.
+   Configuration keys are included for the alternative CLI/YAML workflow.
+
+   - **Connection settings**
+
+     - **Source ID (`id`)**: A stable ID for the connection, such as `orders_sqlserver`. It cannot be renamed after creation. Required.
+     - **Read mode (`mode`)**: `snapshot` for a one-time read, or `cdc` for existing rows and later changes. Complete the matching preparation above. Select before creation.
+     - **DB Address (`host`)**: SQL Server instance host address or hostname. Required.
+     - **Port (`port`)**: SQL Server service port. Use a numeric integer. Default: `1433`. Required.
+     - **DB Name (`database`)**: SQL Server database name. Required.
+     - **Schema (`schema`)**: Schema containing the source tables, for example `dbo`. Required.
+     - **User (`user`)**: Database account login (also accepted as `username`).
+     - **Password (`password`)**: Database account password or secret reference.
+     - **CDC Solution (`cdcSolution`)**: CDC capture method: `CT` (native CDC change tables) or `LogParser`. Default: `CT`. Optional.
+
+   - **Advanced settings**
+
+     - **Timezone for Datetime (`timezone`)**: Timezone offset for temporal conversions (e.g. `+00:00`, `+08:00`). Optional.
+     - **Use SSL/TLS (`useSSL`)**: Whether to enable SSL/TLS transport encryption (defaults to `false`). Default: `false`. Optional.
+     - **SSL/TLS Certificate Password (`sslKeyPassword`)**: Password protecting the client SSL/TLS key. Required when Use SSL/TLS is `true`.
+     - **Server hostname (`hostNameInCertificate`)**: Server hostname override used to validate the SSL/TLS certificate. Shown when Use SSL/TLS is `true`.
+     - **Other connection string parameters (`extParams`)**: Additional JDBC connection parameters accepted by the Microsoft driver. Optional.
+
+   - **Connection security**: Use the TLS and SSH settings offered by the connector.
+     See the [shared transport fields](/docs/guides/manage-data-sources#tls-and-ssh-connections)
+     for certificate files and SSH account settings. Keep certificate verification enabled.
+
+   Advanced capture settings require their corresponding database and runtime
+   preparation; selecting a different log reader does not install it.
+
+   <span id="additional-catalog-fields" />
+
+   <span id="test-and-save" />
+
+4. Select **Test connection**, review the results, and resolve failed checks.
+5. Select **Create source**, then open the saved connection and check its
+   discovered tables, columns, and keys.
+6. [Build a pipeline](/docs/guides/build-a-pipeline) to select the data and
+   destination. Creating a connection does not start data movement.
+
+A passed test confirms only the reported connection checks. Verify the initial
+output and subsequent changes for the pipeline you build.
+
+## CLI and YAML
+
+This alternative is for **self-hosted servers**. File generation and validation
+can run offline; login, apply, and connection tests require your own server.
+Cloud users should use the Web steps above. See [CLI scope](/docs/self-hosted#cli-and-automation).
+
+Use the same [connection settings](#connection-settings) as the Web form.
+In YAML, put connector-specific keys under `config`; `id` and `mode` are resource fields.
+
+### Register on a self-hosted server
+
+<span id="connector-availability-and-licensing" />
+
+The SQL Server connector artifact bundles the Microsoft JDBC Driver under the MIT License; commercial connector use remains subject to the applicable agreement. It is distributed as an official preview artifact separate from the base server image. Before applying SQL Server connections on a new or upgraded server, register the connector:
+
+```text
+connectors
+register sqlserver
+```
+
+In production and air-gapped environments, you can also mount the connector JAR into `TAPSTATE_CONNECTORS_SEED_DIR` for automatic boot-time registration. See [When registration is required](/docs/guides/register-connectors#when-registration-is-required).
+
+### Create a connection
+
+Use this alternative when authoring a local workspace. For browser setup,
+complete the connection flow above; no local file is required.
 
 Tapstate stores each SQL Server connection as a `.tap.yml` file in the workspace.
 
@@ -192,9 +288,11 @@ tables:
 For a CDC-capable source, use `mode: cdc` after enabling database and table CDC
 and confirming that the cleanup window covers the recovery objective.
 
-Connect SQL Server source to an operational target such as MongoDB:
+Before using the pipeline below, add the `operational_state` target connection
+from the [MongoDB guide](/docs/connectors/mongodb#create-a-connection) to the
+same workspace. This pipeline assumes that target already exists:
 
-```yaml title="tapstate-work/pipeline/orders_to_operational_state.tap.yml"
+```yaml title="tapstate-work/pipeline/orders_to_operational_state.tap.yml" structure-only
 version: tapstate/v1
 kind: pipeline
 id: orders_to_operational_state
@@ -208,7 +306,7 @@ serve:
       ddl: fail
 ```
 
-## Validate the configuration
+### Validate the configuration
 
 ```bash
 tapstate validate --workdir tapstate-work
@@ -274,33 +372,7 @@ GO
 
 Recreating a capture instance changes the available change-table history. Verify the pipeline's saved position and run an end-to-end reconciliation before resuming production traffic.
 
-## Reference
-
-### Connection settings
-
-The documented current source path uses the fields below.
-
-| Field | Required | Default | Use |
-|---|---|---|---|
-| `host` | Yes | — | SQL Server instance host address or hostname. |
-| `port` | Yes | `1433` | SQL Server service port. Use a numeric integer. |
-| `database` | Yes | — | SQL Server database name. |
-| `schema` | Yes | — | Target schema to discover and replicate (e.g. `dbo`). |
-| `user` | No | — | Database account login (also accepted as `username`). |
-| `password` | No | — | Database account password or secret reference. |
-| `cdcSolution` | No | `CT` | CDC capture method: `CT` (native CDC change tables) or `LogParser`. |
-| `timezone` | No | Empty | Timezone offset for temporal conversions (e.g. `+00:00`, `+08:00`). |
-
-### Additional catalog fields
-
-The catalog recognizes the fields below for encryption and advanced connection properties:
-
-| Field | Use |
-|---|---|
-| `useSSL` | Whether to enable SSL/TLS transport encryption (defaults to `false`). |
-| `sslKeyPassword` | Password protecting the client SSL/TLS key. |
-| `hostNameInCertificate` | Server hostname override used to validate the SSL/TLS certificate. |
-| `extParams` | Additional JDBC connection parameters accepted by the Microsoft driver. |
+## Data compatibility
 
 ### Database-side reference
 
@@ -314,7 +386,7 @@ types with representative data before migration.
 | Source preparation | Snapshot and CDC prerequisites |
 | DDL | Add, rename, alter, and drop columns, subject to CDC limitations |
 
-### Data compatibility
+### Data types
 
 | Family | Database-side baseline |
 |---|---|

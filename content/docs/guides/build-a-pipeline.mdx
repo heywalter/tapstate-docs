@@ -1,129 +1,381 @@
 ---
 title: Build a pipeline
-description: Connect source data, build and preview a draft, then start a pipeline in the web application
+description: Replicate tables, assemble multi-table documents, or transform records into MongoDB Atlas in tapstate Cloud
 ai:
   kind: guide
   id: build-a-pipeline
   maturity: preview
   modes: [snapshot, cdc]
-  aliases: [tapstate web pipeline, pipeline builder, pipeline draft, data preview]
+  aliases: [tapstate web pipeline, pipeline builder, dag designer, tapstate ai, pipeline draft, table replication, transforms, data preview, MySQL to Atlas tutorial, order documents, parent and child CDC checks, document assembly]
 ---
 
-Use the web application to turn source tables into a maintained result. Start
-with a root table, add related records or transforms, and choose where to write
-the result.
+import { Accordion, Accordions } from 'fumadocs-ui/components/accordion';
 
-For a prepared example, try the [Quickstart](/docs/overview/quickstart) first.
-For file-based authoring and automation, use [Apply and run a pipeline](/docs/guides/apply-and-run).
+Build your own pipeline in tapstate Cloud to deliver operational data into
+MongoDB Atlas. Using the guided **Pipeline builder**, you can run direct 1:1
+table replication, assemble related tables into nested documents, apply inline
+row transformations, or combine these steps in a single pipeline.
 
-Screenshots show an example using sample orders and shipments.
+For multi-branch graphs or stream-to-stream joins, switch to
+[Build with DAG Designer](#build-with-dag-designer) when creating a pipeline.
+Unlike the [Quickstart](/docs/quickstart), which uses supplied sample databases
+and a locked Order 360 preset, this guide runs against tables you control so you
+can configure every stage and test live inserts, updates, and deletes.
+Self-hosted v0.8 servers bundle this same web builder (using local sign-in and
+your configured target such as `views`, without Cloud-only **Tapstate AI**); for
+`.tap.yml` authoring and self-hosted differences, see
+[Self-hosting](/docs/self-hosted#web-interface-in-self-hosted-deployments).
 
 ## Before you begin
 
-- Sign in to the web application at `http://localhost:8080` (or your server URL) as `admin`. If you used the [Quickstart](/docs/overview/quickstart), find the password in `tapstate-demo/.env`.
-- Prepare your databases using the relevant [connector guides](/docs/connectors),
-  including network access, permissions, and CDC prerequisites.
-- Have an administrator [register the required connectors](/docs/guides/register-connectors).
-- Configure a writable destination, such as MongoDB, using an available target connection.
+- **Cloud:** Open your Cluster and complete [storage setup](/docs/quickstart#2-connect-storage).
+- **Self-hosted v0.8:** Sign in to your [initialized server](/docs/guides/bootstrap-and-auth#initialize-storage).
+  Use its configured target connection, such as `views`, wherever this guide
+  uses the Cloud Atlas destination. You do not need to create a Cloud account
+  or repeat Cloud storage setup.
+- Prepare each source database using its [connector guide](/docs/connectors):
+  allow the [Cluster's outbound IP](/docs/manage/clusters#prepare-network-access)
+  (or your self-hosted server's outbound address),
+  grant reader privileges, and enable CDC logging (`binlog_row_image=FULL` on
+  MySQL, or `logPluginName: pgoutput` and `REPLICA IDENTITY FULL` on PostgreSQL
+  child tables that can be updated or deleted).
+- Use unused target collection names when testing so existing target data is not
+  affected.
 
-Use sample or non-sensitive data while evaluating the preview release.
+Use any prepared table in your own schema for direct replication or transforms.
+If you do not have test tables ready—or want to practice multi-table document
+assembly and parent/child CDC updates—expand the example below and run the SQL
+once in a MySQL database prepared for CDC.
 
-## 1. Connect and discover your data
+<Accordions>
+<Accordion id="example-mysql-tables" title="Optional: Create two MySQL test tables (cloud_orders and cloud_order_items)">
 
-In **Data Sources**, create a source, choose its connector, and enter its
-connection settings. Run **Test connection** and resolve any failed checks.
-Save the source, then run **Refresh schema**.
+In your MySQL client, select the test database and run this SQL once:
 
-Open a table and review its columns and primary key. The builder uses discovered
-fields to configure relationships and transforms. If you change the database
-schema, refresh it before editing the pipeline.
+```sql
+CREATE TABLE cloud_orders (
+  id INT PRIMARY KEY,
+  customer VARCHAR(40) NOT NULL,
+  status VARCHAR(20) NOT NULL
+);
 
-Add the destination in **Data Sources** too if it is not already available.
+CREATE TABLE cloud_order_items (
+  id INT PRIMARY KEY,
+  order_id INT NOT NULL,
+  sku VARCHAR(40) NOT NULL,
+  quantity INT NOT NULL
+);
 
-For CDC, a passing connection test does not replace the database's logging and
-permission setup. Follow the source's connector guide.
+INSERT INTO cloud_orders (id, customer, status) VALUES
+  (101, 'alice', 'pending'),
+  (102, 'ben', 'pending');
 
-![MongoDB destination connection test showing passed host, connection, version, write, read, and read-log checks](/images/guides/build-a-pipeline/v0.7-connection-test.jpg)
+INSERT INTO cloud_order_items (id, order_id, sku, quantity) VALUES
+  (1001, 101, 'notebook', 1),
+  (1002, 101, 'pen', 2),
+  (1003, 102, 'mug', 1);
+```
 
-*A successful connection test for the sample MongoDB destination.*
+Each `cloud_orders.id` identifies one output document, `cloud_order_items.order_id`
+points to its parent order, and `cloud_order_items.id` identifies each item
+inside the embedded array.
+
+</Accordion>
+</Accordions>
+
+## 1. Connect your data
+
+Create a source connection for each database your pipeline will read (including
+separate connections when combining tables across two engines, such as MySQL and
+PostgreSQL):
+
+1. In your Cluster, select **Overview** > **Add Databases** (or **Data Sources** >
+   **Create source**), choose your connector, and set a stable **Source ID**
+   (for example, `cloud_quickstart_mysql`).
+2. Enter the host, port, database, and credentials, and set **Read mode** to
+   `cdc` if the pipeline should follow ongoing changes.
+3. Select **Test connection**, resolve any failed checks, and select
+   **Create source**. If your network requires a tunnel or certificates, see
+   [TLS and SSH connections](/docs/guides/manage-data-sources#tls-and-ssh-connections).
+4. Open the created source and verify that your tables, columns, and primary
+   keys appear. Select **Refresh schema** if anything is missing or after a
+   schema change.
+
+For later edits, credential updates, or connection re-tests, see
+[Manage data sources](/docs/guides/manage-data-sources).
 
 ## 2. Create a draft
 
-In **Pipelines**, create a pipeline and choose **Pipeline builder**. Give it a
-stable ID, such as `order_state`; the ID cannot be renamed later.
+In **Pipelines**, select **Create pipeline** to open the creation dialog:
 
-1. Choose the root source and table. Each root row becomes one result document.
-2. Add related tables when the document needs data from other records. Select
-   row keys and matching fields, then choose whether to flatten fields or embed
-   a document or array. See [Assemble documents with nest](/docs/guides/assemble-documents-with-nest).
-3. Add filters, field mappings, or other transforms as needed. Keep the row keys
-   and relationship fields needed by later steps.
-4. Select the destination, target table or collection, and write strategy. The
-   default `upsert` strategy requires discovered primary keys on the selected
-   source tables. Use `append` only for insert-only delivery when the target
-   supports it.
+- Choose **Pipeline builder** for the guided source-to-Atlas flow walked through
+  below (or choose **Build with DAG Designer** for a freeform drag-and-drop
+  graph—see [Build with DAG Designer](#build-with-dag-designer)).
+- Under **Name your pipeline**, enter a stable ID using letters, numbers,
+  hyphens, or underscores (for example, `cloud_order_pipeline`); the ID cannot
+  be changed later. Optionally add a **Description** and select **Create**.
 
-Select **Save** before leaving. This keeps the draft without publishing or
-starting it; an unfinished draft can be completed later.
+[![Create a pipeline dialog showing Pipeline builder and Build with DAG Designer modes](/images/cloud/create-pipeline-modes.png)](/images/cloud/create-pipeline-modes.png)
 
-In this example, `orders` is the root table and `shipments.order_id` matches
-`orders.id`. The **Array** relationship embeds matching rows under `shipments`.
+Inside **Pipeline builder**, you can configure the cards manually or ask
+**Tapstate AI** to draft or refine the pipeline using **Describe the pipeline
+you want to build**, the `✨` assistant icons, or the right-hand **Tapstate AI**
+tab (see [Build with AI](#build-with-ai)).
 
-![Pipeline builder with the orders root, a shipments array relationship, Save actions, and a rendered sample document](/images/guides/build-a-pipeline/v0.7-builder-preview.jpg)
+[![Pipeline builder workspace showing Input Table, Add Related Table, Transform, MongoDB Atlas destination, and Tapstate AI panel](/images/cloud/pipeline-builder-canvas.png)](/images/cloud/pipeline-builder-canvas.png)
 
-## 3. Check the configuration and sample result
+Configure the four stages in order—or skip stages 2 and 3 for direct 1:1 table
+replication:
 
-Select **Inspect Plan** to open **DSL Preview** and inspect the compiled
-configuration. Compilation checks the definition; it does not read source rows.
+1. **Select Input Table (required).** Under **Or choose a source and table
+   manually**, select **Choose a source** and **Table** (for example,
+   `cloud_orders`), confirm its discovered primary key (`id`), and select
+   **Confirm Input Table**. Each source row becomes one output document in
+   MongoDB Atlas. For direct 1:1 table sync without nesting or row transforms,
+   continue straight to step 4.
+2. **Add Related Table (optional — document assembly).** Select **+ Add Related
+   Table** below the input card, choose a **Relationship Semantic**, pick the
+   **Child Data Source** and **Child Table** (from the same source or another
+   connected database), enter the **Join Condition** (such as `order_id = id`)
+   and **Target Field in Document**, and select **Embed Relation**:
 
-**Result Preview** reads a bounded source sample and runs the draft's data path
-without writing to the destination. Review the output fields, relationships,
-and values before starting a full run.
+   | Relationship Semantic | Cardinality | How rows attach | Example |
+   |---|---|---|---|
+   | **Document `{}`** | `1:1` or `1:0..1` | Embeds matching child fields as a nested object map | Embed `customers` as `customer` |
+   | **Array `[]`** | `1:N` | Embeds matching child rows as a JSON array (`[]` when empty); requires a child primary key | Embed `cloud_order_items` where `order_id = cloud_orders.id` into `items` |
+   | **Flatten** | `1:1` or `1:0..1` | Merges related fields directly onto the root document | Promote customer fields onto the order root |
 
-The preview has a 45-second deadline and uses at most 100 root rows. It can show
-Mongo Extended JSON when the selected MongoDB target's codecs are available;
-otherwise it shows logical JSON. This sample does not validate continuous CDC
-or every source record. If a preview fails, resolve the error before relying on
-the last displayed result.
+   Child rows must carry the parent's key (`order_id = id`), and Cloud requires
+   immutable primary and relationship keys. For stream-to-stream joins between
+   independent sources, use **Join** in
+   [Build with DAG Designer](#build-with-dag-designer) or YAML.
+3. **Add transform (optional — row processing).** Under **Transform**, select
+   **+ Add transform** and choose **Configure step** on **Filter**, **Map**,
+   **Unwind**, **JavaScript**, or **Union** to filter or reshape records inline
+   before they reach Atlas (keep primary keys and relationship columns needed
+   downstream).
+
+   [![Transform step picker in Pipeline builder showing Filter, Map, Unwind, JavaScript, and Union](/images/cloud/pipeline-builder-transforms.png)](/images/cloud/pipeline-builder-transforms.png)
+
+4. **Configure the MongoDB Atlas destination (required).** Under **MongoDB
+   Atlas (`atlas-store`)**, confirm **Atlas destination**, enter an unused
+   **Target table** (collection) name such as `cloud_order_state`, and choose
+   **Write strategy**:
+   - `upsert` (default): inserts, updates, and deletes target documents by key
+     (requires discovered primary keys).
+   - `append`: insert-only delivery without key-based updates or deletes.
+
+The builder saves edits automatically. Wait for **Draft saved** (or **Auto-Saved**
+in **DAG Designer**) before leaving; a saved draft has not been published or
+started. If saving fails, resolve the editor error before continuing.
+
+## 3. Preview the sample output
+
+Select **Result Preview** on the right side of the builder to confirm root
+fields, transformed values, or assembled objects and arrays before writing to
+Atlas. To inspect the generated pipeline specification, open **Inspect Plan** to
+view **DSL Preview**.
+
+Preview reads a bounded source sample without writing to the destination. It has
+a 45-second deadline, reads at most 100 root rows, and displays Mongo Extended
+JSON when target codecs are available (or logical JSON otherwise). Resolve any
+preview error before starting the pipeline.
 
 ## 4. Publish and start
 
-Select **Save & start**. The application saves the draft, checks and compiles
-it, publishes the pipeline configuration, and requests a start. Resolve any
-diagnostic at the stage where it appears.
+1. Wait for **Draft saved**, then select **Start pipeline** (or **Save & start**;
+   **Start** in **DAG Designer**). The button shows a busy indicator while the
+   application saves, checks, and publishes the configuration and requests a run.
+2. If a start-check dialog appears, review each finding carefully. For a new
+   pipeline whose target unexpectedly reports existing rows, choose an unused
+   collection instead of **Clear** unless you intend to remove those rows. See
+   [Review start checks](#review-start-checks) for finding codes and policies.
+3. Open **Monitoring** to confirm the run status and initial-load progress. If
+   starting fails, check the editor message or open **Logs**.
 
-If the pipeline is already running, the new configuration can be published,
-but the application does not stop the active run automatically. Stop it
-deliberately and choose whether to retain its progress and state. Wait for the
-stop to complete before starting the new revision. See
-[Lifecycle transitions](/docs/guides/apply-and-run#lifecycle-transitions)
-before clearing state.
+A published configuration and a running pipeline are separate outcomes. Canceling
+or refusing a start check can leave the configuration published while the
+pipeline remains stopped. If a request loses its response, reopen the pipeline
+and check its status in **Monitoring** before retrying.
 
-If another editor changed the draft or published configuration, reload and
-review those changes before retrying. Do not overwrite a conflict blindly.
+To modify a running pipeline later, stop it first—see
+[Manage pipelines](/docs/guides/manage-pipelines#stop-and-update-a-pipeline).
 
 ## 5. Check the result
 
-Open **Monitoring** and **Logs** to check the initial load and investigate
-errors. See [Observe a pipeline](/docs/guides/observe-a-pipeline) for the status
-and metrics fields.
+Do not treat a **Running** status alone as proof that data arrived correctly.
+Check both the initial documents and live changes.
 
-![Monitoring page showing a running sample pipeline, record counts, and target acknowledged positions](/images/guides/build-a-pipeline/v0.7-monitoring.jpg)
+### Inspect initial documents
 
-Open the output in **Views** and select **Documents** where available, or query
-the configured target. Check a known record, including related records and
-transformed fields. For a CDC pipeline, make a small insert, update, and delete
-in a test source and confirm the expected changes at the destination.
+1. Confirm **Monitoring** shows initial load complete (**Sync healthy** with no
+   unexpected `nestDeadLettered` errors under **All metrics**) and **Logs** has
+   no unresolved failures.
+2. Open **Views** > your output collection > **Documents**, or open the physical
+   collection shown under **Stored in** directly in Atlas.
+3. For direct 1:1 source-to-destination pipelines without transforms or related
+   tables, run automated comparisons in
+   [Data validation](/docs/guides/validate-pipeline-data).
 
-![Documents tab for the sample order_state view showing an order and its embedded shipments](/images/guides/build-a-pipeline/v0.7-view-documents.jpg)
+[![Views Documents tab showing materialized order documents in Cloud](/images/quickstart/cloud-order-360-documents.png)](/images/quickstart/cloud-order-360-documents.png)
 
-Browsing an existing result reads stored documents. **Result Preview** runs a
-sample through the draft. Use the former to check delivery and the latter to
-check an edit before running it.
+If you ran the optional `cloud_orders` and `cloud_order_items` example, expect
+two documents (`101` and `102`), with two items nested under `101` and one under
+`102`. Order `101` has this shape (omitting Atlas-generated metadata such as `_id`):
+
+```json
+{
+  "id": 101,
+  "customer": "alice",
+  "status": "pending",
+  "items": [
+    { "id": 1001, "order_id": 101, "sku": "notebook", "quantity": 1 },
+    { "id": 1002, "order_id": 101, "sku": "pen", "quantity": 2 }
+  ]
+}
+```
+
+### Verify live CDC updates
+
+Test live changes in a test database after the initial snapshot completes:
+
+- **Single-table or transformed pipelines:** Run a test `INSERT`, `UPDATE`, or
+  `DELETE` in the source database and verify that the target document in
+  **Views** > **Documents** reflects your transformation and write strategy.
+- **Assembled parent/child pipelines (`cloud_orders` + `cloud_order_items`):**
+  Test updates on both sides of the relationship:
+
+  1. Update a parent row and check Atlas—order `101` changes `status` to
+     `"shipped"` while keeping both items:
+
+     ```sql
+     UPDATE cloud_orders SET status = 'shipped' WHERE id = 101;
+     ```
+
+  2. Update a child row and check Atlas—item `1001` inside order `101` shows
+     `quantity: 3`, leaving item `1002` and order `102` untouched:
+
+     ```sql
+     UPDATE cloud_order_items SET quantity = 3 WHERE id = 1001;
+     ```
+
+  3. For production sizing of assembled documents, test documents near your
+     expected maximum size and update rate; see
+     [Plan nest capacity and delivery behavior](/docs/guides/nest-throughput).
+
+When you finish testing, stop the pipeline in **Pipelines** (`Stop` > **Stop and
+keep state**). Stopping a pipeline does not cancel your Cloud subscription—see
+[Pricing and billing](/docs/manage/billing#cancel-a-subscription) if you also want
+to end the Cluster subscription.
+
+## Build modes and reference
+
+### Build with AI
+
+**Tapstate AI** is built into **Pipeline builder** in Cloud (not **DAG Designer**
+or the locked **Order 360 demo**; for local agents on self-hosted servers, use
+[MCP integration](/docs/reference/mcp)). Using discovered MySQL or PostgreSQL
+schemas, it drafts or updates replication, transform, or assembly pipelines for
+review before anything changes.
+
+<Aside type="note" title="Data boundary and draft state">
+  Prompts, the current draft, and included table schemas are sent to your
+  configured AI provider—use an approved provider and never paste passwords,
+  connection strings, or customer data (see
+  [AI provider data](/docs/manage/data-responsibilities#ai-provider-data)).
+  Active pipelines open read-only in **Monitoring**; stop a running pipeline
+  first to edit its draft in **Build** (if **Tapstate AI** is not shown in your
+  Cluster, [contact support](/docs/manage/billing#get-help)).
+</Aside>
+
+1. **Connect an AI provider:** In **Pipeline builder**, open the **Tapstate AI**
+   tab and select **Add API key**. Enter your **API key**, **Model ID**, and
+   OpenAI-compatible **API base URL** (such as `https://api.openai.com/v1`),
+   select **Check connection** to test reachability, then select **Save
+   provider**. Keys are stored server-side and are never saved in browser
+   storage or returned to the panel.
+
+   [![Configure AI provider modal with API key, Model ID, API base URL, Check connection, and Save provider](/images/cloud/configure-ai-provider.png)](/images/cloud/configure-ai-provider.png)
+
+2. **Prompt inside the builder:** Use **Describe the pipeline you want to
+   build** on **Select Input Table**, select `✨` on **Add Related Table** or
+   **Transform**, or chat directly in the **Tapstate AI** tab. On workspaces
+   with more than three MySQL/PostgreSQL sources or 40 tables, select the
+   source and root table first so context stays focused. Example prompt:
+
+   > Build one document per cloud_orders row. Embed matching cloud_order_items
+   > as an items array using order_id = cloud_orders.id. Keep each item's id and
+   > quantity. Ask me if a required key or relationship is missing.
+
+3. **Review and apply:** Inspect the proposed diff in **Tapstate AI**, apply
+   it when satisfied, and check **Result Preview** before publishing.
+
+### Build with DAG Designer
+
+Choose **Build with DAG Designer** in **Create a pipeline** when you need a
+freeform graph beyond the linear **Pipeline builder** flow—such as stream-to-stream
+**Join**, branching outputs, multi-step transform chains, or mapping multiple
+tables to Atlas in one canvas.
+
+[![DAG Designer freeform canvas showing source nodes, Transform node picker, and destination Settings drawer](/images/cloud/dag-designer.png)](/images/cloud/dag-designer.png)
+
+- **Nodes and transforms:** Place and connect **Source**, **Transform**, and
+  **Destination** nodes on the canvas. Available transform nodes (see
+  [Transform reference](/docs/reference/transforms) for full semantics):
+  - **Filter:** Keep only records that match a condition expression.
+  - **Map:** Rename, remove, add, or compute fields on each record.
+  - **Join:** Enrich a driving fact stream with fields from dimension tables by equality key.
+  - **Union:** Combine compatible records from multiple inputs into a single stream.
+  - **Nest:** Assemble related parent and child tables into nested objects, arrays, or flattened fields.
+  - **Unwind:** Expand array elements into separate output records.
+  - **JavaScript:** Run custom JavaScript logic to reshape or enrich records.
+- **Destination settings:** Select the destination node and configure
+  **Destination** (your default `atlas-store` destination in Cloud, or
+  `Views · tapstate_views` in self-hosted setups as shown above), **Table
+  mapping**, **Write mode** (`Upsert` or `Append`), and **On full load**
+  (`Keep existing rows (default)`) in the **Settings** drawer.
+- **Save and run:** Wait for **Auto-Saved**, select **Start**, and follow
+  [Publish and start](#4-publish-and-start) and
+  [Check the result](#5-check-the-result) (**Tapstate AI** is not available in
+  **DAG Designer**).
+
+### Review start checks
+
+Before starting, Cloud checks the saved revision against the target and reports:
+
+| Finding | Effect |
+|---|---|
+| `PASS` | Allowed to start. |
+| `WARN` | Start may continue, but inspect the warning first; an unavailable or timed-out check is not a pass. |
+| `CONFIRM` | Must be answered explicitly before the server accepts the start. |
+| `BLOCK` | Start is refused until the underlying condition is resolved. |
+
+When an unexpected non-empty target triggers `target-not-empty` under
+`on_full_load: append`, **Keep** leaves existing rows untouched (and cannot
+delete rows removed while stopped), while **Clear** deletes existing target rows
+before loading and permanently sets `on_full_load: clear` on that writer. Shared
+Views/Serve targets offer **Keep** only.
+
+#### Completed snapshot restarts
+
+Restarting a completed snapshot pipeline with **Clear** in Cloud can leave
+existing target rows in place even when the start report selects `FULL_LOAD`.
+Write to a new target collection instead and verify its contents against the
+source.
+
+### Inspect Unwind target identity
+
+When configuring an **Unwind** step, open advanced options and check
+**Source identity field** (default `_unwind_source_id`) and check the target panel
+status (**No change needed**, **Automatic**, or **Action required**) alongside **Logical operator result** and
+**Target write result**. Resolve any field collision, incompatible unique index,
+or missing target metadata permission before starting, because changing the
+identity field on a populated target does not migrate existing rows—see
+[Unwind identity requirements](/docs/reference/transforms#target-identity-and-existing-data).
 
 ## Next steps
 
-- [Capture and read modes](/docs/concepts/capture-modes)
-- [Resources and pipelines](/docs/concepts/dsl)
-- [Troubleshooting](/docs/guides/troubleshooting)
-- [v0.7 release notes](/docs/releases/v0.7)
+- [Manage pipelines](/docs/guides/manage-pipelines) — find, stop, and update running pipelines.
+- [Observe a pipeline](/docs/guides/observe-a-pipeline) — interpret Monitoring metrics, sync health, and Logs.
+- [Plan nest capacity and delivery behavior](/docs/guides/nest-throughput) — size assembled documents and test update bursts.
+- [Troubleshooting](/docs/guides/troubleshooting) — diagnose save, start-check, connectivity, and CDC issues.

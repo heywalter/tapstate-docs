@@ -1,6 +1,6 @@
 ---
 title: Observe a pipeline
-description: Interpret tapstate pipeline status, metrics, snapshot progress, and node-local logs
+description: Interpret tapstate Cloud pipeline status, metrics, snapshot progress, and runtime logs
 ai:
   kind: guide
   id: observe-a-pipeline
@@ -12,221 +12,177 @@ Open the pipeline in the web application and use **Monitoring** and **Logs**
 to inspect its activity. Compare these observations with source and target data
 before treating a run as successful.
 
+A draft has no running job to observe. If **Monitoring** asks you to save and
+start the pipeline, return to [Build a pipeline](/docs/guides/build-a-pipeline).
+A Cluster being **Ready** is separate from a pipeline running or its data being
+correct. Missing usage values do not mean zero activity.
+
+For CLI observation commands and Prometheus or OTLP metrics export on a server
+you manage, see [Observe self-hosted pipelines](/docs/self-hosted/observe-pipelines).
+
 ## Inspect the web application
 
-In **Pipelines**, open your pipeline and select **Monitoring**. Review its
-current metrics and target acknowledged positions. Use the refresh control to
-update the display, or pause automatic refresh while inspecting a value.
+In **Pipelines**, open your pipeline and select **Monitoring**. Active and
+failed runs open there; drafts and stopped pipelines open in **Build**.
+Select **Refresh** for new readings. **Last refreshed** records when the page
+received data; it is not the time of the underlying runtime observation.
 
-![Monitoring page showing the current metrics and target acknowledged positions for a sample pipeline](/images/guides/build-a-pipeline/v0.7-monitoring.jpg)
+[![Pipeline Monitoring with an out-of-date observation warning, history charts, and key figures](/images/cloud/monitoring.png)](/images/cloud/monitoring.png)
 
-Select **Logs** to inspect recent runtime messages. Filter by level or use
-**Search this log tail**, then select a line to open **Log details**. These
+This example shows stale observations. Read the warning before interpreting
+the charts; refreshing a page does not make an old runtime observation current.
+
+### Check sync health
+
+Read the status message before interpreting the figures:
+
+| Message | What to check next |
+|---|---|
+| **Initial load in progress** | Find the loading table below and follow its read and delivery progress. Reading all source rows does not finish the load until the target confirms them. |
+| **Not advancing** | Open **Diagnosis details** for the affected tables and suggested next step, then inspect Logs and the target. A table still loading is not diagnosed as stalled just because its frontier has not advanced. |
+| **Pipeline failed** | Open Logs and inspect the reported failure code. |
+| **Monitoring data is out of date** or **Sync status unknown** | Refresh and check observation age. Missing or old evidence cannot establish current health. |
+| **Sync healthy** | The pipeline is running with a fresh diagnosis that found no matching problem. Continue with data checks before treating delivery as correct. |
+
+### Read the key figures
+
+| Figure | Meaning |
+|---|---|
+| **Newest change delivered** | Age of the newest target-confirmed source event across outputs. It uses the smallest reported event age, so a recent change on one output can coexist with an older reading on another. |
+| **Records out** | Latest available per-second rate from target-acknowledged history in the selected time range. The accompanying total and bytes are cumulative counters. |
+| **Records in** | Cumulative input records and bytes, not a rate or a count of destination documents. |
+| **Initial load** | Target-confirmed tables out of all tables requiring an initial load. Row totals may be estimates; they do not establish completion. |
+| **Failures since start** | Shown in place of the Initial load figure when failure counters are nonzero, with their codes. These counters can span run restarts; check the current status and logs before treating them as a new failure. |
+
+Event age grows while a source is idle. It is not end-to-end latency or a
+count of queued changes. A missing value is unavailable, not zero.
+
+### Find a table or output
+
+Use **Search tables** to find a source table or destination name. Loading and
+stalled tables appear first; larger lists have page controls.
+
+- **Phase** distinguishes waiting, initial load, CDC, and a completed
+  snapshot-only load. Initial-load rows remain in that phase while target
+  delivery is outstanding.
+- **Initial load** shows rows read and an estimated total when available.
+  Use the phase as well as the count to check completion.
+- **Not advancing for** and **Frontier gap** describe processing progress.
+  Compare them with the load phase and diagnosis before acting.
+- **Table → target** identifies resolved direct-copy destinations. Nest inputs
+  also show their root or embed **Role**; pipelines reading multiple sources
+  show a **Source** column. A Nest output's event age can appear separately
+  from its input tables.
+
+Tables move through four initial-load stages: `PENDING`, `READING`,
+`LANDING` (source reading finished while target delivery is outstanding),
+and `LANDED` (target writes confirmed).
+
+### Compare recent history
+
+Choose a time range containing the run. **Records out per second** shows
+confirmed delivery; **Time since newest change, per output** separates outputs
+that the summary figure combines. When more than five series are available,
+select **Show all** to expand them. History requests cover at most 20 outputs,
+prioritizing those with the highest current event ages.
+
+Use **View data** for the chart values and **Load more history** when offered.
+Gaps and counter resets separate observations; an empty range is not measured
+zero throughput. An idle run can have measured zero rates once adjacent
+samples establish that nothing was delivered. Samples are recorded every 60
+seconds and retained for 15 days by default.
+
+### Inspect supporting details
+
+Expand **Diagnosis details** for the evidence, **What this cannot establish**,
+and any **Suggested next step**. **All metrics** groups the available numeric
+readings. For Nest pipelines, **Advanced · transform state** shows state
+entries, accesses, cold-key share, backfill activity, and state commits,
+labelled by step and document path when available; see
+[Nest state and cold-layer metrics](/docs/self-hosted/observe-pipelines#nest-state-and-cold-layer-metrics)
+for the underlying Prometheus/OTLP and `facts` metric names. These readings
+describe processing work, not data correctness.
+
+Status, metrics, snapshot, and history are separate observations. Check their
+timing when comparing them.
+
+### Read logs
+
+Select **Logs** to inspect recent runtime messages. Filter by level or time
+range, or use **Search**, then select a line to open **Log details**. These
 filters narrow the returned tail; they do not search a historical log archive.
 
-![Pipeline logs with a text search, level filters, and the selected line open in Log details](/images/guides/observe-a-pipeline/v0.7-logs.jpg)
+[![Pipeline logs with level and time-range filters, search input, and Log details open for the selected row](/images/self-hosted/pipeline-logs.png)](/images/self-hosted/pipeline-logs.png)
 
-## CLI and API access
+#### Interpret progress messages
 
-CLI, REST, and MCP expose the same underlying observations for troubleshooting
-and automation. The commands below assume an authenticated CLI session.
+In Cloud, source capture and target confirmation report separate milestones:
 
-| Surface | Question | Storage boundary |
-|---|---|---|
-| Status | What is known about lifecycle intent and runtime state? | Pipeline catalog and latest available observation |
-| Metrics | What numeric run statistics and per-table positions are available? | Latest store-backed observation |
-| Snapshot | What per-table initial-load progress is available? | Latest store-backed observation |
-| History | How did output rates and selected-table lag change? | Retained samples, 15 days by default |
-| Explanation | What does the latest observation say about a failure or lack of progress? | Interpretation of current evidence |
-| Logs | What did this process recently report for the pipeline? | Bounded node-local log tail |
-
-## Read status
-
-```text
-status orders_to_operational_state
-status orders_to_operational_state --watch
-```
-
-States include:
-
-- `NEW`: known to the server, with no runtime observation yet;
-- `RUNNING`: executing;
-- `PAUSED`: intentionally paused;
-- `STOPPED`: stopped; checkpoints may be retained or cleared, depending on the stop request;
-- `COMPLETED`: a bounded input was exhausted;
-- `FAILED`: the running job stopped unexpectedly.
-
-The status response separates three facts:
-
-| Field | Meaning |
+| Message | Meaning |
 |---|---|
-| `state` / `observedState` | Runtime state. Before the first observation, `state` is `NEW` and `observedState` is omitted. |
-| `desiredState` | The requested lifecycle intent, when available. |
-| `displayState` | The display phase, which can include `DRAFT` or `STARTING`. |
+| `Snapshot read started for table ...` | The source has started reading that table's initial data. |
+| `Snapshot read finished for table ... (... events read; awaiting target confirmation)` | Source reading has ended; target writes may still be pending. |
+| `Snapshot finished for table ... (target writes confirmed)` | Target acknowledgements have confirmed that table's snapshot on this runtime path. |
+| `CDC confirmed for table ...` | Target-confirmed change progress has advanced. These summaries are sampled, not emitted for every row. |
 
-A saved draft can have `displayState: DRAFT` and `hasArtifact: false`. A known
-pipeline requested to run can show `STARTING` before the first runtime
-observation. Neither creates an `observedAt` timestamp. Once an observation
-exists, `observedAt` records when it was captured; inspect its freshness
-alongside logs and confirmed target progress.
+Compare these messages for the same table and run. A confirmed table does not
+prove that every table has finished, and source-read counts are not target
+document counts after filtering or assembly. Check snapshot progress and
+representative target records as well. A quiet log tail alone does not prove
+that CDC has stopped.
 
-When a job fails, the CLI status output includes `failureCode` and
-`failureMessage` with the `FAILED` state. `failureCode` is the stable machine
-key; `failureMessage` is the reader-facing explanation. Healthy states omit
-these fields.
+## Check a View's observation
 
-`status --watch` uses an authenticated WebSocket and emits runtime state
-changes. For a known pipeline with no observation, it stays open without
-inventing an initial state event. An unknown ID is refused. A failure frame
-carries the same failure fields. A normal connection drop may be re-attached,
-but a coded server refusal ends the watch and reports the code. Press
-<kbd>Ctrl</kbd>+<kbd>C</kbd> to stop watching without stopping the pipeline.
+In **Views**, open the output and review **Event age and observation**.
 
-### Read the execution plan
+- **Observed · event age** shows the age of the last target-confirmed source
+  event, taking the maximum across this output's inputs. It grows while a
+  source is idle; it is not an end-to-end latency or backlog measurement.
+- **Measured** is the observation time. **Refreshed** is when the server
+  assembled the current response. Refreshing the page does not create a new
+  runtime observation.
+- **Loading** describes initial-load progress. **Observation unavailable**,
+  **Event age unavailable**, or **Observation time unavailable** means the
+  corresponding evidence is missing, stale, or unusable. Do not read it as zero lag.
 
-When available, status includes a `plan` describing requested and effective
-parallelism for each node, member counts, and batching. `awaitingRebalance`
-lists cluster members that joined after the run was planned and have no part
-of it until rebalance. Use the effective plan when checking execution; a
-requested parallelism is a cluster-wide target, not a count per member. See
-[Pipeline reference](/docs/reference/pipeline).
+Follow **Maintained by** to inspect the pipeline. Compare a known source change
+with the destination before concluding that delivery is current or correct.
+See [View observation fields](/docs/reference/rest-api#view-observation-fields)
+for the API representation.
 
-## Explain a lack of progress
+## Check data correctness
 
-In a connected session, run `explain <pipeline-id>`. The explanation uses the
-same failure and freshness evidence as status. It can identify an old
-observation or sustained lack of confirmed progress; `NO_MATCH` means no rule
-matched, not that delivery is healthy.
+Monitoring explains runtime activity. To compare stable source and destination
+data for a direct one-to-one pipeline, follow
+[Validate pipeline data](/docs/guides/validate-pipeline-data). For Nest or other
+transforms, compare the expected output documents and representative changes,
+as shown in [Build a pipeline](/docs/guides/build-a-pipeline#5-check-the-result).
 
-A stale observation and a stalled pipeline are different conditions. The
-explanation considers an observation older than 30 seconds stale. Stall
-pressure requires at least 60 seconds without frontier movement; a brief
-pause alone is insufficient. Compare source activity, confirmed target
-positions, logs, and target records before restarting anything.
+## Follow an alert
 
-If no observation exists, the read returns `monitor.no-observation`. Missing
-evidence must not become a healthy state in a dashboard.
-
-## Read metrics
-
-```text
-metrics orders_to_operational_state
-```
-
-Metrics are an open map rather than a fixed schema. Depending on the active runtime path, the response can include numeric counters and a `perTableOffset` map of table names to opaque source positions.
-
-For a pipeline that uses `nest`, the runtime reports one
-`nestDeadLettered.<namespace>` entry for each namespace that could not place
-changes into a document. The entry is absent when that namespace has no
-discarded changes; the runtime does not emit one aggregate `dead_lettered` key.
-Check the pipeline logs for the failure code and affected key. If you need a
-pipeline-wide total, sum the namespace entries in your client.
-
-An absent metric is unavailable, not zero. Do not build a strict parser that
-rejects new metric keys.
-
-Unlike status, metrics, snapshot, and explanation reads require a runtime
-observation. An applied pipeline without one returns `monitor.no-observation`.
-A draft without a published artifact returns `lifecycle.unknown-pipeline`.
-
-Output counters reflect target acknowledgements. Source-read, buffered, and
-target-confirmed positions are different facts. The CLI renders serialized
-positions as opaque fingerprints; these can identify a change but do not
-reveal a binlog coordinate or LSN. A write-back summary also hides opaque
-coordinates. Raw `position` JSON remains the format used for position edits.
-See [CLI position commands](/docs/reference/cli#inspect-and-adjust-checkpoint-positions).
-
-## Read snapshot progress
-
-```text
-snapshot orders_to_operational_state
-```
-
-Snapshot progress is per table. For chain-backed initial loads, confirmed
-completion can survive a replacement run or member takeover. The current
-run's `snapshot.rows.read.<table>` counter can therefore differ from the
-persisted completion count. This retained completion does not apply to
-`snapshot_only` runs.
-
-A missing total must not be interpreted as 0% or 100%. Compare target counts
-and representative keyed samples; an empty `snapshot` result alone does not
-establish success or failure.
-
-## Read recent history
-
-Choose a time range that contains your run. For example:
-
-```text
-metrics orders_to_operational_state --from 2026-09-29T01:00:00Z --to 2026-09-29T02:00:00Z --resolution 5m --table orders
-```
-
-History reports target-confirmed output rates and lag for explicitly selected
-tables. Lag is the age of the last target acknowledgement, not a count of
-queued rows. Omitting `--table` omits table lag.
-
-- Sampling defaults to once per 60 seconds; retention defaults to 15 days.
-  Operators can change `tapstate.metrics.history.sample-interval` and
-  `tapstate.metrics.history.retention`.
-- Read the effective range and retention cutoff. Old samples may have expired.
-- Keep resets and gaps visible. A missing rate or `NO_RETAINED_SAMPLES` is not
-  zero throughput.
-- Continue with `nextCursor` while repeating the original query. Cursors expire
-  after 10 minutes; restart the query if one expires. Results are eventually
-  consistent, not a fixed audit snapshot.
-
-See [History parameters](/docs/reference/rest-api#pipeline-history) for limits,
-resolutions, and error handling, or use
-[`pipeline_metrics_history`](/docs/reference/mcp#pipeline-history-and-explanations)
-from an AI agent.
-
-## Export metrics
-
-Export is optional. Without an OTLP endpoint or Prometheus port, the server
-starts neither exporter. These settings do not disable built-in observations.
-
-| Server property | Default | Use |
-|---|---|---|
-| `tapstate.metrics.export.otlp.endpoint` | Unset | Collector URL; include `/v1/metrics` for HTTP/protobuf. |
-| `tapstate.metrics.export.otlp.protocol` | `http-protobuf` | Use `http-protobuf` or `grpc`. |
-| `tapstate.metrics.export.otlp.interval` | `60s` | Push interval. |
-| `tapstate.metrics.export.prometheus.port` | Unset | Enable a separate scrape listener on this port. |
-| `tapstate.metrics.export.prometheus.host` | `127.0.0.1` | Interface for the scrape listener. |
-
-Prometheus export has no built-in authentication and can expose pipeline,
-table, and namespace identifiers. If a scraper needs another bind address,
-restrict access to that network. It does not use the control API's bearer token.
-
-## Read and follow logs
-
-```text
-logs orders_to_operational_state
-logs orders_to_operational_state --follow
-```
-
-Logs are a bounded tail from the node serving the request. They are not a durable audit history or an aggregated multi-node log. An empty log result is valid when the pipeline has not logged on that node.
-
-### Connector log forwarding
-
-Connector and PDK runtime logs are forwarded into the pipeline's log stream under the connector identifier (`io.tapstate.connector.<connector-id>`). Connector warnings and errors are preserved in the stream, while verbose debug chatter is filtered to protect the bounded tail. This enables operators to diagnose driver disconnects, authorization errors, retry loops, and schema anomalies directly via `logs` without host-level log access.
-
-`logs --follow` opens an authenticated WebSocket and sends newly observed lines. Under a burst, a bounded tail can re-send a line when it re-tails after eviction; consumers should tolerate duplicates. A normal connection drop may be re-attached, but a server close carrying a coded refusal terminates the follow operation and reports the code instead of reconnecting indefinitely.
+Open **Alerts** in the Cluster sidebar to inspect active problems and recovery
+evidence. Use **Alert diagnostics** to check detection and notification-system
+status. Notification delivery is tracked separately from the fault itself.
+See [Alerts and notifications](/docs/manage/alerts) for rules, maintenance
+silences, and Cloud delivery.
 
 ## Build an evidence set
 
 For a run review, capture:
 
-- output from `tapstate version` and the pipeline revision;
-- final `status`;
-- relevant metrics and per-table positions;
-- the smallest useful log tail;
-- source and target row counts;
-- insert, update, and delete samples;
+- organization, Cluster name, **Runtime version** from **Clusters**, and
+  pipeline ID;
+- current sync health, **Monitoring** figures, and per-table progress;
+- relevant **Logs** lines and failure codes;
+- source and target row counts, plus insert, update, and delete samples;
 - timestamps and the expected result.
 
 Remove secrets and customer data before sharing the evidence.
 
 ## Related pages
 
-- [Apply and run a pipeline](/docs/guides/apply-and-run)
+- [Build a pipeline](/docs/guides/build-a-pipeline)
+- [Validate pipeline data](/docs/guides/validate-pipeline-data)
 - [Troubleshooting](/docs/guides/troubleshooting)
+- [Observe self-hosted pipelines](/docs/self-hosted/observe-pipelines)
 - [REST API preview](/docs/reference/rest-api)

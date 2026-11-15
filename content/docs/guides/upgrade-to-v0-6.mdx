@@ -13,7 +13,20 @@ open that store afterward.** Back up before upgrading; changing the image tag
 back is not a rollback procedure.
 
 Tapstate v0.6 remains a preview for evaluation, not production use. If you only
-need a new disposable environment, follow the [Quickstart](/docs/overview/quickstart).
+need a new disposable environment, follow the [local quickstart](/docs/overview/quickstart).
+
+## Compatibility changes
+
+- The control-store migration is forward-only; v0.5 cannot open the upgraded store.
+- Local View definitions must remove the unused `schema` field.
+
+## When to use this guide
+
+This guide covers compatibility changes introduced in v0.6. Use it when
+crossing that version boundary with an existing deployment. Dedicated upgrade
+guides describe changes that require migration or operator action; they are
+not created for every minor release. Review the release notes supplied with
+your target server before proceeding.
 
 ## Before you begin
 
@@ -94,4 +107,4 @@ Preserve the upgraded MongoDB backup until you have verified the restored deploy
 
 - [Move Nest state](/docs/guides/move-nest-state)
 - [Configure a cluster](/docs/guides/cluster)
-- [Observe a pipeline](/docs/guides/observe-a-pipeline)
+- [Observe self-hosted pipelines](/docs/self-hosted/observe-pipelines)

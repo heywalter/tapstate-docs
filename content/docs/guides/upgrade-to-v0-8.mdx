@@ -1,0 +1,144 @@
+---
+title: Upgrade to v0.8
+description: Plan a separate three-layer v0.8 installation, preserve v0.7 databases and backups, and verify cutover without in-place migration
+ai:
+  kind: guide
+  id: upgrade-to-v0-8
+  maturity: preview
+  aliases: [v0.8 migration, three-layer storage upgrade, v0.8 transition, upgrade from v0.7]
+---
+
+Tapstate v0.8 introduces the three-layer storage layout (`Configuration`,
+`Durable cache`, and `Application data`). **There is no in-place upgrade or
+automatic migration from the v0.7 single-store metadata layout, and no
+mixed-version operation.**
+
+Do not point a v0.8 server at an existing v0.7 database or working directory.
+Prepare a separate v0.8 installation and preserve your v0.7 databases, keyring,
+and deployment materials until cutover verification is complete.
+
+For older single-store upgrades, see [Upgrade to v0.7](/docs/guides/upgrade-to-v0-7)
+and [Upgrade to v0.6](/docs/guides/upgrade-to-v0-6).
+
+## Compatibility changes
+
+- **Three separate databases replace the single metadata store.** Prepare
+  dedicated `Configuration`, `Durable cache` (`tapstate_cache` by default), and
+  `Application data` (`tapstate_views` database / `views` Source by default) on
+  a MongoDB replica set or Atlas cluster. See
+  [State and storage](/docs/concepts/storage).
+- **No automatic store migration.** Older v0.7 single-store metadata databases
+  cannot be upgraded in place or migrated automatically into three-layer
+  storage. Maintain your pipeline and connection definitions as `.tap.yml`
+  files and apply them to a fresh v0.8 installation.
+- **Matching v0.8.0 CLI and server are required.** New commands and options such
+  as start-check decisions and three-layer storage recovery are not supported by
+  v0.7 clients. An older CLI sees interactive start-check prompts but cannot
+  answer them.
+- **Explicit browser transport security.** Self-hosted browser login over HTTPS
+  requires `TAPSTATE_BROWSER_AUTH_PUBLIC_ORIGINS` (and
+  `TAPSTATE_BROWSER_AUTH_TRUSTED_PROXIES` behind TLS-terminating proxies). Plain
+  HTTP browser login is disabled outside explicit loopback opt-in.
+- **Server defaults and runtime checks.** The server defaults to UTC unless
+  JVM `user.timezone` is set explicitly. Choosing **Clear** in start checks
+  saves `on_full_load: clear` on that sink, and `on_full_load: fail` blocks
+  full-load starts on populated targets. Unwind checks existing keys, indexes,
+  and permissions before writing and does not rewrite existing populated target
+  documents when field names change.
+
+## Before you begin
+
+- Record your current v0.7 server image digest, JVM settings, custom CA bundles,
+  and pipeline IDs.
+- Gather or author your maintained local `.tap.yml` workspace files rather
+  than relying on live v0.7 database state (live v0.7 stores cannot be exported
+  as complete runnable definitions).
+- Install the [v0.8.0 CLI](/docs/overview/install) separately and keep the
+  v0.7 deployment materials available for rollback.
+- Prepare a MongoDB replica set or Atlas deployment for the new v0.8
+  installation with three fresh, empty database names. Do not reuse the v0.7
+  metadata database or an occupied cache database.
+- Decide your reconciliation point and plan a controlled cutover window if both
+  deployments cannot read or write concurrently without conflicting.
+- [Stage the MongoDB connector](/docs/guides/register-connectors#prepare-the-initial-storage-connector)
+  before saving the new installation's storage settings. Register other source
+  connectors after sign-in. For standalone binary or JAR deployments outside
+  the container image, also ensure JDK 21 is installed.
+
+## 1. Validate `.tap.yml` definitions with the v0.8.0 CLI
+
+Offline schema and cross-resource rules evolve across minor releases. Validate
+existing workspace files before applying them to a new v0.8 server:
+
+```bash
+tapstate validate
+```
+
+Review these definitions in your `.tap.yml` files:
+
+- Verify sink and `view` `write_mode` (`upsert` / `append`) and
+  `on_full_load` (`append` [default], `clear`, `fail`) policies match your
+  cutover expectations. See [Output and serving reference](/docs/reference/view-and-serve).
+- Replace legacy automation flags or confirm `--decide target-not-empty=...`
+  usage where non-empty targets may be encountered; `-y` cannot override
+  `on_full_load: fail` or blocking start checks. See
+  [Start checks](/docs/guides/apply-and-run#start-checks).
+- Review any `nest` capacity overrides (`entries_in_memory`,
+  `max_elements_per_document`) and `unwind` `element_key` settings. See
+  [Size the nest](/docs/guides/nest-throughput) and
+  [Transforms reference](/docs/reference/transforms#unwind).
+- Verify whether any `nest.state.database` override is intentional; on
+  three-layer installations, `state.database` must remain separate from
+  Configuration, Application data, and system databases on the Durable cache
+  connection.
+
+## 2. Deploy and initialize the separate v0.8.0 server
+
+1. Stop writers or coordinate source access per your cutover plan, and take a
+   complete backup of the existing v0.7 metadata database, keyring, operator
+   state, and target data before making changes.
+2. Initialize a **new installation directory** (`installation --initialize`),
+   then start the new v0.8.0 server against that directory and a **fresh
+   MongoDB database set**, with
+   [browser access environment variables](/docs/guides/bootstrap-and-auth#configure-self-hosted-browser-access)
+   configured on the server process.
+3. Complete guided three-layer storage setup and create the first administrator
+   using [Initialize storage](/docs/guides/bootstrap-and-auth#initialize-storage).
+   First-time setup tests Durable cache and activates in the same process,
+   while checking the default `views` store asynchronously.
+4. Register any separately packaged connectors (such as `db2i` if evaluated) and
+   re-enter Source credentials. Secrets from v0.7 stores are not imported
+   automatically.
+
+## 3. Apply, test, and verify cutover
+
+1. Sign in with the v0.8.0 CLI or web console and inspect **Settings** to confirm
+   the default `views` destination passed its background check.
+2. Test every Source connection and run table discovery before building or
+   applying pipelines.
+3. Apply validated resources to a clean test destination first and run a small
+   canary pipeline. Check `GET /version` and `GET /healthz`, confirm initial
+   load row counts, verify CDC insert/update/delete handling, and test
+   `stop --keep-state` resume before retiring the v0.7 environment.
+4. If pipelines share PostgreSQL replication slots, confirm slot names and
+   retention windows so the new installation and preserved v0.7 installation do
+   not collide on the same logical slot.
+
+## Roll back to v0.7
+
+Because v0.8 runs as a separate installation on its own databases, rolling back
+means returning traffic and scheduling to the preserved v0.7 deployment:
+
+1. Stop all pipelines and servers in the new v0.8 installation cleanly.
+2. Verify that the preserved v0.7 databases, keyring, and working volumes were
+   not modified by v0.8.
+3. Restart the previous v0.7 server release against its original databases and
+   configuration, confirm its version and health, and reconcile any source or
+   target writes that occurred during the test window.
+
+## Related pages
+
+- [v0.8 release notes](/docs/releases/v0.8)
+- [Initialize storage](/docs/guides/bootstrap-and-auth#initialize-storage)
+- [State and storage](/docs/concepts/storage)
+- [Upgrade to v0.7](/docs/guides/upgrade-to-v0-7)

@@ -107,6 +107,13 @@ the current runtime and must match the identity of the stream that feeds the
 view. The current preview materializes the warm database layer; see
 [view and serve](/docs/reference/view-and-serve) for storage and key limits.
 
+In Cloud and v0.8, set `write_mode` and `on_full_load` on the inline View or reusable View
+resource, rather than on `view.use`. Defaults are `upsert` and `append`.
+Review [View write policies](/docs/reference/view-and-serve#view-write-and-full-load-policies),
+[Start checks](/docs/guides/apply-and-run#start-checks), and
+[Review start checks](/docs/guides/build-a-pipeline#review-start-checks) before a fresh load
+into a populated target.
+
 ### `serve`
 
 Either an inline publish surface or a reference to a reusable `kind: serve`
@@ -193,8 +200,9 @@ set it on the referenced View resource.
 
 ## Runtime boundary
 
-The current preview's Quickstart reads MySQL and PostgreSQL sources,
+The local quickstart reads MySQL and PostgreSQL sources,
 executes `nest` document assembly, and materializes an inline `view` in its
 managed store. `serve.sync` is the separate surface for delivery to an external
-target. Schema acceptance of reusable views, `query`, `push`, or `join` does
-not by itself prove that the current runtime executes that surface.
+target. Schema acceptance of reusable views, `query`, or `push` does not mean
+the current runtime executes them; `join` runs in preview with restricted
+inputs (see [Transform reference](/docs/reference/transforms#join)).
