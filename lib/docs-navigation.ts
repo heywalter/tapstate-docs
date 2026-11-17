@@ -28,6 +28,8 @@ function expandable(node: Node): Node {
   if (node.type !== 'folder') {
     if (node.type !== 'page') return node;
     const labels: Record<string, string> = {
+      '/docs/quickstart': 'Cloud',
+      '/docs/overview/quickstart': 'Local playground',
       '/docs/overview/order-state-demo': 'Order-state demo',
       '/docs/connectors': 'Overview',
       '/docs/self-hosted': 'Overview',

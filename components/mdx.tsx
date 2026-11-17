@@ -1,7 +1,7 @@
 import defaultMdxComponents from 'fumadocs-ui/mdx';
 import { Popover, PopoverContent, PopoverTrigger } from 'fumadocs-ui/components/ui/popover';
 import Link from 'next/link';
-import { ArrowRight, BadgeCheck, Bot, Braces, Cable, CircleAlert, CircleCheck, Database, FileText, GitBranch, Info, KeyRound, Layers3, RadioTower, Server, TerminalSquare } from 'lucide-react';
+import { Activity, ArrowRight, BadgeCheck, Bell, Bot, Braces, Cable, CircleAlert, CircleCheck, CircleHelp, Cloud, CreditCard, Database, FileText, GitBranch, Info, KeyRound, Layers3, RadioTower, Server, ShieldCheck, TerminalSquare } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { MDXComponents } from 'mdx/types';
 import {
@@ -40,23 +40,145 @@ export function Aside({
   );
 }
 
+const linkCardIcons = {
+  activity: Activity,
+  bell: Bell,
+  bot: Bot,
+  braces: Braces,
+  cable: Cable,
+  check: CircleCheck,
+  cloud: Cloud,
+  billing: CreditCard,
+  database: Database,
+  file: FileText,
+  branch: GitBranch,
+  help: CircleHelp,
+  layers: Layers3,
+  radio: RadioTower,
+  server: Server,
+  shield: ShieldCheck,
+  terminal: TerminalSquare,
+} as const;
+
+export type LinkCardIconName = keyof typeof linkCardIcons;
+
 export function LinkCard({
   title,
   description,
   href,
+  icon,
+  badge,
 }: {
   title: ReactNode;
   description?: ReactNode;
   href: string;
+  icon?: LinkCardIconName;
+  badge?: ReactNode;
 }) {
+  const Icon = icon ? linkCardIcons[icon] : undefined;
+
   return (
     <Link
       href={href}
-      className="block rounded-lg border bg-card p-4 text-card-foreground no-underline transition-colors hover:bg-accent/40"
+      className="group flex flex-col justify-between rounded-xl border border-fd-border bg-fd-card p-4 text-fd-card-foreground no-underline transition-[border-color,background-color,box-shadow] duration-150 hover:border-fd-primary/35 hover:bg-fd-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring"
     >
-      <p className="mb-2 font-semibold">{title}</p>
-      {description ? <p className="m-0 text-sm text-muted-foreground">{description}</p> : null}
+      <div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex min-w-0 items-center gap-2">
+            {Icon ? (
+              <Icon aria-hidden="true" className="size-4 shrink-0 text-fd-primary" />
+            ) : null}
+            <span className="font-semibold text-fd-foreground transition-colors group-hover:text-fd-primary">
+              {title}
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-2">
+            {badge ? (
+              <span className="inline-flex items-center rounded-md border border-fd-border bg-fd-muted/55 px-2 py-0.5 text-[0.65rem] font-medium text-fd-muted-foreground">
+                {badge}
+              </span>
+            ) : null}
+            <ArrowRight aria-hidden="true" className="size-4 text-fd-muted-foreground transition-[transform,color] duration-150 group-hover:translate-x-0.5 group-hover:text-fd-primary" />
+          </span>
+        </div>
+        {description ? <p className="mb-0 mt-1.5 text-sm leading-6 text-fd-muted-foreground">{description}</p> : null}
+      </div>
     </Link>
+  );
+}
+
+export function QuickstartModeSwitch({
+  current,
+}: {
+  current: 'cloud' | 'local';
+}) {
+  const options = [
+    {
+      id: 'cloud' as const,
+      title: 'Cloud',
+      description: 'Hosted service — connect your MongoDB Atlas storage and sample data.',
+      href: '/docs/quickstart',
+      icon: Cloud,
+    },
+    {
+      id: 'local' as const,
+      title: 'Local playground',
+      description: 'Run the open-source engine locally with Docker and sample databases.',
+      href: '/docs/overview/quickstart',
+      icon: TerminalSquare,
+    },
+  ];
+
+  return (
+    <nav aria-label="Quickstart environment" className="not-prose my-6">
+      <div className="grid gap-1.5 rounded-xl border border-fd-border bg-fd-muted/35 p-1.5 sm:grid-cols-2">
+        {options.map((option) => {
+          const isCurrent = option.id === current;
+          const Icon = option.icon;
+
+          return (
+            <Link
+              key={option.id}
+              href={option.href}
+              aria-current={isCurrent ? 'page' : undefined}
+              className={`group flex flex-col justify-between rounded-lg px-3.5 py-3 no-underline transition-[border-color,background-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring ${
+                isCurrent
+                  ? 'border border-fd-primary/35 bg-fd-card text-fd-foreground shadow-xs'
+                  : 'border border-transparent bg-transparent text-fd-muted-foreground hover:border-fd-border hover:bg-fd-card/75 hover:text-fd-foreground'
+              }`}
+            >
+              <div className="flex min-h-6 items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  <span
+                    className={`flex size-6 shrink-0 items-center justify-center rounded-md border ${
+                      isCurrent
+                        ? 'border-fd-primary/25 bg-fd-primary/[0.1] text-fd-primary'
+                        : 'border-fd-border bg-fd-background text-fd-muted-foreground group-hover:border-fd-primary/25 group-hover:text-fd-primary'
+                    }`}
+                  >
+                    <Icon aria-hidden="true" className="size-3.5" />
+                  </span>
+                  <span className="text-sm font-semibold text-fd-foreground">{option.title}</span>
+                </span>
+                {isCurrent ? (
+                  <span className="inline-flex items-center rounded-full border border-fd-primary/25 bg-fd-primary/[0.09] px-2 py-0.5 text-[0.65rem] font-semibold text-fd-primary">
+                    Current
+                  </span>
+                ) : (
+                  <ArrowRight
+                    aria-hidden="true"
+                    className="size-3.5 shrink-0 text-fd-muted-foreground transition-[transform,color] duration-150 group-hover:translate-x-0.5 group-hover:text-fd-primary"
+                  />
+                )}
+              </div>
+              <p className="mb-0 mt-1.5 text-xs leading-5 text-fd-muted-foreground">
+                {option.description}
+              </p>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }
 
@@ -88,11 +210,11 @@ export function ProductOverviewHero() {
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link href="/docs/quickstart" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-fd-primary px-4 text-sm font-semibold text-fd-primary-foreground no-underline transition-colors hover:bg-fd-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
-              Run the quickstart
+              Cloud quickstart
               <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
-            <Link href="/docs/connectors" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-fd-border bg-fd-background px-4 text-sm font-semibold text-fd-foreground no-underline transition-colors hover:border-fd-primary/30 hover:bg-fd-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
-              Browse connectors
+            <Link href="/docs/overview/quickstart" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-fd-border bg-fd-background px-4 text-sm font-semibold text-fd-foreground no-underline transition-colors hover:border-fd-primary/30 hover:bg-fd-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fd-ring">
+              Local playground
               <ArrowRight aria-hidden="true" className="size-4" />
             </Link>
             <Link href="/llms.mdx/docs/overview/what-is-tapstate/content.md" className="inline-flex h-10 items-center justify-center gap-2 px-2 text-sm font-semibold text-fd-muted-foreground no-underline hover:text-fd-foreground">
@@ -1037,6 +1159,7 @@ export function getMDXComponents(components?: MDXComponents) {
     Aside,
     CardGrid,
     LinkCard,
+    QuickstartModeSwitch,
     Badge,
     ProductOverviewHero,
     PreviewArchitecture,

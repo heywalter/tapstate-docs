@@ -1,13 +1,17 @@
 ---
-title: Quickstart
+title: Cloud quickstart
 description: Connect Atlas, add sample databases, and run an Order 360 pipeline in tapstate Cloud
 ai:
   kind: guide
   id: cloud-quickstart
   maturity: preview
   modes: [snapshot, cdc]
-  aliases: [tapstate Cloud quickstart, Cloud getting started, Cloud nested pipeline, Order 360 demo]
+  aliases: [Quickstart, tapstate Cloud quickstart, Cloud getting started, Cloud nested pipeline, Order 360 demo]
 ---
+
+import { QuickstartModeSwitch } from '@/components/mdx';
+
+<QuickstartModeSwitch current="cloud" />
 
 An order-details screen needs the order, the customer, and the items purchased.
 In a relational database, these records live in separate tables. In this
@@ -22,7 +26,6 @@ supplied preset, then inspect an actual stored document.
 
 Follow four steps: create a Cluster, connect Atlas storage, add the sample
 sources, and run the demo. No SQL or source database of your own is required.
-Prefer to run tapstate yourself? Use the [local quickstart](/docs/overview/quickstart).
 
 ![Three MySQL tables become one Order 360 document in Atlas, which an application can read](/images/quickstart/order-360-flow.png)
 

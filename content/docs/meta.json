@@ -2,7 +2,7 @@
   "title": "Tapstate docs",
   "pages": [
     "overview/what-is-tapstate",
-    "quickstart",
+    "get-started",
     "concepts",
     "connectors",
     "guides",
