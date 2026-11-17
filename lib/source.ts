@@ -253,8 +253,14 @@ function cleanMdxForLLM(markdown: string) {
     .replace(/<\/div>\n?/g, '')
     .replace(/^[ \t]*<span\s+id="[^"]*"(?:\s+aria-hidden="true")?\s*\/>\n?/gm, '')
     .replace(/<CardGrid>\n?/g, '')
-    .replace(/<\/CardGrid>\n?/g, '')
-    .replace(/<LinkCard\s+([\s\S]*?)\/>/g, (_match, attrs: string) => {
+    .replace(/<\/CardGrid>\n?/g, '\n')
+    .replace(/<QuickstartModeSwitch\s+([^>]*)\/>\n?/g, (_match, attrs: string) => {
+      const current = readAttribute(attrs, 'current');
+      return current === 'local'
+        ? `> **Quickstart environment:** Local playground (current) · Prefer the hosted service? See [Cloud quickstart](/docs/quickstart) to connect your MongoDB Atlas storage and sample data.\n`
+        : `> **Quickstart environment:** Cloud (current) · Prefer local evaluation? See [Local quickstart](/docs/overview/quickstart) to run the open-source engine locally with Docker and sample databases.\n`;
+    })
+    .replace(/[ \t]*<LinkCard\s+([\s\S]*?)\/>\n?/g, (_match, attrs: string) => {
       const title = readAttribute(attrs, 'title') ?? 'Untitled';
       const href = readAttribute(attrs, 'href') ?? '#';
       const description = readAttribute(attrs, 'description');
@@ -298,7 +304,7 @@ Next, run the connection in a non-production environment and confirm credentials
 - **Transform:** Filter, map, script, and merge data as it moves.
 - **Serve:** Write current state to a downstream system.
 
-[Run the Quickstart](/docs/quickstart), [browse connectors](/docs/connectors), or [run tapstate yourself](/docs/self-hosted).`)
+[Run the Cloud quickstart](/docs/quickstart), [try the local playground](/docs/overview/quickstart), or [browse connectors](/docs/connectors).`)
     .replace(/<PreviewArchitecture\s*\/>/g, `### Current preview architecture diagram
 
 | Path | Components | Current behavior |
@@ -446,7 +452,8 @@ export function getLLMIndex() {
     '## Start here',
     '',
     `- [What is tapstate?](${absoluteDocsUrl('/docs/overview/what-is-tapstate')})`,
-    `- [Quickstart](${absoluteDocsUrl('/docs/quickstart')})`,
+    `- [Cloud quickstart](${absoluteDocsUrl('/docs/quickstart')})`,
+    `- [Local quickstart](${absoluteDocsUrl('/docs/overview/quickstart')})`,
     `- [Connect data sources](${absoluteDocsUrl('/docs/connectors')})`,
     `- [Preview limits](${absoluteDocsUrl('/docs/limits')})`,
     `- [Organizations and Clusters](${absoluteDocsUrl('/docs/manage/organizations')})`,

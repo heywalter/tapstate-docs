@@ -9,10 +9,9 @@ ai:
   aliases: [tapstate quickstart, try tapstate locally, tapstate Docker quickstart, cross-source quickstart]
 ---
 
-import { QuickstartDataFlow } from '@/components/mdx';
+import { QuickstartDataFlow, QuickstartModeSwitch } from '@/components/mdx';
 
-For the hosted service, use the [Quickstart](/docs/quickstart). This page runs
-the open-source Docker playground on your own machine.
+<QuickstartModeSwitch current="local" />
 
 Run one disposable tapstate data path without installing the CLI or preparing
 your own databases. The playground captures MySQL orders and PostgreSQL

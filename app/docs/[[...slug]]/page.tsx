@@ -32,6 +32,31 @@ export default async function Page(props: DocsPageProps) {
   const MDX = page.data.body;
   const markdownUrl = getPageMarkdownUrl(page).url;
   const isProductOverview = page.url === '/docs/overview/what-is-tapstate';
+  const quickstartFooterItems = page.url === '/docs/quickstart'
+    ? {
+        previous: {
+          name: 'What is tapstate?',
+          url: '/docs/overview/what-is-tapstate',
+        },
+        next: {
+          name: 'Build a pipeline',
+          description: 'Connect your own databases, preview results, and start a pipeline in Cloud.',
+          url: '/docs/guides/build-a-pipeline',
+        },
+      }
+    : page.url === '/docs/overview/quickstart'
+      ? {
+          previous: {
+            name: 'What is tapstate?',
+            url: '/docs/overview/what-is-tapstate',
+          },
+          next: {
+            name: 'Order-state demo',
+            description: 'Update MySQL and PostgreSQL rows in the playground and inspect live changes.',
+            url: '/docs/overview/order-state-demo',
+          },
+        }
+      : undefined;
   const pageDescription = page.data.description;
   const canonicalUrl = new URL(page.url, docsBaseUrl).toString();
   const section = getDocumentationSection(page.url);
@@ -82,6 +107,7 @@ export default async function Page(props: DocsPageProps) {
       <DocsPage
         toc={page.data.toc}
         full={page.data.full}
+        footer={quickstartFooterItems ? { items: quickstartFooterItems } : undefined}
         tableOfContentPopover={isProductOverview ? { enabled: false } : undefined}
       >
         {!isProductOverview ? (

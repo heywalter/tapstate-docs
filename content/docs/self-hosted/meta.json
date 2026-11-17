@@ -3,7 +3,6 @@
   "defaultOpen": false,
   "pages": [
     "index",
-    "../overview/quickstart",
     "../overview/order-state-demo",
     "---Server administration---",
     "../guides/bootstrap-and-auth",
