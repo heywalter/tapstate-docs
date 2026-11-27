@@ -7,6 +7,8 @@ ai:
   aliases: [snapshot, full load, cdc, full load and cdc, stream source, api source]
 ---
 
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
 A capture mode defines where a source starts and whether it keeps reading after the initial data has been copied.
 
 ## Choose the result you need
@@ -60,11 +62,11 @@ Prepare and verify:
 
 ### Initial loads and recovery
 
-In Cloud, a CDC source pipeline runs full load plus CDC (`snapshot_and_cdc`) by
-default. Underlying `.tap.yml` pipeline definitions also expose
-`settings.read_mode` with `snapshot_only`, `cdc_only`, or `snapshot_and_cdc`. Use
-the modes and prerequisites supported by that connector; a source's `mode` and
-a pipeline's read mode describe different choices.
+By default, a CDC source pipeline runs full load plus CDC (`snapshot_and_cdc`).
+In `.tap.yml` pipeline definitions, `settings.read_mode` also supports
+`snapshot_only` or `cdc_only`. Use the modes and prerequisites supported by that
+connector; a source connection's `mode` and a pipeline's `read_mode` are
+separate settings.
 
 | Pipeline read mode | First run | Recovery with retained state |
 |---|---|---|
@@ -97,15 +99,26 @@ already have released changes that remain only in tapstate's log. See
 
 ### Resume or rerun
 
-- In Cloud, select **Stop** > **Stop and keep state** to pause a pipeline
-  temporarily while retaining progress for the next start.
+<Tabs items={["Web application", "CLI (self-hosted)"]} label="Interface">
+<Tab value="Web application">
+
+- Select **Stop** > **Stop and keep state** to pause a pipeline while retaining
+  recovery positions for the next start.
 - Select **Stop** > **Stop and clear state** only when you intend to discard
   recovery positions and operator state before starting fresh. Review the
   confirmation and target write strategy first; rerunning from scratch can
   repeat writes.
-- On a self-hosted server using the CLI, `stop <pipeline-id> --keep-state` (or
-  `restart <pipeline-id>`) retains state, while `stop <pipeline-id>` without
-  `--keep-state` or `restart <pipeline-id> --rerun` clears state.
+
+</Tab>
+<Tab value="CLI (self-hosted)">
+
+- Run `stop <pipeline-id> --keep-state` (or `restart <pipeline-id>`) to keep
+  retained state and resume on the next start.
+- Run `stop <pipeline-id>` (without `--keep-state`) or `restart <pipeline-id> --rerun`
+  to discard recovery positions and operator state before a fresh run.
+
+</Tab>
+</Tabs>
 
 Clearing one consumer does not clear the shared chain while another consumer
 still depends on it, including the chain's completed-table history. It does

@@ -310,24 +310,21 @@ Next, run the connection in a non-production environment and confirm credentials
 | Path | Components | Current behavior |
 |---|---|---|
 | Control | Web draft or \`.tap.yml\` workspace → tapstate control plane | Use the web application to save drafts, preview sample results, publish, start pipelines, and inspect monitoring, validation, and logs. Self-hosted servers also support CLI, REST, and MCP where exposed. |
-| Data | Database sources (MySQL, PostgreSQL, Oracle, SQL Server, Db2) → tapstate (Capture & transform) → MongoDB / Atlas state | Runs initial snapshots followed by CDC, applies transforms such as \`nest\`, maintains durable checkpoints in Atlas Durable cache (or MongoDB on self-hosted), and materializes operational views in MongoDB Atlas or MongoDB. |`)
+| Data | Database sources (MySQL, PostgreSQL, Oracle, SQL Server, Db2) → tapstate (Capture & transform) → MongoDB / Atlas state | Runs initial snapshots followed by CDC, applies transforms such as \`nest\`, maintains durable checkpoints in Durable cache, and materializes operational views in MongoDB or MongoDB Atlas. |`)
     .replace(/<TapStateArchitecture\s*\/>/g, `### Target architecture diagram
 
 This diagram describes design direction, not the current preview implementation boundary.
 
 | Plane | Stage | Responsibility |
 |---|---|---|
-| Control | Author | Define connections and pipelines. |
-| Control | Validate | Check resources, references, and connector fields. |
-| Control | Operate | Apply, observe, and control lifecycle. |
-| Data | Sources | Databases, brokers, files, and APIs. |
-| Data | Capture | Read initial data and later changes. |
-| Data | Transform | Filter, map, script, union, and assemble related records with nest. |
-| Data | Materialize | Maintain destination-ready current state. |
-| Data | Deliver | Write targets or publish streams. |
-| Data | Consumers | Applications, APIs, and agents. |
+| Control (humans & AI agents) | Author → Validate → Operate | Define connections and pipelines; check schemas, fields, and references; apply, monitor, and control lifecycle. |
+| Data (external input) | Sources | Databases, brokers, files, and SaaS APIs. |
+| Data (tapstate engine) | 01 Capture | Load initial data and follow committed changes. |
+| Data (tapstate engine) | 02 Transform | Filter, map, script, union, and nest related records. |
+| Data (tapstate engine) | 03 Serve | Materialize views, sync targets, or expose query and push outputs. |
+| Data (external output) | Consumers | Applications, APIs, automation, and AI agents. |
 
-Durable recovery state includes resource versions, checkpoints, schema and mapping state, retries, and operational history.`)
+Durable state and recovery foundation: configuration and versions, checkpoints and change logs, schema and retry state, and audit history.`)
     .replace(/<QuickstartDataFlow\s*\/>/g, `### Quickstart data flow
 
 The playground starts from its published seed data: MySQL \`orders\` row \`{ id: 1, customer: "alice", amount: 10.00 }\` and PostgreSQL \`shipments\` rows \`{ id: 1, order_id: 1, carrier: "dhl", status: "delivered" }\` and \`{ id: 2, order_id: 1, carrier: "ups", status: "in_transit" }\`. Neither database can join a table in the other.

@@ -1,6 +1,6 @@
 ---
 title: v0.8
-description: Three-layer storage, pipeline start checks, Unwind identity handling, embedded alerts, data validation, and Db2 for i preview in v0.8.
+description: Three-layer storage, pipeline start checks, Unwind identity handling, embedded alerts, data validation, and Db2 for i source support in v0.8.
 ai:
   kind: reference
   id: release-v0_8
@@ -13,7 +13,7 @@ Released November 13, 2026 · Preview v0.8.0
 `v0.8` introduces separate configuration, durable cache, and application storage;
 pipeline start checks; `Unwind` identity handling; filtered-row removal on
 updates; embedded alerts; dataset validation; and a source-only Db2 for i
-preview. Use this preview with non-production systems and sample data. The
+connector. Use this preview with non-production systems and sample data. The
 server runs as a single member by default; cluster mode remains opt-in.
 
 See the [GitHub releases](https://github.com/tapstate/tapstate/releases) for
@@ -93,8 +93,8 @@ verification, and cutover steps.
   reading from target delivery, with measured counts and optional estimates. See
   [Observe a pipeline](/docs/guides/observe-a-pipeline) and
   [Read snapshot progress](/docs/self-hosted/observe-pipelines#read-snapshot-progress).
-- **Evaluate Db2 for i as a source.** The separately registered `db2i`
-  connector supports snapshot and journal CDC as a source-only Preview. See
+- **Connect Db2 for i as a source.** The separately registered `db2i`
+  connector supports snapshot and journal CDC as a source-only connector. See
   [Db2 for i](/docs/connectors/db2i) for preparation and limits.
 
 ### Other fixes

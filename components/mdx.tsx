@@ -251,28 +251,6 @@ export function ProductOverviewHero() {
   );
 }
 
-function ArchitectureNode({
-  title,
-  description,
-  icon: Icon,
-  accent = false,
-}: {
-  title: string;
-  description: string;
-  icon: typeof Database;
-  accent?: boolean;
-}) {
-  return (
-    <div className={`min-w-0 rounded-xl border p-3.5 ${accent ? 'border-fd-primary/25 bg-fd-primary/[0.07]' : 'border-fd-border bg-fd-background/85'}`}>
-      <div className="flex items-center gap-2">
-        <Icon aria-hidden="true" className={`size-4 ${accent ? 'text-fd-primary' : 'text-fd-muted-foreground'}`} />
-        <p className="m-0 text-sm font-semibold text-fd-foreground">{title}</p>
-      </div>
-      <p className="mb-0 mt-2 text-xs leading-5 text-fd-muted-foreground">{description}</p>
-    </div>
-  );
-}
-
 /** Shows the control and data paths in the current preview. */
 export function PreviewArchitecture() {
   return (
@@ -318,47 +296,217 @@ export function PreviewArchitecture() {
 
 /** Responsive, semantic representation of the target tapstate architecture. */
 export function TapStateArchitecture() {
+  const controlStages = [
+    {
+      title: 'Author',
+      description: 'Define connections and pipelines.',
+      icon: Braces,
+    },
+    {
+      title: 'Validate',
+      description: 'Check schemas, fields, and references.',
+      icon: CircleCheck,
+    },
+    {
+      title: 'Operate',
+      description: 'Apply, monitor, and control lifecycle.',
+      icon: Activity,
+    },
+  ];
+
+  const engineStages = [
+    {
+      step: '01',
+      title: 'Capture',
+      description: 'Load initial data and follow committed changes.',
+      icon: RadioTower,
+    },
+    {
+      step: '02',
+      title: 'Transform',
+      description: 'Filter, map, script, union, and nest related records.',
+      icon: GitBranch,
+    },
+    {
+      step: '03',
+      title: 'Serve',
+      description: 'Materialize views, sync targets, or expose query and push outputs.',
+      icon: Layers3,
+    },
+  ];
+
+  const sourceKinds = ['Databases', 'Brokers', 'Files', 'SaaS APIs'];
+  const consumerKinds = ['Applications', 'APIs', 'Automation', 'AI agents'];
+  const recoveryItems = [
+    'Configuration & versions',
+    'Checkpoints & change logs',
+    'Schema & retry state',
+    'Audit history',
+  ];
+
   return (
     <figure className="not-prose my-8 overflow-hidden rounded-2xl border border-fd-border bg-fd-card shadow-sm shadow-black/[0.03] dark:shadow-none">
       <figcaption className="border-b border-fd-border px-5 py-4">
         <p className="m-0 text-sm font-semibold text-fd-foreground">Target logical architecture</p>
-        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">Design direction, not the current preview implementation boundary.</p>
+        <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">
+          Control plane, Capture–Transform–Serve engine, and durable recovery boundary.
+        </p>
       </figcaption>
 
       <div className="p-4 sm:p-5">
-        <div className="rounded-xl border border-fd-primary/20 bg-fd-primary/[0.055] p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <Braces aria-hidden="true" className="size-4 text-fd-primary" />
-            <p className="m-0 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary">Control plane</p>
+        <section
+          aria-label="Control plane"
+          className="rounded-xl border border-fd-border bg-fd-muted/20 p-4"
+        >
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <ShieldCheck aria-hidden="true" className="size-4 text-fd-primary" />
+              <p className="m-0 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary">
+                Control plane
+              </p>
+            </div>
+            <span className="text-xs text-fd-muted-foreground">
+              Shared by humans and AI agents
+            </span>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <ArchitectureNode title="Author" description="Define connections and pipelines." icon={Braces} />
-            <ArchitectureNode title="Validate" description="Check resources, references, and connector fields." icon={CircleCheck} />
-            <ArchitectureNode title="Operate" description="Apply, observe, and control lifecycle." icon={Bot} />
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_1.25rem_minmax(0,1fr)_1.25rem_minmax(0,1fr)] sm:items-stretch">
+            {controlStages.map(({ title, description, icon: Icon }, index) => (
+              <div key={title} className="contents">
+                <div className="min-w-0 rounded-xl border border-fd-border bg-fd-background p-3.5">
+                  <div className="flex items-center gap-2">
+                    <Icon aria-hidden="true" className="size-4 shrink-0 text-fd-primary" />
+                    <p className="m-0 text-sm font-semibold text-fd-foreground">{title}</p>
+                  </div>
+                  <p className="mb-0 mt-1.5 text-xs leading-5 text-fd-muted-foreground">
+                    {description}
+                  </p>
+                </div>
+                {index < controlStages.length - 1 ? (
+                  <span aria-hidden="true" className="flex items-center justify-center py-0.5 text-fd-muted-foreground sm:py-0">
+                    <ArrowRight className="size-4 rotate-90 sm:rotate-0" />
+                  </span>
+                ) : null}
+              </div>
+            ))}
           </div>
+        </section>
+
+        <div className="flex justify-center py-2.5" aria-hidden="true">
+          <span className="inline-flex flex-col items-center gap-1 text-[0.7rem] font-medium text-fd-muted-foreground">
+            <span className="rounded-full border border-fd-border bg-fd-background px-2.5 py-0.5">
+              deploy, govern &amp; observe
+            </span>
+            <ArrowRight className="size-4 rotate-90 text-fd-primary" />
+          </span>
         </div>
 
-        <div className="flex justify-center py-3" aria-hidden="true"><span className="h-6 w-px bg-fd-border" /></div>
-
-        <div className="rounded-xl border border-fd-border bg-fd-muted/20 p-4">
-          <div className="mb-3 flex items-center gap-2">
-            <Cable aria-hidden="true" className="size-4 text-fd-primary" />
-            <p className="m-0 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary">Data plane</p>
+        <section
+          aria-label="Data plane"
+          className="rounded-xl border border-fd-border bg-fd-muted/20 p-4"
+        >
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Cable aria-hidden="true" className="size-4 text-fd-primary" />
+              <p className="m-0 text-xs font-semibold uppercase tracking-[0.12em] text-fd-primary">
+                Data plane
+              </p>
+            </div>
+            <span className="text-xs text-fd-muted-foreground">
+              End-to-end operational flow
+            </span>
           </div>
-          <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
-            <ArchitectureNode title="Sources" description="Databases, brokers, files, and APIs." icon={Database} />
-            <ArchitectureNode title="Capture" description="Initial data and later changes." icon={RadioTower} accent />
-            <ArchitectureNode title="Transform" description="Filter, map, script, union, and assemble related records with nest." icon={GitBranch} accent />
-            <ArchitectureNode title="Materialize" description="Maintain destination-ready current state." icon={Layers3} accent />
-            <ArchitectureNode title="Deliver" description="Write targets or publish streams." icon={Cable} accent />
-            <ArchitectureNode title="Consumers" description="Applications, APIs, and agents." icon={Bot} />
-          </div>
-        </div>
 
-        <div className="mt-3 rounded-xl border border-dashed border-fd-border bg-fd-background/60 px-4 py-3">
-          <p className="m-0 text-xs font-semibold text-fd-foreground">Durable recovery state</p>
-          <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">Resource versions · checkpoints · schema and mapping state · retries · operational history</p>
-        </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-fd-border bg-fd-background px-4 py-3">
+            <div className="flex items-center gap-2">
+              <Database aria-hidden="true" className="size-4 shrink-0 text-fd-muted-foreground" />
+              <p className="m-0 text-sm font-semibold text-fd-foreground">Sources</p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {sourceKinds.map((kind) => (
+                <span
+                  key={kind}
+                  className="rounded-md border border-fd-border bg-fd-muted/40 px-2 py-0.5 text-xs text-fd-muted-foreground"
+                >
+                  {kind}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-center py-2" aria-hidden="true">
+            <ArrowRight className="size-4 rotate-90 text-fd-primary" />
+          </div>
+
+          <div className="rounded-xl border border-fd-primary/30 bg-fd-primary/[0.06] p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="flex size-6 items-center justify-center rounded-md border border-fd-primary/25 bg-fd-background text-fd-primary">
+                  <Server aria-hidden="true" className="size-3.5" />
+                </span>
+                <p className="m-0 text-sm font-semibold text-fd-foreground">tapstate engine</p>
+              </div>
+              <span className="rounded-full border border-fd-primary/25 bg-fd-background/80 px-2.5 py-0.5 text-[0.7rem] font-medium text-fd-primary">
+                Capture–Transform–Serve
+              </span>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_1.25rem_minmax(0,1fr)_1.25rem_minmax(0,1fr)] sm:items-stretch">
+              {engineStages.map(({ step, title, description, icon: Icon }, index) => (
+                <div key={title} className="contents">
+                  <div className="min-w-0 rounded-xl border border-fd-primary/25 bg-fd-background p-3.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Icon aria-hidden="true" className="size-4 shrink-0 text-fd-primary" />
+                        <p className="m-0 text-sm font-semibold text-fd-foreground">{title}</p>
+                      </div>
+                      <span className="text-[0.65rem] font-semibold tracking-wider text-fd-primary">
+                        {step}
+                      </span>
+                    </div>
+                    <p className="mb-0 mt-1.5 text-xs leading-5 text-fd-muted-foreground">
+                      {description}
+                    </p>
+                  </div>
+                  {index < engineStages.length - 1 ? (
+                    <span aria-hidden="true" className="flex items-center justify-center py-0.5 text-fd-primary sm:py-0">
+                      <ArrowRight className="size-4 rotate-90 sm:rotate-0" />
+                    </span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-3 rounded-lg border border-dashed border-fd-primary/25 bg-fd-background/80 px-3.5 py-2.5">
+              <p className="m-0 text-xs font-semibold text-fd-foreground">
+                Durable state &amp; recovery
+              </p>
+              <p className="mb-0 mt-1 text-xs leading-5 text-fd-muted-foreground">
+                {recoveryItems.join(' · ')}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex justify-center py-2" aria-hidden="true">
+            <ArrowRight className="size-4 rotate-90 text-fd-primary" />
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-fd-border bg-fd-background px-4 py-3">
+            <div className="flex items-center gap-2">
+              <Bot aria-hidden="true" className="size-4 shrink-0 text-fd-muted-foreground" />
+              <p className="m-0 text-sm font-semibold text-fd-foreground">Consumers</p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {consumerKinds.map((kind) => (
+                <span
+                  key={kind}
+                  className="rounded-md border border-fd-border bg-fd-muted/40 px-2 py-0.5 text-xs text-fd-muted-foreground"
+                >
+                  {kind}
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
       </div>
     </figure>
   );

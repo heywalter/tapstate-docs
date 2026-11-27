@@ -12,8 +12,8 @@ import { LinkCard, CardGrid } from '@/components/mdx';
 A **connector** defines how tapstate understands a system. A **connection** supplies the endpoint, credentials, scope, and role for one use of that connector.
 
 In the current product path, MySQL (and Amazon RDS for MySQL preview),
-PostgreSQL, Oracle, SQL Server, and the Db2 LUW and Db2 for i previews are published sources,
-and MongoDB Atlas or MongoDB is the published operational-state target.
+PostgreSQL, Oracle, SQL Server, Db2 LUW, and Db2 for i are published sources,
+and MongoDB or MongoDB Atlas is the published operational-state target.
 Broader connector metadata and roadmap pages do not expand that current path.
 
 ```text
@@ -29,14 +29,13 @@ The main workflow is to prepare a source system, configure a connection,
 discover its tables, select the data for a pipeline, and verify the resulting
 state. Monitor both the initial load and subsequent changes.
 
-Use the Cloud web application to configure sources, build pipelines, and inspect
-observations in your Cluster; installing the CLI is not required for the
-[Quickstart](/docs/quickstart). On self-hosted deployments, the CLI, REST API,
-and MCP use the same underlying resource model shown in YAML reference examples.
+You can configure sources and pipelines in the web application without
+installing a local CLI. For self-hosted automation, the CLI, REST API, and MCP
+work against the same `*.tap.yml` resource model.
 
 ## Connector definition
 
-The connector definition answers questions that should stay consistent across environments:
+The connector definition answers questions that stay consistent across environments:
 
 - Which connector ID identifies the integration?
 - Can it read, write, or do both?
@@ -44,14 +43,15 @@ The connector definition answers questions that should stay consistent across en
 - Which configuration keys and value shapes are recognized?
 - Which preparation steps and limitations apply to the external system?
 
-Cloud Clusters stage a fixed connector set ready to select in **Data Sources**.
-On a self-hosted server, administrators register connector JARs before
-connections can be applied; see [Register and test connectors](/docs/guides/register-connectors).
+The [connector directory](/docs/connectors) lists the current product roles and
+compatibility scope. A connector definition validates known fields and modes;
+connectivity and permissions are checked when the connection is tested and used.
 
-The [connector directory](/docs/connectors) separates the current product roles
-from roadmap entries. A connector definition
-can validate known fields and modes; connectivity and permissions are checked
-when the connection is used.
+- **Cloud:** Clusters stage the standard connector set in **Data Sources**
+  automatically (`db2i` is registered separately).
+- **Self-hosted:** Administrators seed or register connector JARs on the server
+  before applying connections; see
+  [Register and test connectors](/docs/guides/register-connectors).
 
 One pipeline can reference multiple source connections, including connections
 that use different source connectors. Give each source its own endpoint,

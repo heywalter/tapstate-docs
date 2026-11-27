@@ -1,6 +1,6 @@
 ---
 title: Connect data sources
-description: Configure database sources, including Db2 and Db2 for i previews, and prepare MongoDB operational-state targets.
+description: Configure database sources (MySQL, PostgreSQL, Oracle, SQL Server, Db2, and Db2 for i) and prepare MongoDB operational-state targets.
 sidebar:
   order: 1
 ai:
@@ -24,7 +24,7 @@ to connect your own database tables. For self-hosted servers, also see
 These seven guides cover the published connector catalog: six guides cover the
 eight connector IDs in the standard Cloud distribution (MySQL includes RDS
 preparation, and MongoDB covers both MongoDB and Atlas destinations), and
-[Db2 for i](/docs/connectors/db2i) (`db2i`) is a source-only Preview that
+[Db2 for i](/docs/connectors/db2i) (`db2i`) is a source-only connector that
 requires separate [connector registration](/docs/guides/register-connectors)
 before use.
 
@@ -78,5 +78,5 @@ containers (`ghcr.io/tapstate/tapstate:0.8.0`) and standalone binary or JAR
 deployments start without bundled connector JARs—mount verified connector
 artifacts in `/var/lib/tapstate/connectors` (`TAPSTATE_CONNECTORS_SEED_DIR`,
 including `mongodb` for the default `views` store) or register them explicitly
-(including Preview connectors such as `db2i`); see
+(including separately registered connectors such as `db2i`); see
 [Register and test connectors](/docs/guides/register-connectors).

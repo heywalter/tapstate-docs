@@ -5,39 +5,50 @@ ai:
   kind: connector
   id: db2i
   category: databases
-  maturity: preview
+  maturity: ga
   useAs: [source]
   modes: [snapshot, cdc]
   aliases: [IBM i, AS400, AS/400, iSeries, Db2 for i CDC, db2i]
 ---
 
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
 
 <ConnectorProfile
   category="Databases"
-  maturity="Preview"
-  maturityLabel="Separately registered source-only preview"
+  maturity="GA"
+  maturityLabel="Stable guide and configuration contract"
   worksAs="Source"
   capabilities="Snapshot, CDC, Schema discovery"
-  compatibility="IBM i 7.4+ · Source-only Preview (JTOpen); requires connector registration"
+  compatibility="IBM i 7.4+ · Source-only (JTOpen); requires connector registration"
 />
 
 ## Before you begin
 
-Db2 for i (`db2i`) is a **separately registered source-only Preview** connector;
-it is not pre-bundled in the standard Cloud connector distribution or local
-playground. See [Supported connectors](/docs/connectors#supported-connectors). On
-tapstate Cloud, confirm Cluster availability with support and allow the
-Cluster's outbound address to reach the required IBM i host services before
-preparing tables. On self-hosted servers using the
-[v0.8 CLI and server](/docs/releases/v0.8#before-upgrading), register `db2i`
-from the floating `connectors-preview` release before creating a connection; see
-[Register and test connectors](/docs/guides/register-connectors).
+Db2 for i (`db2i`) is a **separately registered source-only** connector covering
+the database built into IBM i (formerly AS/400). It is not pre-bundled in the
+default Cloud connector set or local playground. For Db2 LUW, use
+[Db2](/docs/connectors/db2). `db2i` cannot be used as a sync target.
 
-This guide covers the database built into IBM i, formerly AS/400. For Db2 LUW,
-use [Db2](/docs/connectors/db2). `db2i` cannot be used as a sync target in
-Cloud or self-hosted deployments.
+<Tabs items={["Cloud", "Self-hosted"]} groupId="deployment" persist label="Deployment">
+<Tab value="Cloud">
+
+- Confirm `db2i` availability on your Cluster with support before preparing
+  tables.
+- Allow your
+  [Cluster's outbound address](/docs/manage/clusters#prepare-network-access) to
+  reach the required IBM i host services.
+
+</Tab>
+<Tab value="Self-hosted">
+
+- Use the [v0.8 CLI and server](/docs/releases/v0.8#before-upgrading) and
+  register `db2i` from the published `connectors-preview` release before
+  creating a connection ([Register and test connectors](/docs/guides/register-connectors)).
+
+</Tab>
+</Tabs>
 
 The JAR bundles JTOpen 21.0.5 under the IBM Public License 1.0. Connector use
 remains subject to the applicable commercial connector agreement. Use an

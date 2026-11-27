@@ -28,7 +28,7 @@ are unresolved. It never opens a network connection.
 
 Whether you need to register a connector depends on how the server is deployed:
 
-- **Cloud Clusters:** stage a fixed connector set automatically. Separately registered Preview connectors such as `db2i` are outside the standard Cloud set.
+- **Cloud Clusters:** stage a fixed connector set automatically. Separately registered connectors such as `db2i` are outside the standard Cloud set.
 - **Self-hosted container, binary, and JAR deployments:** the original `ghcr.io/tapstate/tapstate:0.8.0` release image and standalone distributions require you to supply connector JARs. [Prepare the MongoDB connector](#prepare-the-initial-storage-connector) before saving storage settings. Once you can sign in, inspect the catalog (`connectors -o json`) and register any additional source connectors via the CLI or API.
 - **Local quickstart:** no manual registration is required for MySQL, PostgreSQL, or MongoDB. The local quickstart uses those bundled/registered connectors before applying the sample workspace. Oracle, SQL Server, Db2 LUW, and Db2 for i are not part of the demo.
 - **New server deployments:** register each missing connector artifact before applying connections that reference it. Run `connectors -o json` to inspect the catalog; if a connector is absent, register it by published ID (`register <id>`) or upload a local JAR.
@@ -85,8 +85,8 @@ Registration acceptance does not certify every managed service or database versi
 | MongoDB | `mongodb`, `mongodb-atlas` | `mongodb`, `mongodb-atlas`, `aliyun-db-mongodb`, `tencent-db-mongodb` | Read and write; see the Atlas guide for deployment requirements. |
 | Oracle | `oracle` | `oracle` | Read. |
 | SQL Server | `sqlserver` | `sqlserver` | Read. |
-| Db2 LUW | `db2` | `db2` | Source-only preview. |
-| Db2 for i | `db2i` | `db2i` | Source-only preview; v0.8, separately registered. |
+| Db2 LUW | `db2` | `db2` | Source-only. |
+| Db2 for i | `db2i` | `db2i` | Source-only; v0.8, separately registered. |
 
 Artifacts are published through the floating [connector preview release](https://github.com/tapstate/tapstate/releases/tag/connectors-preview).
 The Oracle JAR bundles `ojdbc8`, `orai18n`, and `xdb` under the Oracle Free Use Terms;
@@ -96,13 +96,12 @@ Db2 JAR bundles the IBM Data Server Driver under IBM's license terms, and the
 Db2 for i JAR bundles JTOpen 21.0.5 under the IBM Public License 1.0; both
 connector implementations are also subject to applicable commercial terms.
 
-Db2 LUW and Db2 for i are Preview connectors. Check database preparation and
-limitations in each connector guide before use.
+Check database preparation and limitations in each connector guide before use.
 
 ## Current preview registration boundary
 
-The public guides cover MySQL, PostgreSQL, Oracle, SQL Server, and the Db2 LUW
-and Db2 for i previews as sources, with MongoDB as the operational-state target.
+The public guides cover MySQL, PostgreSQL, Oracle, SQL Server, Db2 LUW, and
+Db2 for i as sources, with MongoDB as the operational-state target.
 
 In Cloud, `serve.sync` accepts only `mongodb` or `mongodb-atlas` targets.
 Self-hosted deployments use the registered catalog's sink capability, subject

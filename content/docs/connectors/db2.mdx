@@ -5,50 +5,61 @@ ai:
   kind: connector
   id: db2
   category: databases
-  maturity: preview
+  maturity: ga
   useAs: [source]
   modes: [snapshot, cdc]
   aliases: [db2 source, db2 luw, db2 snapshot, db2 cdc, native log miner]
 ---
 
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { ConnectorProfile, ValidationStatusGuide } from '@/components/mdx';
 import { SourceModeTab, SourceModeTabs } from '@/components/source-mode-tabs';
 
 <ConnectorProfile
   category="Databases"
-  maturity="Preview"
-  maturityLabel="Preview guide and configuration contract"
+  maturity="GA"
+  maturityLabel="Stable guide and configuration contract"
   worksAs="Source"
   capabilities="Snapshot, CDC, Schema discovery"
   compatibility="Db2 LUW · Native CDC requires a Linux x86_64 tapstate runtime"
 />
 
-For Cloud version and deployment scope, check [Supported connectors](/docs/connectors#supported-connectors).
 Already prepared the database? [Connect it in the Web application](#connect-to-db2).
 
 ## Before you begin
 
-Db2 is a source-only preview connector covering Db2 LUW. For IBM i systems, use
-the separately registered [Db2 for i](/docs/connectors/db2i) preview connector;
-Db2 for z/OS is outside the current connector set, and the LUW preparation
-steps do not apply to either.
+Db2 is a source-only connector covering Db2 LUW. For IBM i systems, use the
+separately registered [Db2 for i](/docs/connectors/db2i) connector; Db2 for
+z/OS is outside the current connector set, and these preparation steps do not
+apply to either.
 
-In Cloud, select Db2 in **Data Sources** and allow the
-[Cluster's outbound address](/docs/manage/clusters#prepare-network-access)
-through the database firewall. Before using CDC in Cloud, confirm that your
-Cluster has the Linux x86_64 native runtime described below; installing the
-connector alone does not provide it. The alternative raw log server mode is
-experimental and is not for production use.
+<Tabs items={["Cloud", "Self-hosted"]} groupId="deployment" persist label="Deployment">
+<Tab value="Cloud">
 
-The native-runtime installation steps below are for self-hosted operators.
-Cloud users must confirm native CDC runtime availability for their Cluster.
+- Select **Db2** in **Data Sources** and allow your
+  [Cluster's outbound address](/docs/manage/clusters#prepare-network-access)
+  through the database firewall.
+- Before enabling CDC, confirm that your Cluster has the Linux `x86_64` native
+  log reader runtime enabled.
+
+</Tab>
+<Tab value="Self-hosted">
+
+- Register the `db2` connector on your server before applying a connection
+  ([Register and test connectors](/docs/guides/register-connectors)).
+- For CDC, prepare the host dependencies under [Native log reader](#native-log-reader)
+  below; the alternative raw log server mode is experimental and not intended
+  for production use.
+
+</Tab>
+</Tabs>
 
 Use a non-production database to validate your Db2 version, data types, snapshot,
-and CDC behavior with the connector artifact you register.
+and CDC behavior before connecting production workloads.
 
 The connector JAR includes the IBM JDBC driver and runtime client under their
-applicable license terms. Use of the connector remains subject
-to the applicable commercial connector agreement.
+applicable license terms. Use of the connector remains subject to the applicable
+commercial connector agreement.
 
 <span id="source" />
 
@@ -148,13 +159,9 @@ If a captured table's schema changes (DDL) later, run a table reorganization bef
 CALL SYSPROC.ADMIN_CMD('REORG TABLE APP.ORDERS');
 ```
 
-**4. Confirm or prepare the native log reader runtime**
+**4. Confirm the native log reader runtime**
 
-In Cloud, confirm native CDC availability for your Cluster; the Cloud image supplies the required Linux x86_64 libraries and runs as root. On a self-hosted server, verify the host satisfies the [native log reader](#native-log-reader) requirements:
-- A Linux x86_64 host (ARM64 is unsupported).
-- `libxml2.so.2` installed on the host.
-- Shared `libstdc++.so.6` preloaded before the JVM starts (`LD_PRELOAD=libstdc++.so.6`).
-- Root permissions on the first connection attempt to initialize the bundled IBM client instance.
+Confirm that the tapstate server meets the [native log reader](#native-log-reader) requirements (`Linux x86_64`, `libxml2.so.2`, preloaded `libstdc++.so.6`, and root permissions on the first native connection). Cloud Clusters using the standard Linux `x86_64` image supply these dependencies automatically.
 
 **5. Verify database and table settings**
 
@@ -190,11 +197,10 @@ The in-process log reader requires:
 - `libxml2.so.2` on the host and shared `libstdc++.so.6` preloaded before the
   server's JVM starts, with `LD_PRELOAD=libstdc++.so.6`.
 
-The current Db2 preview JAR bundles the IBM runtime client and initializes it
-on first use. The Cloud image supplies these dependencies and runs as root.
-The standard self-hosted image runs as UID 10001, so its operator must start the
-container as root (`--user 0`) for the first native connection and supply the
-preloaded library:
+The Db2 connector JAR bundles the IBM runtime client and initializes it on first
+use. The Cloud image supplies these dependencies and runs as root. The standard
+self-hosted image runs as UID 10001, so start the container as root (`--user 0`)
+for the first native connection and preload the library:
 
 ```bash
 # Example: run as root for first-connection initialization and preload libstdc++
@@ -368,11 +374,10 @@ and a keep-state restart against your target. Follow [Build a pipeline](/docs/gu
 
 ## Limitations
 
-- Db2 cannot be a `serve.sync` target. The server rejects writes to Db2 in both
-  Cloud and self-hosted deployments, including connections registered before an
-  upgrade.
-- The current release has no automated live-Db2 acceptance lane. Replacing a
-  floating preview JAR requires validating the replacement with your database.
+- Db2 cannot be a `serve.sync` target. Tapstate rejects writes to Db2, including
+  connections registered before an upgrade.
+- Validate connector JAR updates against a non-production Db2 database before
+  rolling them out to production pipelines.
 - Native CDC has the platform and initialization requirements listed above.
   Raw log service mode is experimental and is not intended for production use.
 - Log reads consume database CPU, I/O, and network resources. Monitor those
@@ -390,7 +395,5 @@ and a keep-state restart against your target. Follow [Build a pipeline](/docs/gu
 ## Data compatibility
 
 Test representative string, numeric, temporal, binary, large-object, and XML
-columns from your schema. The Db2 preview does not establish an exhaustive
-version or data-type compatibility matrix. Verify exact decimal precision,
-temporal values, and update/delete behavior in the destination before relying
-on them.
+columns from your schema. Verify exact decimal precision, temporal values, and
+update/delete behavior in the destination before relying on them.

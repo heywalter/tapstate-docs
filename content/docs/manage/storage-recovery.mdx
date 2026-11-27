@@ -1,17 +1,23 @@
 ---
 title: Recover runtime storage
-description: Identify the recovery scope, coordinate with Cloud support, and rebuild only the affected pipelines
+description: Identify the recovery scope, coordinate isolation, and rebuild only the affected pipelines
 ai:
   kind: guide
   id: cloud-storage-recovery
 ---
 
-Use storage recovery when a diagnosis shows that a pipeline has lost the state
-it needs to resume. Recovery may reread source data and clear or rewrite target
-tables. For a Cloud Cluster, [contact support](/docs/manage/organizations#open-support)
-to confirm the scope and any required isolation before you proceed. On a
-self-hosted v0.8 deployment, your administrator coordinates member isolation and
-runs the same recovery workflow in the Cluster web workbench or via the CLI.
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+Use storage recovery when a diagnosis shows that a pipeline has lost the durable
+state it needs to resume. Recovery may reread source data and clear or rewrite
+target tables.
+
+- **Cloud:** [Contact support](/docs/manage/organizations#open-support) before
+  starting to confirm the recovery scope and member isolation.
+- **Self-hosted:** Your server administrator owns member isolation, backups,
+  and cutover ([Self-hosting](/docs/self-hosted)) and runs the same workflow
+  from the web workbench or
+  [CLI storage recovery commands](/docs/reference/cli#inspect-storage-operations).
 
 ## Check the problem first
 
@@ -36,9 +42,9 @@ for other causes of pipeline failure.
 
 ## Open the recovery controls
 
-1. Enter the affected Cluster from [tapstate Cloud](https://cloud.tapstate.com/) (or sign in directly to your self-hosted Cluster web workbench).
-2. Open the account menu at the bottom of the sidebar and select **Settings**.
-   Use the Cluster settings, not the organization console's Settings page.
+1. Sign in to the affected Cluster workspace.
+2. Open the account menu at the bottom of the sidebar and select **Settings**
+   (in Cloud, use Cluster settings rather than the organization console).
 3. On **State store**, expand **Recover runtime storage and pipelines**.
 
 The available scopes depend on the Cluster's storage state. Choose the scope
@@ -78,29 +84,50 @@ lost historical change events.
 ## Restore storage and rebuild pipelines
 
 For a wholly lost durable cache, storage recovery and pipeline rebuilding are
-two separate operations. Configuration and its original keys and bindings must
-remain intact. If Configuration is damaged or its keys are missing, contact
-support; this procedure cannot reconstruct them.
+two separate steps. Configuration and its original keys and bindings must
+remain intact; if Configuration is damaged or its keys are missing, this
+procedure cannot reconstruct them.
 
-1. Have Cloud support coordinate stopping and isolating all old Cluster
-   members, including preventing them from restarting (on self-hosted
-   deployments, your administrator must stop and isolate all old server
-   instances and prevent them from restarting). Confirm that their
-   source and target connections and in-flight writes have ended. Stopping a
-   pipeline or closing the browser is not enough.
-2. When support has prepared the recovery member (or once your administrator
-   starts the single self-hosted recovery server), sign in and open the recovery
-   controls. Select **Runtime storage for the cluster**, then **Preview impact**.
-3. Review all affected pipelines. Accept the isolation statement only after
-   support (or your self-hosted administrator) has verified those prerequisites,
-   then select **Confirm runtime storage recovery**.
-4. Keep the operation ID and use **Check original result** to follow that
-   operation. When storage recovery completes, affected pipelines remain
-   stopped; they do not restart automatically.
-5. Select **Select one pipeline to rebuild**. Preview its impact, review its
-   source requirements and target policy, then select **Confirm full rebuild**
-   only if you intend to run that pipeline. Repeat separately for each pipeline
-   you need to recover. Ordinary **Start** cannot resume from a lost checkpoint.
+### 1. Isolate old members and preview impact
+
+<Tabs items={["Cloud", "Self-hosted"]} groupId="deployment" persist label="Deployment">
+<Tab value="Cloud">
+
+1. Coordinate with [Cloud support](/docs/manage/organizations#open-support) to
+   stop and isolate all old Cluster members so they cannot restart. Confirm
+   that source and target connections and in-flight writes have ended; stopping
+   a pipeline or closing the browser is not enough.
+2. After support prepares the recovery member, sign in to the Cluster
+   workspace, open **Settings** > **State store** > **Recover runtime storage
+   and pipelines**, select **Runtime storage for the cluster**, and select
+   **Preview impact**.
+
+</Tab>
+<Tab value="Self-hosted">
+
+1. Stop and isolate all old server instances so they cannot restart. Confirm
+   that source and target connections and in-flight writes have ended; stopping
+   a pipeline or closing the browser is not enough.
+2. Start a single recovery server instance against the original Configuration
+   and keys. Sign in to the web workbench, open **Settings** > **State store** >
+   **Recover runtime storage and pipelines**, select **Runtime storage for the
+   cluster**, and select **Preview impact**.
+
+</Tab>
+</Tabs>
+
+### 2. Confirm storage recovery and rebuild pipelines
+
+1. Review all affected pipelines. Accept the isolation statement only after
+   isolation is confirmed, then select **Confirm runtime storage recovery**.
+2. Save the operation ID and use **Check original result** to track completion
+   (on self-hosted servers, you can also check status with the
+   [CLI storage commands](/docs/reference/cli#inspect-storage-operations)).
+   Affected pipelines stay stopped and do not restart automatically.
+3. Select **Select one pipeline to rebuild**, preview its impact, review its
+   source requirements and target policy, and select **Confirm full rebuild**
+   only for the pipelines you want to run. Repeat for each pipeline to recover;
+   ordinary **Start** cannot resume from a lost checkpoint.
 
 ## Check the result
 
@@ -116,7 +143,3 @@ source records. For CDC pipelines, also verify subsequent source changes and
 related records. Use [data validation](/docs/guides/validate-pipeline-data) where
 applicable. Storage recovery completing, a pipeline starting, and its output
 being correct are separate checks.
-
-For a deployment you operate yourself, your administrator owns member isolation,
-backups, and cutover; see [Self-hosting](/docs/self-hosted) and
-[CLI storage recovery commands](/docs/reference/cli#inspect-storage-operations).

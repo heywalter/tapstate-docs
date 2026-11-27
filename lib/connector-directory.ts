@@ -52,8 +52,8 @@ export const connectorDirectory: ConnectorDirectoryItem[] = [
   { slug: 'postgresql', id: 'postgres', title: 'PostgreSQL', category: 'databases', maturity: 'ga', capabilityAuthority: 'server', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'oracle', id: 'oracle', title: 'Oracle', category: 'databases', maturity: 'ga', capabilityAuthority: 'server', useAs: ['source'], modes: ['snapshot', 'cdc'] },
   { slug: 'sqlserver', id: 'sqlserver', title: 'SQL Server', category: 'databases', maturity: 'ga', capabilityAuthority: 'server', useAs: ['source'], modes: ['snapshot', 'cdc'] },
-  { slug: 'db2', id: 'db2', title: 'Db2', category: 'databases', maturity: 'preview', useAs: ['source'], modes: ['snapshot', 'cdc'] },
-  { slug: 'db2i', id: 'db2i', title: 'Db2 for i', category: 'databases', maturity: 'preview', useAs: ['source'], modes: ['snapshot', 'cdc'] },
+  { slug: 'db2', id: 'db2', title: 'Db2', category: 'databases', maturity: 'ga', useAs: ['source'], modes: ['snapshot', 'cdc'] },
+  { slug: 'db2i', id: 'db2i', title: 'Db2 for i', category: 'databases', maturity: 'ga', useAs: ['source'], modes: ['snapshot', 'cdc'] },
   { slug: 'mongodb', id: 'mongodb', title: 'MongoDB', category: 'databases', maturity: 'ga', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'mongodb-atlas', id: 'mongodb-atlas', title: 'MongoDB Atlas', category: 'databases', maturity: 'ga', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
   { slug: 'tidb', id: 'tidb', title: 'TiDB', category: 'databases', maturity: 'ga', useAs: ['source', 'target'], modes: ['snapshot', 'cdc'] },
@@ -152,7 +152,7 @@ export const cloudConnectorScope: Record<string, {
   },
   db2i: {
     connectorIds: ['db2i'],
-    compatibility: 'IBM Db2 for i 7.4+ · Source-only Preview (JTOpen); requires connector registration',
+    compatibility: 'IBM Db2 for i 7.4+ · Source-only (JTOpen); requires connector registration',
     maturityNote: 'Separately registered',
   },
   mongodb: {

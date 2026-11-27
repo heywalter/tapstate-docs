@@ -7,12 +7,11 @@ ai:
   aliases: [tapstate dsl, tapstate resources, tapstate pipeline, tapstate yaml]
 ---
 
-Tapstate describes connections, transforms, and pipeline outputs as
-declarative resources. In Cloud, you
-[build a pipeline in the web application](/docs/guides/build-a-pipeline) and
-can inspect the generated definition at any time via **Inspect Plan**
-(**DSL Preview**). On self-hosted servers and in local workspaces, you can also
-author `*.tap.yml` files with `version: tapstate/v1` directly.
+Tapstate describes connections, transforms, and pipeline outputs as declarative
+resources using `version: tapstate/v1`. You can
+[build pipelines visually in the web application](/docs/guides/build-a-pipeline)
+and inspect the generated definition at any time via **Inspect Plan** (**DSL
+Preview**), or author `*.tap.yml` files directly in a Git-tracked workspace.
 
 For file-based authoring, start with
 [Create your own workspace](/docs/overview/create-workspace). For exact field
@@ -25,11 +24,12 @@ Compiling a draft checks whether it can produce a valid pipeline definition.
 **Result Preview** goes further: it reads a bounded source sample and shows the
 transformed result without writing to the destination.
 
-**Publishing** a draft stores its runnable configuration as an artifact. In
-Cloud, selecting **Start pipeline** saves the draft, checks and publishes its
-configuration, and requests a run; applying `*.tap.yml` files through the CLI
-stores artifacts directly without starting a pipeline or replacing an active
-run.
+**Publishing** a draft stores its runnable configuration as an artifact:
+
+- **In the web application:** Selecting **Start pipeline** saves the draft,
+  checks and publishes its configuration, and requests a run.
+- **Through the CLI (self-hosted):** Running `apply` stores `*.tap.yml`
+  artifacts directly without starting a pipeline or replacing an active run.
 
 A **run** executes a published pipeline revision. If you publish changes while a
 pipeline is running, stop and start deliberately to use the new revision,
@@ -85,14 +85,14 @@ the pipeline result.
 
 ## Why use a declarative model
 
-Whether edited visually in Cloud or stored as `.tap.yml` files in Git, a shared
-resource contract provides:
+Whether edited visually in the web application or stored as `.tap.yml` files in
+Git, a shared resource contract provides:
 
 - stable IDs and explicit references across connections, transforms, and views;
 - reviewable diffs for human review or AI-proposed changes;
 - secret separation instead of committed credentials;
 - editor validation from the release-matched Schema and deterministic diagnostics;
-- a consistent abstraction for Cloud web authoring, automation, and AI assistants.
+- a consistent abstraction for web authoring, automation, and AI assistants.
 
 ## What validation proves
 

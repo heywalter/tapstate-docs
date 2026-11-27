@@ -1,108 +1,120 @@
 ---
 title: Architecture
-description: Separate the current tapstate preview architecture from the target Capture–Transform–Serve design
+description: Understand the tapstate control plane, data plane, storage layers, and longer-term target design
 ai:
   kind: concept
   id: architecture
   aliases: [tapstate architecture, capture transform serve architecture, tapstate control plane]
 ---
 
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { PreviewArchitecture, TapStateArchitecture } from '@/components/mdx';
 
-This page separates what you can run today in tapstate Cloud (and the v0.8
-runtime) from the product's target logical architecture. The preview covers the
-current Capture–Transform–Serve path; the target design describes future
-direction and does not mean every component is available or production-ready.
+Tapstate uses a single Capture–Transform–Serve architecture. A control plane
+validates and manages connections and pipelines, and a data plane moves source
+changes into live operational views.
 
-For hosted Cloud provisioning, storage layout, and data ownership, see
-[Clusters](/docs/manage/clusters) and
-[Data security and responsibilities](/docs/manage/data-responsibilities). If you
-run and administer servers yourself, see [Self-hosting](/docs/self-hosted).
+## Current control and data path
 
-## Current preview: control and data path
-
-Tapstate connects relational sources—such as the order, customer, and line-item
-tables in the Cloud [Quickstart](/docs/quickstart), MySQL and PostgreSQL in
-the [local quickstart](/docs/overview/quickstart), or Oracle, SQL Server, Db2
-LUW, and Db2 for i—transforms records with operators such as `nest`, and materializes
-operational views in MongoDB Atlas or MongoDB:
+Tapstate reads initial snapshots and ongoing changes from relational databases
+such as MySQL, PostgreSQL, Oracle, SQL Server, and IBM Db2. It transforms
+records in flight with operators like `nest` and keeps operational views up to
+date in MongoDB or MongoDB Atlas. See [Supported connectors](/docs/connectors)
+for the full list.
 
 <PreviewArchitecture />
 
-### Current preview boundaries
+### What runs today
 
-- The web application (**Data Sources**, **Pipeline builder**, **Monitoring**,
-  **Logs**, **Views**, and **Data validation**) is the primary interface for
-  configuring connections, building pipelines, and inspecting runs.
-- Pipelines support `filter`, `map`, `js`, `union`, `unwind`, `nest`, and a
-  restricted `join`. See [Transform reference](/docs/reference/transforms) for
-  their limits.
-- `nest` maintains a document assembled from related source tables.
-- An inline `view` materializes the result in your Cloud **Atlas state store**
-  (or managed MongoDB store on self-hosted). `serve.sync` writes to an external
-  MongoDB or Atlas target connection. `serve.query` and `serve.push` are
-  schema-defined declarations that the current preview does not execute.
-- On self-hosted deployments, the optional native CLI, REST API, and local MCP
-  gateway scaffold and validate `*.tap.yml` workspaces and provide bounded
-  operational inspection rather than an application-facing data API.
-- Runtime, CLI, and control-plane surfaces remain Preview; command and API
-  compatibility can change before a stable release.
+Connections, pipelines, monitoring, logs, views, and data validation are
+managed from the web application. Pipelines support `filter`, `map`, `js`,
+`union`, `unwind`, `nest`, and a restricted `join` (see
+[Transform reference](/docs/reference/transforms)). In particular, `nest`
+maintains composite documents built from related source tables so downstream
+reads do not need cross-database joins.
 
-### Recovery and scale limits
+Pipeline output goes to one of two targets:
 
-- Cloud Clusters and self-hosted v0.8 deployments use separate storage layers:
-  Configuration (supplied by tapstate in Cloud), **Durable cache**
-  (checkpoints, runtime ownership, shared change logs, and Nest operator state),
-  and **Application data** on MongoDB Atlas or a MongoDB replica set. In-memory
-  working state still has workload-dependent capacity requirements; see
-  [State and storage](/docs/concepts/storage).
-- Recovery can resume from retained positions and replay unconfirmed records. It
-  does not remove the delivery and positioning limits in
-  [Preview limits](/docs/limits) and [v0.8 release notes](/docs/releases/v0.8#known-limits-and-issues).
-- Self-hosted servers default to one member with opt-in
-  [cluster mode](/docs/guides/cluster). A cluster profile is not a
-  production-readiness guarantee.
+- An inline `view` writes to the deployment's managed **Application data**
+  database.
+- A `serve.sync` block writes to an external MongoDB or MongoDB Atlas target
+  connection.
 
-Follow the [Quickstart](/docs/quickstart) to run this path in Cloud, or see
-[Self-hosting](/docs/self-hosted) for the local Docker playground and CLI
-workflow.
+`serve.query` and `serve.push` are accepted in the resource schema, but the
+runtime does not execute them yet. Because tapstate is still in Preview,
+commands and APIs may change before a stable release.
+
+### Storage, recovery, and scale
+
+Tapstate splits persistence into three MongoDB-backed databases:
+**Configuration** stores cluster identity, keys, connections, and pipeline
+definitions; **Durable cache** stores checkpoints, runtime ownership, shared
+change logs, and Nest operator state; **Application data** holds materialized
+views. Active processing also keeps working state in memory, so memory
+requirements scale with workload. See [State and storage](/docs/concepts/storage)
+for details.
+
+Pipelines resume from stored checkpoints and may replay unconfirmed records
+after a restart. Review [Preview limits](/docs/limits) and the
+[v0.8 known limits](/docs/releases/v0.8#known-limits-and-issues) for delivery
+and snapshot-to-CDC positioning details. Single-node execution is the default,
+with opt-in multi-member [cluster mode](/docs/guides/cluster) when you need to
+scale capture.
+
+## Deployment options
+
+Both deployment models run the same engine and data path, but differ in what
+tapstate manages versus what you operate.
+
+<Tabs items={["Cloud", "Self-hosted"]} groupId="deployment" persist label="Deployment">
+<Tab value="Cloud">
+
+- **Hosting:** Tapstate provisions and upgrades managed Clusters through the [organization console](/docs/manage).
+- **Storage:** Tapstate supplies **Configuration**; you connect MongoDB Atlas for **Durable cache** and **Application data**.
+- **Connectors:** Standard connectors are pre-staged in **Data Sources** (`db2i` is registered separately).
+- **Interfaces:** Author and operate pipelines in the web application, with **Tapstate AI** built into the pipeline builder.
+
+Follow the [Cloud quickstart](/docs/quickstart) to launch a hosted workspace.
+
+</Tab>
+<Tab value="Self-hosted">
+
+- **Hosting:** You deploy and upgrade tapstate on your own infrastructure ([Self-hosting](/docs/self-hosted)).
+- **Storage:** You initialize and back up all three MongoDB-backed databases ([Initialize storage](/docs/guides/bootstrap-and-auth#initialize-storage)).
+- **Connectors:** Administrators seed or register connector JARs on the server ([Register connectors](/docs/guides/register-connectors)).
+- **Interfaces:** Use the web workbench, or automate `*.tap.yml` workspaces through the native CLI, REST API, and local MCP gateway.
+
+Follow the [local quickstart](/docs/overview/quickstart) to try the Docker playground.
+
+</Tab>
+</Tabs>
 
 ## Target logical architecture
 
-The target design expands this one runnable path into a general data plane and
-control plane. It explains the intended product boundaries, not additional
-current-preview components.
+The target architecture extends today's preview into a broader control plane
+and data plane. Not every source type, delivery surface, or governance control
+below is available yet.
 
 <TapStateArchitecture />
 
-### Target data plane
+### What changes beyond the current preview
 
-Capture establishes an initial state and follows later changes. Transform
-applies reviewable shaping and document-assembly rules. Materialize
-maintains consumer-oriented state, and Deliver exposes that state through
-connector or query surfaces.
-
-The recovery boundary covers source positions, checkpoints, retry state,
-schema state, and operational history. The current release implements specific
-parts of that boundary; see [State and storage](/docs/concepts/storage) for the
-retention and recovery limits.
-
-### Target control plane
-
-The target control plane covers versioned intent, lifecycle and authorization,
-status, diagnostics, metrics, audit information, and human- and agent-facing
-interfaces over the same deterministic operations.
-
-An AI assistant is a client of those controls, not the source of product truth.
-Schema, catalog metadata, runtime state, and authorization decisions remain
-authoritative within their own boundaries.
+- **Broader inputs and delivery surfaces:** Beyond relational databases and
+  MongoDB sync, the target data plane covers message brokers, files, and SaaS
+  APIs on the input side, and executes `serve.query` and `serve.push` alongside
+  materialized views and external syncs.
+- **Unified human and agent control:** Versioned pipeline definitions,
+  authorization, diagnostics, metrics, and audit history sit behind one control
+  plane. AI assistants act as clients of those controls rather than holding
+  independent product truth; schemas, connector catalogs, runtime state, and
+  authorization rules remain authoritative.
 
 ## External-system boundary
 
-Source log retention, network paths, credentials, target constraints, API rate
-limits, and broker retention remain part of the deployment. Prepare and monitor
-them alongside the tapstate data path.
+Source log retention, network connectivity, credentials, target constraints,
+API rate limits, and broker retention remain outside tapstate and must be
+managed in your own environment.
 
-Use [connector guides](/docs/connectors) for external-system preparation and
-[Troubleshooting](/docs/guides/troubleshooting) to isolate authoring,
-deployment, and data-movement failures.
+See the [connector guides](/docs/connectors) for external-system setup and
+[Troubleshooting](/docs/guides/troubleshooting) to diagnose authoring,
+deployment, or runtime errors.
